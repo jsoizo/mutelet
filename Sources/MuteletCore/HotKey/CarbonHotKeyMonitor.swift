@@ -6,7 +6,7 @@ public enum GlobalHotKeyEvent: String, Sendable {
     case released
 }
 
-public struct GlobalHotKeyModifiers: OptionSet, Sendable {
+public struct GlobalHotKeyModifiers: OptionSet, Codable, Hashable, Sendable {
     public let rawValue: UInt32
 
     public init(rawValue: UInt32) {
@@ -25,6 +25,41 @@ public struct GlobalHotKeyModifiers: OptionSet, Sendable {
         if contains(.option) { value |= UInt32(optionKey) }
         if contains(.shift) { value |= UInt32(shiftKey) }
         return value
+    }
+}
+
+public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
+    public let keyCode: UInt32
+    public let keyLabel: String
+    public let modifiers: GlobalHotKeyModifiers
+
+    public init(
+        keyCode: UInt32,
+        keyLabel: String,
+        modifiers: GlobalHotKeyModifiers
+    ) {
+        self.keyCode = keyCode
+        self.keyLabel = keyLabel
+        self.modifiers = modifiers
+    }
+
+    public static let `default` = GlobalHotKeyConfiguration(
+        keyCode: UInt32(kVK_ANSI_M),
+        keyLabel: "M",
+        modifiers: [.control, .option]
+    )
+
+    public var isValid: Bool {
+        !keyLabel.isEmpty && (modifiers.contains(.command) || modifiers.contains(.control))
+    }
+
+    public var displayName: String {
+        var value = ""
+        if modifiers.contains(.control) { value += "⌃" }
+        if modifiers.contains(.option) { value += "⌥" }
+        if modifiers.contains(.shift) { value += "⇧" }
+        if modifiers.contains(.command) { value += "⌘" }
+        return value + keyLabel.uppercased()
     }
 }
 

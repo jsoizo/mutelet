@@ -69,21 +69,26 @@ struct MuteletMenuView: View {
 
         Divider()
 
+        Button("Settings…") {
+            applicationModel.openSettings()
+        }
+        .keyboardShortcut(",", modifiers: .command)
+
         Button("Quit Mutelet") {
             NSApplication.shared.terminate(nil)
         }
     }
 
     private var toggleTitle: String {
-        coordinator.status.isMuted ? "Unmute" : "Mute"
+        coordinator.status.isMuted
+            ? NSLocalizedString("Unmute", comment: "Unmute action")
+            : NSLocalizedString("Mute", comment: "Mute action")
     }
 
     @ViewBuilder
     private func targetButton(_ target: AudioTargetSelection) -> some View {
         Button {
-            Task {
-                await applicationModel.selectTarget(target)
-            }
+            applicationModel.selectTarget(target)
         } label: {
             if coordinator.target.id == target.id {
                 Label(target.title, systemImage: "checkmark")
@@ -97,9 +102,15 @@ struct MuteletMenuView: View {
     private var shortcutHelp: String {
         switch coordinator.mode {
         case .toggle:
-            "Shortcut: ⌃⌥M"
+            String(
+                format: NSLocalizedString("Shortcut: %@", comment: "Shortcut help"),
+                applicationModel.preferences.hotKey.displayName
+            )
         case .pushToTalk:
-            "Hold ⌃⌥M to talk"
+            String(
+                format: NSLocalizedString("Hold %@ to talk", comment: "Push-to-talk help"),
+                applicationModel.preferences.hotKey.displayName
+            )
         }
     }
 }

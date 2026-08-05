@@ -24,8 +24,12 @@ let package = Package(
         .executableTarget(
             name: "Mutelet",
             dependencies: ["MuteletCore"],
+            resources: [
+                .process("Resources"),
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
+                .linkedFramework("ServiceManagement"),
                 .linkedFramework("SwiftUI"),
             ]
         ),

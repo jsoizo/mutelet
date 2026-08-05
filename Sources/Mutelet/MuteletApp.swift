@@ -27,13 +27,27 @@ struct MuteletApp: App {
     @StateObject private var applicationModel: MuteletApplicationModel
 
     init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        let isUITesting = arguments.contains("--ui-testing")
+        let audioController: any AudioDeviceControlling = isUITesting
+            ? UITestingAudioController(arguments: arguments)
+            : CoreAudioDeviceController()
+        let receiptStore: any AudioMutationReceiptStoring = isUITesting
+            ? UITestingReceiptStore()
+            : UserDefaultsAudioMutationReceiptStore()
         let coordinator = MuteCoordinator(
-            audioController: CoreAudioDeviceController(),
-            receiptStore: UserDefaultsAudioMutationReceiptStore()
+            audioController: audioController,
+            receiptStore: receiptStore
         )
         _coordinator = StateObject(wrappedValue: coordinator)
         _applicationModel = StateObject(
-            wrappedValue: MuteletApplicationModel(coordinator: coordinator)
+            wrappedValue: MuteletApplicationModel(
+                coordinator: coordinator,
+                preferencesStore: isUITesting
+                    ? UITestingPreferencesStore(arguments: arguments)
+                    : UserDefaultsMuteletPreferencesStore(),
+                enablesSystemIntegrations: !isUITesting
+            )
         )
     }
 
@@ -52,5 +66,12 @@ struct MuteletApp: App {
                 }
         }
         .menuBarExtraStyle(.menu)
+
+        Settings {
+            MuteletSettingsView(
+                applicationModel: applicationModel,
+                coordinator: coordinator
+            )
+        }
     }
 }

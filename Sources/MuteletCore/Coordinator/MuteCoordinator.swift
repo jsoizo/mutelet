@@ -28,6 +28,15 @@ public final class MuteCoordinator: ObservableObject {
         self.receiptStore = receiptStore
     }
 
+    public func configure(
+        mode: MuteMode,
+        target: AudioTargetSelection
+    ) {
+        guard !started else { return }
+        self.mode = mode
+        self.target = target
+    }
+
     public func start() async {
         guard !started else { return }
         started = true
@@ -245,7 +254,10 @@ public final class MuteCoordinator: ObservableObject {
 
             let fallbackCount = devices.filter(\.capabilities.usesVolumeFallbackOnly).count
             targetWarning = fallbackCount > 0
-                ? "Volume-only mute may not guarantee complete silence."
+                ? NSLocalizedString(
+                    "Volume-only mute may not guarantee complete silence.",
+                    comment: "Volume-only input warning"
+                )
                 : nil
 
             var snapshots: [AudioDeviceSnapshot] = []

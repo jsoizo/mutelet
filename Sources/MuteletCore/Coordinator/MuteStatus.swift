@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MuteMode: String, CaseIterable, Identifiable, Sendable {
+public enum MuteMode: String, CaseIterable, Codable, Identifiable, Sendable {
     case toggle
     case pushToTalk
 
@@ -9,14 +9,14 @@ public enum MuteMode: String, CaseIterable, Identifiable, Sendable {
     public var title: String {
         switch self {
         case .toggle:
-            "Toggle"
+            NSLocalizedString("Toggle", comment: "Toggle mute mode")
         case .pushToTalk:
-            "Push to Talk"
+            NSLocalizedString("Push to Talk", comment: "Push-to-talk mode")
         }
     }
 }
 
-public enum AudioTargetSelection: Hashable, Identifiable, Sendable {
+public enum AudioTargetSelection: Codable, Hashable, Identifiable, Sendable {
     case systemDefault
     case device(uid: String, name: String)
     case allInputs
@@ -35,12 +35,20 @@ public enum AudioTargetSelection: Hashable, Identifiable, Sendable {
     public var title: String {
         switch self {
         case .systemDefault:
-            "System Default"
+            NSLocalizedString("System Default", comment: "Default audio input")
         case let .device(_, name):
             name
         case .allInputs:
-            "All Inputs"
+            NSLocalizedString("All Inputs", comment: "Every audio input")
         }
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
@@ -74,23 +82,52 @@ public enum MuteStatus: Equatable, Sendable {
     public var title: String {
         switch self {
         case .loading:
-            "Checking microphone…"
+            NSLocalizedString("Checking microphone…", comment: "Loading audio state")
         case let .live(deviceName):
-            "Microphone on — \(deviceName)"
+            String(
+                format: NSLocalizedString("Microphone on — %@", comment: "Live microphone status"),
+                deviceName
+            )
         case let .muted(deviceName):
-            "Microphone muted — \(deviceName)"
+            String(
+                format: NSLocalizedString("Microphone muted — %@", comment: "Muted microphone status"),
+                deviceName
+            )
         case let .mixed(deviceName):
-            "Microphone state mixed — \(deviceName)"
+            String(
+                format: NSLocalizedString("Microphone state mixed — %@", comment: "Mixed microphone status"),
+                deviceName
+            )
         case .unavailable:
-            "No input device"
+            NSLocalizedString("No input device", comment: "No audio input")
         case let .disconnected(deviceName):
-            "Input disconnected — \(deviceName)"
+            String(
+                format: NSLocalizedString("Input disconnected — %@", comment: "Disconnected input"),
+                deviceName
+            )
         case let .unsupported(deviceName):
-            "Unsupported input — \(deviceName)"
+            String(
+                format: NSLocalizedString("Unsupported input — %@", comment: "Unsupported input"),
+                deviceName
+            )
         case let .partial(deviceName, muted, live, mixed, unsupported, failed):
-            "Partial — \(deviceName) (\(muted) muted, \(live) live, \(mixed) mixed, \(unsupported) unsupported, \(failed) failed)"
+            String(
+                format: NSLocalizedString(
+                    "Partial — %@ (%d muted, %d live, %d mixed, %d unsupported, %d failed)",
+                    comment: "Partial multi-input status"
+                ),
+                deviceName,
+                muted,
+                live,
+                mixed,
+                unsupported,
+                failed
+            )
         case let .error(message):
-            "Error — \(message)"
+            String(
+                format: NSLocalizedString("Error — %@", comment: "Error status"),
+                message
+            )
         }
     }
 

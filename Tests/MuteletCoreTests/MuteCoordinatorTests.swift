@@ -69,6 +69,124 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .unavailable)
         XCTAssertFalse(coordinator.status.canToggle)
     }
+
+    func testPushToTalkMutesImmediatelyAndTracksPressAndRelease() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        await coordinator.setMode(.pushToTalk)
+
+        let initialMuteCalls = await audio.muteCallCount()
+        XCTAssertEqual(coordinator.mode, .pushToTalk)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(initialMuteCalls, 1)
+
+        await coordinator.handleHotKey(.pressed)
+        await coordinator.handleHotKey(.pressed)
+
+        let unmuteCalls = await audio.unmuteCallCount()
+        XCTAssertEqual(coordinator.status, .live(deviceName: "Test Input"))
+        XCTAssertEqual(unmuteCalls, 1)
+
+        await coordinator.handleHotKey(.released)
+
+        let finalMuteCalls = await audio.muteCallCount()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(finalMuteCalls, 2)
+    }
+
+    func testModeSelectionIsPublishedBeforeTheSafetyMuteCompletes() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        let transition = coordinator.selectMode(.pushToTalk)
+
+        XCTAssertEqual(coordinator.mode, .pushToTalk)
+        await transition?.value
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+    }
+
+    func testPushToTalkRemutesAfterExternalUnmuteWhileNotPressed() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await audio.simulateExternalState(.live)
+        for _ in 0..<100 where await audio.muteCallCount() < 2 {
+            await Task.yield()
+        }
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(muteCalls, 2)
+    }
+
+    func testChangingModeWhilePressedDiscardsThePendingRelease() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.handleHotKey(.pressed)
+
+        await coordinator.setMode(.toggle)
+        await coordinator.handleHotKey(.released)
+
+        let muteCalls = await audio.muteCallCount()
+        let unmuteCalls = await audio.unmuteCallCount()
+        XCTAssertEqual(coordinator.mode, .toggle)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(muteCalls, 2)
+        XCTAssertEqual(unmuteCalls, 1)
+    }
+
+    func testStoppingWhilePushToTalkIsPressedMutesBeforeStopping() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.handleHotKey(.pressed)
+
+        await coordinator.stop()
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(muteCalls, 2)
+    }
+
+    func testStoppingWaitsForAnInFlightUnmuteBeforeRemuting() async {
+        let audio = FakeAudioController(state: .live, suspendsUnmute: true)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        let pressTask = Task {
+            await coordinator.handleHotKey(.pressed)
+        }
+        for _ in 0..<100 where await audio.unmuteCallCount() == 0 {
+            await Task.yield()
+        }
+
+        let stopTask = Task {
+            await coordinator.stop()
+        }
+        await Task.yield()
+        await audio.resumeUnmute()
+        await pressTask.value
+        await stopTask.value
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        XCTAssertEqual(muteCalls, 2)
+    }
 }
 
 private actor FakeAudioController: AudioDeviceControlling {
@@ -87,10 +205,18 @@ private actor FakeAudioController: AudioDeviceControlling {
     private let hasDefaultInput: Bool
     private var muteCalls = 0
     private var unmuteCalls = 0
+    private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
+    private let suspendsUnmute: Bool
+    private var unmuteContinuation: CheckedContinuation<Void, Never>?
 
-    init(state: AudioDeviceMuteState, hasDefaultInput: Bool = true) {
+    init(
+        state: AudioDeviceMuteState,
+        hasDefaultInput: Bool = true,
+        suspendsUnmute: Bool = false
+    ) {
         self.state = state
         self.hasDefaultInput = hasDefaultInput
+        self.suspendsUnmute = suspendsUnmute
     }
 
     func inputDevices() -> [AudioDeviceDescriptor] {
@@ -137,19 +263,41 @@ private actor FakeAudioController: AudioDeviceControlling {
     func unmute(
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?
-    ) {
+    ) async {
         unmuteCalls += 1
+        if suspendsUnmute {
+            await withCheckedContinuation { continuation in
+                unmuteContinuation = continuation
+            }
+        }
         state = .live
     }
 
     func events() -> AsyncStream<AudioHardwareEvent> {
-        AsyncStream { continuation in
-            continuation.finish()
-        }
+        let (stream, continuation) = AsyncStream<AudioHardwareEvent>.makeStream()
+        eventContinuation = continuation
+        return stream
     }
 
     func muteCallCount() -> Int { muteCalls }
     func unmuteCallCount() -> Int { unmuteCalls }
+
+    func resumeUnmute() {
+        unmuteContinuation?.resume()
+        unmuteContinuation = nil
+    }
+
+    func simulateExternalState(_ state: AudioDeviceMuteState) {
+        self.state = state
+        eventContinuation?.yield(
+            AudioHardwareEvent(
+                kind: .controlValueChanged,
+                objectID: Self.descriptor.objectID,
+                selector: kAudioDevicePropertyMute,
+                element: kAudioObjectPropertyElementMain
+            )
+        )
+    }
 
     private static let descriptor = AudioDeviceDescriptor(
         objectID: 42,

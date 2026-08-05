@@ -1,5 +1,21 @@
 import Foundation
 
+public enum MuteMode: String, CaseIterable, Identifiable, Sendable {
+    case toggle
+    case pushToTalk
+
+    public var id: Self { self }
+
+    public var title: String {
+        switch self {
+        case .toggle:
+            "Toggle"
+        case .pushToTalk:
+            "Push to Talk"
+        }
+    }
+}
+
 public enum MuteStatus: Equatable, Sendable {
     case loading
     case live(deviceName: String)

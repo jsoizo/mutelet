@@ -37,9 +37,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             hotKeyTask = Task { [weak self] in
                 for await event in events {
                     guard !Task.isCancelled else { break }
-                    if event == .pressed {
-                        await self?.coordinator.toggle()
-                    }
+                    await self?.coordinator.handleHotKey(event)
                 }
             }
         } catch {
@@ -51,17 +49,23 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         await coordinator.toggle()
     }
 
-    func stop() {
+    func selectMode(_ mode: MuteMode) {
+        coordinator.selectMode(mode)
+    }
+
+    func stop() async {
         hotKeyTask?.cancel()
         hotKeyTask = nil
         hotKeyMonitor.stop()
-        coordinator.stop()
+        await coordinator.stop()
         removeWorkspaceObservers()
         started = false
     }
 
     @objc private func workspaceWillSleep() {
-        coordinator.stop()
+        Task { [weak self] in
+            await self?.coordinator.stop()
+        }
     }
 
     @objc private func workspaceDidWake() {

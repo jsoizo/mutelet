@@ -15,11 +15,30 @@ struct MuteletMenuView: View {
                 await applicationModel.toggle()
             }
         }
-        .disabled(!coordinator.status.canToggle || coordinator.isBusy)
+        .disabled(
+            coordinator.mode != .toggle
+                || !coordinator.status.canToggle
+                || coordinator.isBusy
+        )
+
+        Text("Mode")
+
+        ForEach(MuteMode.allCases) { mode in
+            Button {
+                applicationModel.selectMode(mode)
+            } label: {
+                if coordinator.mode == mode {
+                    Label(mode.title, systemImage: "checkmark")
+                } else {
+                    Text(mode.title)
+                }
+            }
+            .disabled(coordinator.mode == mode)
+        }
 
         Divider()
 
-        Text("Shortcut: ⌃⌥M")
+        Text(shortcutHelp)
 
         if let hotKeyError = applicationModel.hotKeyError {
             Text("Shortcut unavailable")
@@ -29,12 +48,20 @@ struct MuteletMenuView: View {
         Divider()
 
         Button("Quit Mutelet") {
-            applicationModel.stop()
             NSApplication.shared.terminate(nil)
         }
     }
 
     private var toggleTitle: String {
         coordinator.status.isMuted ? "Unmute" : "Mute"
+    }
+
+    private var shortcutHelp: String {
+        switch coordinator.mode {
+        case .toggle:
+            "Shortcut: ⌃⌥M"
+        case .pushToTalk:
+            "Hold ⌃⌥M to talk"
+        }
     }
 }

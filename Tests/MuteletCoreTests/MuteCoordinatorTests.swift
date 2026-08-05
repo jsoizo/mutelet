@@ -187,6 +187,131 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
         XCTAssertEqual(muteCalls, 2)
     }
+
+    func testAllInputsAggregatesMixedStateAndMutesEveryDevice() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .muted],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.selectTarget(.allInputs)
+
+        XCTAssertEqual(coordinator.status, .mixed(deviceName: "All Inputs"))
+
+        await coordinator.toggle()
+
+        let mutedUIDs = await audio.mutedUIDs()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "All Inputs"))
+        XCTAssertEqual(mutedUIDs, ["built-in", "usb"])
+    }
+
+    func testSpecificDeviceReconnectsByUID() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        await audio.disconnect(uid: "usb")
+        await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
+
+        await audio.connect(uid: "usb", state: .live)
+        await waitUntil { coordinator.status == .live(deviceName: "USB Mic") }
+
+        XCTAssertEqual(coordinator.target, .device(uid: "usb", name: "USB Mic"))
+    }
+
+    func testAllInputsMutesNewDeviceWhileMuteLatchIsActive() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.selectTarget(.allInputs)
+        await coordinator.toggle()
+
+        await audio.connect(uid: "usb", state: .live)
+        await waitUntil {
+            let state = await audio.state(uid: "usb")
+            return state == .muted
+                && coordinator.status == .muted(deviceName: "All Inputs")
+        }
+
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "All Inputs"))
+    }
+
+    func testAllInputsReportsUnsupportedDeviceAsPartial() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .muted, "virtual": .unsupported],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.selectTarget(.allInputs)
+
+        XCTAssertEqual(
+            coordinator.status,
+            .partial(
+                deviceName: "All Inputs",
+                muted: 1,
+                live: 0,
+                mixed: 0,
+                unsupported: 1,
+                failed: 0
+            )
+        )
+        XCTAssertTrue(coordinator.status.canToggle)
+        XCTAssertFalse(coordinator.status.isMuted)
+    }
+
+    func testVolumeOnlyTargetPublishesSilenceWarning() async {
+        let audio = MultiDeviceAudioController(
+            states: ["usb": .live],
+            defaultUID: "usb",
+            names: ["usb": "Volume-only USB"],
+            volumeOnlyUIDs: ["usb"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+
+        await coordinator.start()
+
+        XCTAssertEqual(
+            coordinator.targetWarning,
+            "Volume-only mute may not guarantee complete silence."
+        )
+    }
+
+    private func waitUntil(
+        _ condition: @escaping @MainActor () async -> Bool
+    ) async {
+        for _ in 0..<200 {
+            if await condition() { return }
+            await Task.yield()
+        }
+        XCTFail("Condition was not satisfied")
+    }
 }
 
 private actor FakeAudioController: AudioDeviceControlling {
@@ -325,5 +450,173 @@ private actor InMemoryReceiptStore: AudioMutationReceiptStoring {
 
     func removeReceipt(deviceUID: String) {
         receipts.removeValue(forKey: deviceUID)
+    }
+}
+
+private enum MultiDeviceAudioError: Error {
+    case missingDevice(String)
+    case unsupportedDevice(String)
+}
+
+private actor MultiDeviceAudioController: AudioDeviceControlling {
+    private static let muteControl = AudioControl(
+        kind: .mute,
+        element: kAudioObjectPropertyElementMain
+    )
+    private static let volumeControl = AudioControl(
+        kind: .volume,
+        element: kAudioObjectPropertyElementMain
+    )
+
+    private var states: [String: AudioDeviceMuteState]
+    private let defaultUID: String
+    private var names: [String: String]
+    private let volumeOnlyUIDs: Set<String>
+    private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
+    private var muteCalls: Set<String> = []
+
+    init(
+        states: [String: AudioDeviceMuteState],
+        defaultUID: String,
+        names: [String: String] = [:],
+        volumeOnlyUIDs: Set<String> = []
+    ) {
+        self.states = states
+        self.defaultUID = defaultUID
+        self.names = names
+        self.volumeOnlyUIDs = volumeOnlyUIDs
+    }
+
+    func inputDevices() -> [AudioDeviceDescriptor] {
+        states.keys.sorted().compactMap(descriptor(uid:))
+    }
+
+    func defaultInputDevice() -> AudioDeviceDescriptor? {
+        descriptor(uid: defaultUID)
+    }
+
+    func snapshot(deviceUID: String) throws -> AudioDeviceSnapshot {
+        guard let state = states[deviceUID], let device = descriptor(uid: deviceUID) else {
+            throw MultiDeviceAudioError.missingDevice(deviceUID)
+        }
+        let values: [AudioControlValue] = switch state {
+        case .live:
+            [
+                AudioControlValue(control: Self.muteControl, value: 0),
+                AudioControlValue(control: Self.volumeControl, value: 0.7),
+            ]
+        case .muted:
+            [
+                AudioControlValue(control: Self.muteControl, value: 1),
+                AudioControlValue(control: Self.volumeControl, value: 0),
+            ]
+        case .mixed:
+            [
+                AudioControlValue(control: Self.muteControl, value: 0),
+                AudioControlValue(control: Self.volumeControl, value: 0),
+                AudioControlValue(
+                    control: AudioControl(kind: .volume, element: 1),
+                    value: 0.7
+                ),
+            ]
+        case .unsupported:
+            []
+        }
+        return AudioDeviceSnapshot(device: device, values: values)
+    }
+
+    func mute(
+        deviceUID: String,
+        preserving receipt: AudioMutationReceipt?
+    ) throws -> AudioMutationReceipt {
+        guard let state = states[deviceUID] else {
+            throw MultiDeviceAudioError.missingDevice(deviceUID)
+        }
+        guard state != .unsupported else {
+            throw MultiDeviceAudioError.unsupportedDevice(deviceUID)
+        }
+        muteCalls.insert(deviceUID)
+        states[deviceUID] = .muted
+        return receipt ?? AudioMutationReceipt(
+            deviceUID: deviceUID,
+            originalValues: [
+                AudioControlValue(control: Self.muteControl, value: state == .muted ? 1 : 0),
+                AudioControlValue(control: Self.volumeControl, value: state == .muted ? 0 : 0.7),
+            ]
+        )
+    }
+
+    func unmute(
+        deviceUID: String,
+        restoring receipt: AudioMutationReceipt?
+    ) throws {
+        guard let state = states[deviceUID] else {
+            throw MultiDeviceAudioError.missingDevice(deviceUID)
+        }
+        guard state != .unsupported else {
+            throw MultiDeviceAudioError.unsupportedDevice(deviceUID)
+        }
+        states[deviceUID] = .live
+    }
+
+    func events() -> AsyncStream<AudioHardwareEvent> {
+        let (stream, continuation) = AsyncStream<AudioHardwareEvent>.makeStream()
+        eventContinuation = continuation
+        return stream
+    }
+
+    func disconnect(uid: String) {
+        states.removeValue(forKey: uid)
+        emitDeviceListChange()
+    }
+
+    func connect(uid: String, state: AudioDeviceMuteState) {
+        states[uid] = state
+        emitDeviceListChange()
+    }
+
+    func state(uid: String) -> AudioDeviceMuteState? {
+        states[uid]
+    }
+
+    func mutedUIDs() -> Set<String> {
+        muteCalls
+    }
+
+    private func descriptor(uid: String) -> AudioDeviceDescriptor? {
+        guard let state = states[uid] else { return nil }
+        let controls: AudioDeviceCapabilities
+        if state == .unsupported {
+            controls = AudioDeviceCapabilities(nativeMuteControls: [], volumeControls: [])
+        } else if volumeOnlyUIDs.contains(uid) {
+            controls = AudioDeviceCapabilities(
+                nativeMuteControls: [],
+                volumeControls: [Self.volumeControl]
+            )
+        } else {
+            controls = AudioDeviceCapabilities(
+                nativeMuteControls: [Self.muteControl],
+                volumeControls: [Self.volumeControl]
+            )
+        }
+        return AudioDeviceDescriptor(
+            objectID: AudioObjectID(abs(uid.hashValue % 10_000) + 1),
+            uid: uid,
+            name: names[uid] ?? uid,
+            inputChannelCount: 2,
+            isDefaultInput: uid == defaultUID,
+            capabilities: controls
+        )
+    }
+
+    private func emitDeviceListChange() {
+        eventContinuation?.yield(
+            AudioHardwareEvent(
+                kind: .deviceListChanged,
+                objectID: AudioObjectID(kAudioObjectSystemObject),
+                selector: kAudioHardwarePropertyDevices,
+                element: kAudioObjectPropertyElementMain
+            )
+        )
     }
 }

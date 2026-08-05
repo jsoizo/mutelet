@@ -53,6 +53,10 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         coordinator.selectMode(mode)
     }
 
+    func selectTarget(_ target: AudioTargetSelection) async {
+        await coordinator.selectTarget(target)
+    }
+
     func stop() async {
         hotKeyTask?.cancel()
         hotKeyTask = nil

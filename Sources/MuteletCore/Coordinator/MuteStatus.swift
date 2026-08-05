@@ -16,13 +16,43 @@ public enum MuteMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+public enum AudioTargetSelection: Hashable, Identifiable, Sendable {
+    case systemDefault
+    case device(uid: String, name: String)
+    case allInputs
+
+    public var id: String {
+        switch self {
+        case .systemDefault:
+            "system-default"
+        case let .device(uid, _):
+            "device:\(uid)"
+        case .allInputs:
+            "all-inputs"
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .systemDefault:
+            "System Default"
+        case let .device(_, name):
+            name
+        case .allInputs:
+            "All Inputs"
+        }
+    }
+}
+
 public enum MuteStatus: Equatable, Sendable {
     case loading
     case live(deviceName: String)
     case muted(deviceName: String)
     case mixed(deviceName: String)
     case unavailable
+    case disconnected(deviceName: String)
     case unsupported(deviceName: String)
+    case partial(deviceName: String, muted: Int, live: Int, mixed: Int, unsupported: Int, failed: Int)
     case error(message: String)
 
     public var isMuted: Bool {
@@ -34,7 +64,9 @@ public enum MuteStatus: Equatable, Sendable {
         switch self {
         case .live, .muted, .mixed:
             true
-        case .loading, .unavailable, .unsupported, .error:
+        case let .partial(_, muted, live, mixed, _, _):
+            muted + live + mixed > 0
+        case .loading, .unavailable, .disconnected, .unsupported, .error:
             false
         }
     }
@@ -51,8 +83,12 @@ public enum MuteStatus: Equatable, Sendable {
             "Microphone state mixed — \(deviceName)"
         case .unavailable:
             "No input device"
+        case let .disconnected(deviceName):
+            "Input disconnected — \(deviceName)"
         case let .unsupported(deviceName):
             "Unsupported input — \(deviceName)"
+        case let .partial(deviceName, muted, live, mixed, unsupported, failed):
+            "Partial — \(deviceName) (\(muted) muted, \(live) live, \(mixed) mixed, \(unsupported) unsupported, \(failed) failed)"
         case let .error(message):
             "Error — \(message)"
         }
@@ -66,7 +102,7 @@ public enum MuteStatus: Equatable, Sendable {
             "mic.slash.fill"
         case .loading:
             "mic"
-        case .mixed, .unavailable, .unsupported, .error:
+        case .mixed, .unavailable, .disconnected, .unsupported, .partial, .error:
             "exclamationmark.triangle.fill"
         }
     }

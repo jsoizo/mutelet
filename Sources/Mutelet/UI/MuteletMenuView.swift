@@ -38,6 +38,28 @@ struct MuteletMenuView: View {
 
         Divider()
 
+        Text("Input")
+
+        targetButton(.systemDefault)
+
+        if case let .device(uid, _) = coordinator.target,
+           !coordinator.availableDevices.contains(where: { $0.uid == uid }) {
+            targetButton(coordinator.target)
+        }
+
+        ForEach(coordinator.availableDevices, id: \.uid) { device in
+            targetButton(.device(uid: device.uid, name: device.name))
+        }
+
+        targetButton(.allInputs)
+
+        if let targetWarning = coordinator.targetWarning {
+            Text(targetWarning)
+                .help(targetWarning)
+        }
+
+        Divider()
+
         Text(shortcutHelp)
 
         if let hotKeyError = applicationModel.hotKeyError {
@@ -54,6 +76,22 @@ struct MuteletMenuView: View {
 
     private var toggleTitle: String {
         coordinator.status.isMuted ? "Unmute" : "Mute"
+    }
+
+    @ViewBuilder
+    private func targetButton(_ target: AudioTargetSelection) -> some View {
+        Button {
+            Task {
+                await applicationModel.selectTarget(target)
+            }
+        } label: {
+            if coordinator.target.id == target.id {
+                Label(target.title, systemImage: "checkmark")
+            } else {
+                Text(target.title)
+            }
+        }
+        .disabled(coordinator.target.id == target.id || coordinator.isBusy)
     }
 
     private var shortcutHelp: String {

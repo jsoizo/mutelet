@@ -1,0 +1,41 @@
+// swift-tools-version: 6.0
+
+import PackageDescription
+
+let package = Package(
+    name: "Mutelet",
+    defaultLocalization: "en",
+    platforms: [
+        .macOS(.v13),
+    ],
+    products: [
+        .library(name: "MuteletCore", targets: ["MuteletCore"]),
+        .executable(name: "Mutelet", targets: ["Mutelet"]),
+        .executable(name: "mutelet-probe", targets: ["MuteletProbe"]),
+    ],
+    targets: [
+        .target(
+            name: "MuteletCore",
+            linkerSettings: [
+                .linkedFramework("Carbon"),
+                .linkedFramework("CoreAudio"),
+            ]
+        ),
+        .executableTarget(
+            name: "Mutelet",
+            dependencies: ["MuteletCore"],
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("SwiftUI"),
+            ]
+        ),
+        .executableTarget(
+            name: "MuteletProbe",
+            dependencies: ["MuteletCore"]
+        ),
+        .testTarget(
+            name: "MuteletCoreTests",
+            dependencies: ["MuteletCore"]
+        ),
+    ]
+)

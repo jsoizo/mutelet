@@ -121,7 +121,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     func updateHotKey(_ configuration: GlobalHotKeyConfiguration) async {
         guard configuration.isValid else {
             hotKeyError = NSLocalizedString(
-                "Use at least two modifiers including Command or Control.",
+                "Use at least one modifier including Command or Control.",
                 comment: "Invalid shortcut error"
             )
             return

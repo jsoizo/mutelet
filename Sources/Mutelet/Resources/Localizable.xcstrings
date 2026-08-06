@@ -639,23 +639,23 @@
         }
       }
     },
-    "Use at least two modifiers including Command or Control." : {
+    "Use at least one modifier including Command or Control." : {
       "comment" : "Invalid shortcut error",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。"
+            "value" : "CommandまたはControlを含む1つ以上の修飾キーを使用してください。"
           }
         }
       }
     },
-    "Use at least two modifiers including Command or Control. Press Escape to cancel." : {
+    "Use at least one modifier including Command or Control. Press Escape to cancel." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。Escapeでキャンセルできます。"
+            "value" : "CommandまたはControlを含む1つ以上の修飾キーを使用してください。Escapeでキャンセルできます。"
           }
         }
       }

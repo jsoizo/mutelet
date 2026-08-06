@@ -3,6 +3,8 @@ import MuteletCore
 import SwiftUI
 
 struct MuteletMenuView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var applicationModel: MuteletApplicationModel
     @ObservedObject var coordinator: MuteCoordinator
 
@@ -147,7 +149,11 @@ struct MuteletMenuView: View {
 
     private var footer: some View {
         HStack {
-            SettingsLink {
+            Button {
+                dismiss()
+                openSettings()
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            } label: {
                 Label("Settings…", systemImage: "gearshape")
             }
             .keyboardShortcut(",", modifiers: .command)

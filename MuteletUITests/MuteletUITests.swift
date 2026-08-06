@@ -50,11 +50,12 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsWindowOpensFromMenuBarPopover() throws {
+    func testSettingsWindowClosesPopoverAndReactivatesExistingWindow() throws {
         let app = launch(arguments: ["--ui-state=live"])
         openStatusMenu(in: app)
 
         let settingsLink = app.buttons["mutelet-settings-link"]
+        let primaryAction = app.buttons["mutelet-primary-action"]
         XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
         settingsLink.click()
 
@@ -65,12 +66,28 @@ final class MuteletUITests: XCTestCase {
         }
 
         XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        XCTAssertTrue(primaryAction.waitForNonExistence(timeout: 2))
+        let generalTab = settingsWindow.buttons["General"]
+        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
+        generalTab.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["settings-show-hud"]
                 .waitForExistence(timeout: 5)
         )
         XCTAssertTrue(app.descendants(matching: .any)["settings-mode-picker"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["settings-input-picker"].exists)
+
+        openStatusMenu(in: app)
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
+        settingsLink.click()
+
+        XCTAssertTrue(primaryAction.waitForNonExistence(timeout: 2))
+        XCTAssertEqual(
+            app.windows.matching(identifier: "com_apple_SwiftUI_Settings_window").count,
+            1
+        )
+        settingsWindow.typeKey("w", modifierFlags: .command)
+        XCTAssertTrue(settingsWindow.waitForNonExistence(timeout: 2))
     }
 
     @MainActor

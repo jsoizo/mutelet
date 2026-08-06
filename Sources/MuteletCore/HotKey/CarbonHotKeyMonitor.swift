@@ -51,8 +51,7 @@ public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
 
     public var isValid: Bool {
         guard !keyLabel.isEmpty,
-              modifiers.contains(.command) || modifiers.contains(.control),
-              modifiers.rawValue.nonzeroBitCount >= 2 else {
+              modifiers.contains(.command) || modifiers.contains(.control) else {
             return false
         }
         return !(keyCode == UInt32(kVK_ANSI_M) && modifiers == [.control, .option])

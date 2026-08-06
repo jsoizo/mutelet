@@ -40,7 +40,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, MuteletPreferences())
     }
 
-    func testShortcutRequiresCommandOrControlAndTwoModifiers() {
+    func testShortcutRequiresCommandOrControl() {
         let invalid = GlobalHotKeyConfiguration(
             keyCode: 46,
             keyLabel: "M",
@@ -50,11 +50,25 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertFalse(invalid.isValid)
         XCTAssertTrue(GlobalHotKeyConfiguration.default.isValid)
         XCTAssertEqual(GlobalHotKeyConfiguration.default.displayName, "⌃⇧M")
-        XCTAssertFalse(
+        XCTAssertTrue(
             GlobalHotKeyConfiguration(
                 keyCode: 8,
                 keyLabel: "C",
                 modifiers: [.command]
+            ).isValid
+        )
+        XCTAssertTrue(
+            GlobalHotKeyConfiguration(
+                keyCode: 8,
+                keyLabel: "C",
+                modifiers: [.control]
+            ).isValid
+        )
+        XCTAssertFalse(
+            GlobalHotKeyConfiguration(
+                keyCode: 8,
+                keyLabel: "C",
+                modifiers: []
             ).isValid
         )
         XCTAssertFalse(

@@ -166,7 +166,7 @@ private struct ShortcutSettingsView: View {
                         .foregroundStyle(.tint)
                 }
 
-                Text("Use at least two modifiers including Command or Control. Press Escape to cancel.")
+                Text("Use at least one modifier including Command or Control. Press Escape to cancel.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

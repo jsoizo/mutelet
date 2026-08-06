@@ -617,6 +617,17 @@
         }
       }
     },
+    "This shortcut is already in use by another app. Choose a different shortcut." : {
+      "comment" : "Shortcut conflict error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このショートカットは別のアプリで使用されています。別のショートカットを選択してください。"
+          }
+        }
+      }
+    },
     "Unsupported input" : {
       "comment" : "Unsupported input state",
       "localizations" : {

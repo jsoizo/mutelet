@@ -59,7 +59,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             do {
                 try installHotKey(preferences.hotKey)
             } catch {
-                hotKeyError = String(describing: error)
+                hotKeyError = hotKeyErrorMessage(for: error)
             }
         }
     }
@@ -143,7 +143,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             hotKeyError = nil
             await savePreferences()
         } catch {
-            hotKeyError = String(describing: error)
+            hotKeyError = hotKeyErrorMessage(for: error)
             try? installHotKey(previous)
         }
     }
@@ -196,6 +196,16 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
                 await self?.handleHotKey(event)
             }
         }
+    }
+
+    private func hotKeyErrorMessage(for error: Error) -> String {
+        if case CarbonHotKeyError.hotKeyAlreadyRegistered = error {
+            return NSLocalizedString(
+                "This shortcut is already in use by another app. Choose a different shortcut.",
+                comment: "Shortcut conflict error"
+            )
+        }
+        return String(describing: error)
     }
 
     private func handleHotKey(_ event: GlobalHotKeyEvent) async {

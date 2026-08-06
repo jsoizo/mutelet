@@ -1,7 +1,23 @@
+import Carbon
 import XCTest
 @testable import MuteletCore
 
 final class MuteletPreferencesTests: XCTestCase {
+    func testDuplicateHotKeyStatusHasSpecificError() {
+        let duplicate = CarbonHotKeyError.registrationFailure(
+            status: OSStatus(eventHotKeyExistsErr)
+        )
+        let other = CarbonHotKeyError.registrationFailure(status: -1)
+
+        guard case .hotKeyAlreadyRegistered = duplicate else {
+            return XCTFail("Expected a duplicate hot-key error")
+        }
+        guard case let .hotKeyRegistrationFailed(status) = other else {
+            return XCTFail("Expected a generic hot-key registration error")
+        }
+        XCTAssertEqual(status, -1)
+    }
+
     func testPreferencesRoundTrip() async throws {
         let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }

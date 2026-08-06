@@ -69,15 +69,24 @@ public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
 
 public enum CarbonHotKeyError: Error, Sendable, CustomStringConvertible {
     case eventHandlerRegistrationFailed(OSStatus)
+    case hotKeyAlreadyRegistered
     case hotKeyRegistrationFailed(OSStatus)
 
     public var description: String {
         switch self {
         case let .eventHandlerRegistrationFailed(status):
             return "Registering the Carbon hot-key event handler failed with OSStatus \(status)"
+        case .hotKeyAlreadyRegistered:
+            return "The global hot key is already registered"
         case let .hotKeyRegistrationFailed(status):
             return "Registering the global hot key failed with OSStatus \(status)"
         }
+    }
+
+    static func registrationFailure(status: OSStatus) -> Self {
+        status == OSStatus(eventHotKeyExistsErr)
+            ? .hotKeyAlreadyRegistered
+            : .hotKeyRegistrationFailed(status)
     }
 }
 
@@ -116,7 +125,7 @@ public final class CarbonHotKeyMonitor {
         )
         guard status == noErr, let reference else {
             removeEventHandler()
-            throw CarbonHotKeyError.hotKeyRegistrationFailed(status)
+            throw CarbonHotKeyError.registrationFailure(status: status)
         }
         hotKey = reference
 

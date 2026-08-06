@@ -8,6 +8,7 @@ Releases are arm64-only, signed with Developer ID, notarized by Apple, stapled, 
 - Current stable Xcode selected by `xcode-select`
 - A valid `Developer ID Application` certificate in the keychain
 - Apple notarization credentials
+- A 1Password account with access to the release items described below
 - `jq` and GitHub CLI (`gh`)
 
 Never commit certificates, passwords, API private keys, or keychain files.
@@ -43,6 +44,22 @@ The script archives the app, verifies its architecture and signature, builds `di
 
 For API-key notarization in CI, set `NOTARY_KEY`, `NOTARY_KEY_ID`, and `NOTARY_ISSUER_ID` instead of `NOTARY_PROFILE`.
 
+## GitHub Actions credentials
+
+1Password is the source of truth for Apple release credentials. The release workflow loads these fields:
+
+| 1Password reference | Value |
+| --- | --- |
+| `op://Mutelet Dev/Developer-ID/application-certificate-b64` | Base64-encoded Developer ID Application `.p12` |
+| `op://Mutelet Dev/Developer-ID/certificate-password` | Password used when exporting the `.p12` |
+| `op://Mutelet Dev/Developer-ID/signing-identity` | Full `Developer ID Application: Name (TEAM_ID)` identity |
+| `op://Mutelet Dev/Developer-ID/team-id` | Apple Developer Team ID |
+| `op://Mutelet Dev/App-Store-Connect/auth-key-b64` | Base64-encoded App Store Connect team API `.p8` key |
+| `op://Mutelet Dev/App-Store-Connect/key-id` | App Store Connect API key ID |
+| `op://Mutelet Dev/App-Store-Connect/issuer-id` | App Store Connect API issuer ID |
+
+Use Mutelet-specific Apple credentials instead of copying credentials from another project's items. Create a 1Password service account for Mutelet with read-only access to the `Mutelet Dev` vault. Store only its token as the `OP_SERVICE_ACCOUNT_TOKEN` secret in the protected GitHub `release` environment. Rotate or revoke this service account independently from other projects.
+
 ## Publish
 
 1. Inspect and install the stapled DMG on a clean user account.
@@ -51,4 +68,4 @@ For API-key notarization in CI, set `NOTARY_KEY`, `NOTARY_KEY_ID`, and `NOTARY_I
 4. Create and push an annotated `v<version>` tag.
 5. Confirm the protected `release` environment is approved and the release workflow publishes the DMG, checksum, and notarization logs.
 
-The tag workflow expects the GitHub Actions secrets documented in `.github/workflows/release.yml`. Before enabling it, protect `v*` tags, configure required reviewers for the `release` environment, and enable private vulnerability reporting or publish a private security contact. GitHub-hosted artifacts are not a substitute for manually checking the final stapled download.
+Before enabling the tag workflow, configure its 1Password service account and `OP_SERVICE_ACCOUNT_TOKEN` environment secret, protect `v*` tags, configure required reviewers for the `release` environment, and enable private vulnerability reporting or publish a private security contact. GitHub-hosted artifacts are not a substitute for manually checking the final stapled download.

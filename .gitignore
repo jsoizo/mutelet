@@ -2,6 +2,7 @@
 .work/
 .build/
 .swiftpm/
+.vscode/
 DerivedData/
 dist/
 xcuserdata/

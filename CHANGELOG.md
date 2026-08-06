@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Apple Silicon-native macOS menu bar app targeting macOS 13 and later.
+- Apple Silicon-native macOS menu bar app targeting macOS 14 and later.
 - Toggle and Push to Talk modes with a configurable global shortcut.
 - System-default, individual-device, and all-input targeting.
 - Native mute plus writable input-volume controls, with volume-only fallback and safe value restoration.
@@ -16,3 +16,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Write-ahead restoration receipts, verified restoration, and fail-safe Push to Talk remuting.
 - Debug-only UI test dependencies and release checks that reject test switches.
 - Original application icon and complete macOS icon-size asset catalog.
+- Modern settings and menu bar presentation, with macOS 14 Sonoma as the minimum supported release.

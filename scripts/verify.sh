@@ -84,8 +84,8 @@ deployment_target="$(otool -l "$executable" | awk '
     $1 == "cmd" && $2 == "LC_BUILD_VERSION" { in_build_version = 1; next }
     in_build_version && $1 == "minos" { print $2; exit }
 ')"
-if [[ "$deployment_target" != "13.0" ]]; then
-    echo "error: expected deployment target 13.0, got ${deployment_target:-unknown}" >&2
+if [[ "$deployment_target" != "14.0" ]]; then
+    echo "error: expected deployment target 14.0, got ${deployment_target:-unknown}" >&2
     exit 1
 fi
 
@@ -95,4 +95,4 @@ else
     ui_test_result="unit tests and UI test build (set RUN_UI_TESTS=1 to run UI tests)"
 fi
 
-echo "Verification passed: localization, $ui_test_result, Debug/Release builds, analyze, arm64, macOS 13, and LSUIElement."
+echo "Verification passed: localization, $ui_test_result, Debug/Release builds, analyze, arm64, macOS 14, and LSUIElement."

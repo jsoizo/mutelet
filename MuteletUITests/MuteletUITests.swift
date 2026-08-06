@@ -10,15 +10,15 @@ final class MuteletUITests: XCTestCase {
         let app = launch(arguments: ["--ui-state=live"])
         openStatusMenu(in: app)
 
-        let muteItem = app.menuItems["Mute"]
-        XCTAssertTrue(muteItem.waitForExistence(timeout: 5))
-        muteItem.click()
+        let muteButton = app.buttons["mutelet-primary-action"]
+        XCTAssertTrue(muteButton.waitForExistence(timeout: 5))
+        XCTAssertEqual(muteButton.label, "Mute")
+        muteButton.click()
 
-        openStatusMenu(in: app)
-        XCTAssertTrue(
-            app.menuItems["Microphone muted — UI Test Microphone"]
-                .waitForExistence(timeout: 5)
-        )
+        let status = app.descendants(matching: .any)["mutelet-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        waitForValue("Microphone muted — UI Test Microphone", on: status)
+        waitForLabel("Unmute", on: muteButton)
     }
 
     @MainActor
@@ -26,25 +26,17 @@ final class MuteletUITests: XCTestCase {
         let app = launch(arguments: ["--ui-push-to-talk"])
         openStatusMenu(in: app)
 
-        XCTAssertTrue(app.menuItems["Hold ⌃⇧M to talk"].waitForExistence(timeout: 5))
-        XCTAssertTrue(
-            app.menuItems["Microphone muted — UI Test Microphone"]
-                .waitForExistence(timeout: 5)
-        )
+        let instruction = app.descendants(matching: .any)["mutelet-push-to-talk-instruction"]
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        let status = app.descendants(matching: .any)["mutelet-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.value as? String, "Microphone muted — UI Test Microphone")
 
-        app.menuItems["UI Test Hot Key Press"].click()
-        openStatusMenu(in: app)
-        XCTAssertTrue(
-            app.menuItems["Microphone on — UI Test Microphone"]
-                .waitForExistence(timeout: 5)
-        )
+        app.buttons["UI Test Hot Key Press"].click()
+        waitForValue("Microphone on — UI Test Microphone", on: status)
 
-        app.menuItems["UI Test Hot Key Release"].click()
-        openStatusMenu(in: app)
-        XCTAssertTrue(
-            app.menuItems["Microphone muted — UI Test Microphone"]
-                .waitForExistence(timeout: 5)
-        )
+        app.buttons["UI Test Hot Key Release"].click()
+        waitForValue("Microphone muted — UI Test Microphone", on: status)
     }
 
     @MainActor
@@ -52,7 +44,33 @@ final class MuteletUITests: XCTestCase {
         let app = launch(arguments: ["--ui-no-input"])
         openStatusMenu(in: app)
 
-        XCTAssertTrue(app.menuItems["No input device"].waitForExistence(timeout: 5))
+        let status = app.descendants(matching: .any)["mutelet-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.value as? String, "No input device")
+    }
+
+    @MainActor
+    func testSettingsWindowOpensFromMenuBarPopover() throws {
+        let app = launch(arguments: ["--ui-state=live"])
+        openStatusMenu(in: app)
+
+        let settingsLink = app.buttons["mutelet-settings-link"]
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
+        settingsLink.click()
+
+        let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
+        if !settingsWindow.waitForExistence(timeout: 2) {
+            XCTAssertTrue(settingsLink.waitForExistence(timeout: 2))
+            settingsLink.click()
+        }
+
+        XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings-show-hud"]
+                .waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(app.descendants(matching: .any)["settings-mode-picker"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["settings-input-picker"].exists)
     }
 
     @MainActor
@@ -71,6 +89,31 @@ final class MuteletUITests: XCTestCase {
     private func openStatusMenu(in app: XCUIApplication) {
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
-        statusItem.click()
+        let primaryAction = app.buttons["mutelet-primary-action"]
+        for _ in 0..<2 {
+            statusItem.click()
+            if primaryAction.waitForExistence(timeout: 2) {
+                return
+            }
+        }
+        XCTFail("Mutelet status popover did not open")
+    }
+
+    @MainActor
+    private func waitForLabel(_ label: String, on element: XCUIElement) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", label),
+            object: element
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
+    @MainActor
+    private func waitForValue(_ value: String, on element: XCUIElement) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", value),
+            object: element
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
     }
 }

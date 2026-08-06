@@ -69,13 +69,15 @@ struct MuteletApp: App {
             )
         } label: {
             Image(systemName: coordinator.status.systemImageName)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(coordinator.status.interfaceColor)
                 .accessibilityLabel(coordinator.status.title)
                 .task {
                     appDelegate.applicationModel = applicationModel
                     await applicationModel.start()
                 }
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
 
         Settings {
             MuteletSettingsView(

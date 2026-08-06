@@ -139,7 +139,9 @@ public enum MuteStatus: Equatable, Sendable {
             "mic.slash.fill"
         case .loading:
             "mic"
-        case .mixed, .unavailable, .disconnected, .unsupported, .partial, .error:
+        case .unavailable, .disconnected, .unsupported:
+            "mic.slash"
+        case .mixed, .partial, .error:
             "exclamationmark.triangle.fill"
         }
     }

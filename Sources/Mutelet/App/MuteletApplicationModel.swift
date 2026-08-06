@@ -163,18 +163,6 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         refreshLoginItemStatus()
     }
 
-    func openSettings() {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        let modernSelector = Selector(("showSettingsWindow:"))
-        if !NSApplication.shared.sendAction(modernSelector, to: nil, from: nil) {
-            NSApplication.shared.sendAction(
-                Selector(("showPreferencesWindow:")),
-                to: nil,
-                from: nil
-            )
-        }
-    }
-
     func openLoginItemSettings() {
         guard let url = URL(
             string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"

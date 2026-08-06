@@ -20,7 +20,7 @@ Muteletは音声を録音せず、サーバーへの通信やテレメトリも�
 ## 動作環境
 
 - Apple Silicon Mac
-- macOS 13 Ventura以降
+- macOS 14 Sonoma以降
 
 ## ダウンロード
 

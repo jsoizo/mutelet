@@ -17,7 +17,7 @@ Never commit certificates, passwords, API private keys, or keychain files.
 1. Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in the Xcode project.
 2. Move relevant entries from `Unreleased` in `CHANGELOG.md` and finalize `changelogs/<version>.md`.
 3. Quit any running Mutelet instance and run `RUN_UI_TESTS=1 ./scripts/verify.sh`.
-4. Complete the device matrix and manual checks in `docs/DEVICE_COMPATIBILITY.md` on macOS 13 and the latest stable macOS.
+4. Complete the device matrix and manual checks in `docs/DEVICE_COMPATIBILITY.md` on macOS 14 and the latest stable macOS.
 
 ## Local notarization credentials
 

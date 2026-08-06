@@ -20,7 +20,7 @@ Mutelet does not record audio, connect to a server, collect telemetry, or reques
 ## Requirements
 
 - Apple Silicon Mac
-- macOS 13 Ventura or later
+- macOS 14 Sonoma or later
 
 ## Download
 

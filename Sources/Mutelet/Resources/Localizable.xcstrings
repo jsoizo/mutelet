@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ — %d muted, %d live, %d mixed, %d unsupported, %d failed" : {
+      "comment" : "Partial mute detail",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — ミュート%d、オン%d、混在%d、非対応%d、失敗%d"
+          }
+        }
+      }
+    },
     "About" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -55,13 +66,35 @@
         }
       }
     },
-    "Checking microphone…" : {
+    "Cancel" : {
       "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "Checking microphone…" : {
+      "comment" : "Loading audio state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "マイクを確認中…"
+          }
+        }
+      }
+    },
+    "Current shortcut" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在のショートカット"
           }
         }
       }
@@ -77,7 +110,30 @@
         }
       }
     },
+    "General" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一般"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        }
+      }
+    },
     "Global shortcut" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -99,11 +155,23 @@
       }
     },
     "Input" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "入力"
+          }
+        }
+      }
+    },
+    "Input disconnected" : {
+      "comment" : "Disconnected input state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力未接続"
           }
         }
       }
@@ -130,6 +198,28 @@
         }
       }
     },
+    "Microphone error" : {
+      "comment" : "Audio error state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクエラー"
+          }
+        }
+      }
+    },
+    "Microphone muted" : {
+      "comment" : "Muted microphone state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクはミュート中"
+          }
+        }
+      }
+    },
     "Microphone muted — %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -137,6 +227,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "マイクはミュート中 — %@"
+          }
+        }
+      }
+    },
+    "Microphone on" : {
+      "comment" : "Live microphone state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクはオン"
           }
         }
       }
@@ -163,7 +264,19 @@
         }
       }
     },
+    "Mixed microphone state" : {
+      "comment" : "Mixed microphone state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイク状態が混在"
+          }
+        }
+      }
+    },
     "Mode" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -184,8 +297,18 @@
         }
       }
     },
+    "Mutelet" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mutelet"
+          }
+        }
+      }
+    },
     "No input device" : {
-      "extractionState" : "stale",
+      "comment" : "No audio input",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -239,13 +362,36 @@
         }
       }
     },
+    "Partial mute" : {
+      "comment" : "Partial mute state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のみミュート"
+          }
+        }
+      }
+    },
     "Press shortcut…" : {
       "comment" : "Shortcut recorder prompt",
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ショートカットを入力…"
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシー"
           }
         }
       }
@@ -294,6 +440,28 @@
         }
       }
     },
+    "Record Shortcut…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットを記録…"
+          }
+        }
+      }
+    },
+    "Restore Default" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトに戻す"
+          }
+        }
+      }
+    },
     "Saving settings failed: %@" : {
       "comment" : "Settings persistence error",
       "localizations" : {
@@ -305,6 +473,17 @@
         }
       }
     },
+    "Settings could not be saved" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を保存できませんでした"
+          }
+        }
+      }
+    },
     "Settings…" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -312,16 +491,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定…"
-          }
-        }
-      }
-    },
-    "Settings could not be saved" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定を保存できませんでした"
           }
         }
       }
@@ -338,6 +507,7 @@
       }
     },
     "Shortcut unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -349,6 +519,7 @@
     },
     "Shortcut: %@" : {
       "comment" : "Shortcut help",
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -387,17 +558,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "システム既定"
-          }
-        }
-      }
-    },
-    "Use at least two modifiers including Command or Control." : {
-      "comment" : "Invalid shortcut error",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。"
           }
         }
       }
@@ -457,6 +617,17 @@
         }
       }
     },
+    "Unsupported input" : {
+      "comment" : "Unsupported input state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非対応の入力"
+          }
+        }
+      }
+    },
     "Unsupported input — %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -464,6 +635,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "非対応の入力 — %@"
+          }
+        }
+      }
+    },
+    "Use at least two modifiers including Command or Control." : {
+      "comment" : "Invalid shortcut error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。"
+          }
+        }
+      }
+    },
+    "Use at least two modifiers including Command or Control. Press Escape to cancel." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。Escapeでキャンセルできます。"
+          }
+        }
+      }
+    },
+    "Version %@ (%@)" : {
+      "comment" : "Version and build",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バージョン%@（%@）"
           }
         }
       }

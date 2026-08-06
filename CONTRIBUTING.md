@@ -4,7 +4,7 @@ Thanks for helping improve Mutelet.
 
 ## Requirements
 
-- Apple Silicon Mac running macOS 13 or later
+- Apple Silicon Mac running macOS 14 or later
 - Current stable Xcode with Swift 6
 - `jq` for localization validation
 

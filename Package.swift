@@ -6,7 +6,7 @@ let package = Package(
     name: "Mutelet",
     defaultLocalization: "en",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
     ],
     products: [
         .library(name: "MuteletCore", targets: ["MuteletCore"]),

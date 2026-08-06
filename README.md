@@ -33,20 +33,13 @@ Install the current stable Xcode, then run:
 ```bash
 git clone <repository-url>
 cd mutelet
-open Mutelet.xcodeproj
+./scripts/build.sh
+open .build/DerivedData/LocalBuild/Build/Products/Release/Mutelet.app
 ```
 
-Select the `Mutelet` scheme and run it on **My Mac**. The microphone icon appears in the menu bar; Mutelet has no Dock icon.
+The microphone icon appears in the menu bar; Mutelet has no Dock icon.
 
-For command-line verification:
-
-```bash
-swift test
-./scripts/verify.sh
-```
-
-`verify.sh` writes derived build products under `.build/` and does not apply a distribution signature. It ad-hoc signs only the UI-test host and runner so macOS can execute them.
-It builds the UI tests without interrupting a Mutelet instance you may be using. Quit Mutelet and run `RUN_UI_TESTS=1 ./scripts/verify.sh` to execute them locally; CI executes them on every change.
+`build.sh` produces a local Release build under `.build/`. It does not apply a distribution signature.
 
 ## Usage
 

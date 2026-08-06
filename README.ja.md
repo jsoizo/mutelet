@@ -33,20 +33,13 @@ Muteletは音声を録音せず、サーバーへの通信や利用状況デー�
 ```bash
 git clone <repository-url>
 cd mutelet
-open Mutelet.xcodeproj
+./scripts/build.sh
+open .build/DerivedData/LocalBuild/Build/Products/Release/Mutelet.app
 ```
 
-`Mutelet`スキームを選び、**My Mac**で実行します。Dockには表示されず、メニューバーにマイクのアイコンが現れます。
+Dockには表示されず、メニューバーにマイクのアイコンが現れます。
 
-コマンドラインで一式を検証する場合:
-
-```bash
-swift test
-./scripts/verify.sh
-```
-
-`verify.sh`の生成物は`.build/`内に置かれ、配布用の署名は行いません。macOSで実行するため、UIテスト用ホストとRunnerだけをad-hoc署名します。
-普段使っているMuteletを中断しないよう、通常実行ではUIテストをビルドだけ行います。ローカルでUIテストも実行するときはMuteletを終了して`RUN_UI_TESTS=1 ./scripts/verify.sh`を実行してください。CIでは毎回実行します。
+`build.sh`はローカル用のRelease版を`.build/`内に生成します。配布用の署名は行いません。
 
 ## 使い方
 

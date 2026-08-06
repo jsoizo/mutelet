@@ -83,19 +83,32 @@ fi
 
 "$script_dir/build-dmg.sh" "$app_path" "$dmg_path"
 
+set +e
 xcrun notarytool submit "$dmg_path" \
     "${notary_credentials[@]}" \
     --wait \
     --output-format json > "$notary_result"
+submit_exit_code=$?
+set -e
 
-notary_status="$(plutil -extract status raw -o - "$notary_result")"
-submission_id="$(plutil -extract id raw -o - "$notary_result")"
-if [[ "$notary_status" != "Accepted" || -z "$submission_id" ]]; then
+notary_status="$(plutil -extract status raw -o - "$notary_result" 2>/dev/null || true)"
+submission_id="$(plutil -extract id raw -o - "$notary_result" 2>/dev/null || true)"
+if [[ -n "$submission_id" ]]; then
+    xcrun notarytool log "$submission_id" "$notary_log" "${notary_credentials[@]}" || true
+fi
+cp "$notary_result" "$distribution_directory/Mutelet-$version.notary-submit.json"
+if [[ -f "$notary_log" ]]; then
+    cp "$notary_log" "$distribution_directory/Mutelet-$version.notary-log.json"
+fi
+
+if [[ $submit_exit_code -ne 0 || "$notary_status" != "Accepted" || -z "$submission_id" ]]; then
     echo "error: notarization was not accepted (status: ${notary_status:-unknown})" >&2
     cat "$notary_result" >&2
+    if [[ -f "$notary_log" ]]; then
+        cat "$notary_log" >&2
+    fi
     exit 1
 fi
-xcrun notarytool log "$submission_id" "$notary_log" "${notary_credentials[@]}"
 
 xcrun stapler staple "$dmg_path"
 xcrun stapler validate "$dmg_path"
@@ -108,7 +121,5 @@ spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg
 
 mv "$dmg_path" "$distribution_directory/"
 mv "$dmg_path.sha256" "$distribution_directory/"
-mv "$notary_result" "$distribution_directory/Mutelet-$version.notary-submit.json"
-mv "$notary_log" "$distribution_directory/Mutelet-$version.notary-log.json"
 
 echo "Release artifacts are ready in $distribution_directory"

@@ -70,6 +70,11 @@ if [[ "$(lipo -archs "$executable")" != "arm64" ]]; then
     exit 1
 fi
 
+if strings "$executable" | grep -F -- '--ui-testing' >/dev/null; then
+    echo "error: Release executable contains the UI-testing dependency switch" >&2
+    exit 1
+fi
+
 if [[ "$(defaults read "$release_app/Contents/Info" LSUIElement)" != "1" ]]; then
     echo "error: Release app must set LSUIElement=true" >&2
     exit 1

@@ -66,7 +66,11 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           notes="changelogs/$version.md"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          if release_is_draft="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "error: refusing to replace assets on published release $GITHUB_REF_NAME" >&2
+              exit 1
+            fi
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber
           elif [[ -f "$notes" ]]; then
             gh release create "$GITHUB_REF_NAME" dist/* --draft --title "Mutelet $version" --notes-file "$notes"
@@ -74,6 +78,14 @@ jobs:
             gh release create "$GITHUB_REF_NAME" dist/* --draft --title "Mutelet $version" --generate-notes
           fi
           gh release edit "$GITHUB_REF_NAME" --draft=false
+      - name: Preserve release diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-diagnostics-${{ github.run_id }}
+          path: dist/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Remove signing material
         if: always()
         run: |

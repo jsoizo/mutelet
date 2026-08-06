@@ -6,7 +6,7 @@ Mutelet has not published its first stable release. Security fixes currently tar
 
 ## Reporting a vulnerability
 
-If private vulnerability reporting is enabled for the published repository, use GitHub's **Report a vulnerability** form under its Security tab. Otherwise, open a public issue that contains no exploit details and ask the maintainer for a private contact channel. Do not include sensitive details in a public issue.
+Use GitHub's **Report a vulnerability** form under the repository's Security tab. Private vulnerability reporting must be enabled before the first public binary release. If that form is unavailable, do not post vulnerability details in a public issue; the repository is not ready for security-sensitive public distribution until the maintainer enables the private channel.
 
 Include the affected macOS version, Mutelet revision or version, input device type, reproduction steps, and impact. A maintainer will acknowledge the report as soon as practical and coordinate disclosure after a fix is available.
 

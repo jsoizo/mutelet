@@ -1,0 +1,57 @@
+# Architecture
+
+Mutelet separates operating-system I/O from its mute state machine so safety behavior can be tested without changing a real microphone.
+
+```text
+MenuBarExtra / Settings / HUD
+              |
+              v
+  MuteletApplicationModel
+       |              |
+       v              v
+MuteCoordinator   Carbon hot key / login item / preferences
+       |
+       v
+AudioDeviceControlling
+       |
+       v
+ Core Audio properties and event listeners
+```
+
+## Components
+
+- `CoreAudioDeviceController` enumerates input devices, inspects controls, reads snapshots, and performs mute or restoration writes.
+- `MuteCoordinator` owns the selected mode and target, aggregates state, serializes transitions, and enforces Push to Talk safety.
+- `CarbonHotKeyMonitor` registers a system hot key and publishes press/release events without an event tap.
+- `MuteletApplicationModel` joins app lifecycle, persisted settings, UI commands, HUD, login item, and global hot-key handling on the main actor.
+- `AudioMutationReceiptStoring` persists the exact values changed by a volume-based mute.
+
+## Identity and concurrency
+
+Core Audio `AudioObjectID` values are process-local, temporary references. Mutelet persists device UIDs and resolves the current object again after hardware changes or wake.
+
+Core Audio operations are isolated behind an actor-conforming interface. Published UI state and mode transitions live on `@MainActor`. The coordinator uses generations and awaited transitions to prevent an older asynchronous selection from overwriting a newer one.
+
+## State model
+
+The visible states are:
+
+- `live`: at least one relevant control is audible and none conflict;
+- `muted`: mute or zero-volume controls confirm silence;
+- `mixed`: controls within one target or states across several targets disagree;
+- `unavailable` / `disconnected`: no current target can be resolved;
+- `unsupported`: no writable mute strategy exists;
+- `partial`: an all-input state includes unsupported devices or operation/read failures;
+- `error`: an operation could not produce a trustworthy state.
+
+Mixed state toggles toward mute. Unsupported and failed targets are never folded into a confirmed muted state.
+
+## Push to Talk safety
+
+Selecting Push to Talk immediately requests mute. Key down restores the prior state for speech; key up requests mute again. Repeated key-down events do not invert state. Changing mode or target discards pending release state. App termination waits for a safe mute; a workspace sleep notification starts the same request on a best-effort basis because macOS does not let this app delay system sleep.
+
+The HUD intentionally appears once when entering Push to Talk, not on every press and release. Toggle mode continues to show state feedback for each action.
+
+## Testing
+
+Core tests use fake audio and persistence implementations. UI tests launch the app with `--ui-testing`, which swaps in deterministic devices and disables system hot-key and login-item integration. The `mutelet-probe` executable remains available for explicit, manual Core Audio diagnostics.

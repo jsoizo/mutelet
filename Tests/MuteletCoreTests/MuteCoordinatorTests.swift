@@ -118,8 +118,9 @@ final class MuteCoordinatorTests: XCTestCase {
         await coordinator.setMode(.pushToTalk)
 
         await audio.simulateExternalState(.live)
-        for _ in 0..<100 where await audio.muteCallCount() < 2 {
-            await Task.yield()
+        await waitUntil {
+            await audio.muteCallCount() >= 2
+                && coordinator.status == .muted(deviceName: "Test Input")
         }
 
         let muteCalls = await audio.muteCallCount()
@@ -308,7 +309,7 @@ final class MuteCoordinatorTests: XCTestCase {
     ) async {
         for _ in 0..<200 {
             if await condition() { return }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 5_000_000)
         }
         XCTFail("Condition was not satisfied")
     }

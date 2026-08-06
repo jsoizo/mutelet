@@ -66,7 +66,7 @@ struct MuteletSettingsView: View {
             }
 
             Section("About") {
-                LabeledContent("Mutelet", value: "0.1.0")
+                LabeledContent("Mutelet", value: appVersion)
                 Text("Apple Silicon-native microphone mute utility.")
                     .foregroundStyle(.secondary)
             }
@@ -115,6 +115,13 @@ struct MuteletSettingsView: View {
         recorder.isRecording
             ? NSLocalizedString("Press shortcut…", comment: "Shortcut recorder prompt")
             : shortcutName
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String
+        return version ?? NSLocalizedString("Unknown", comment: "Unknown version")
     }
 
     private var settingsTargets: [AudioTargetSelection] {

@@ -425,7 +425,7 @@
       }
     },
     "Unknown" : {
-      "comment" : "Unknown status",
+      "comment" : "Unknown status\nUnknown version",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

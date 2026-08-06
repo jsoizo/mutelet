@@ -98,7 +98,7 @@ struct MuteletProbe {
             // Keep the monitor alive for the lifetime of the process through this task-local closure.
             let stream = try monitor.register(
                 keyCode: UInt32(kVK_ANSI_M),
-                modifiers: [.control, .option],
+                modifiers: [.control, .shift],
                 exclusive: false
             )
             HotKeyLifetime.shared.monitor = monitor

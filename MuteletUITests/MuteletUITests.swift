@@ -26,7 +26,25 @@ final class MuteletUITests: XCTestCase {
         let app = launch(arguments: ["--ui-push-to-talk"])
         openStatusMenu(in: app)
 
-        XCTAssertTrue(app.menuItems["Hold ⌃⌥M to talk"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuItems["Hold ⌃⇧M to talk"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.menuItems["Microphone muted — UI Test Microphone"]
+                .waitForExistence(timeout: 5)
+        )
+
+        app.menuItems["UI Test Hot Key Press"].click()
+        openStatusMenu(in: app)
+        XCTAssertTrue(
+            app.menuItems["Microphone on — UI Test Microphone"]
+                .waitForExistence(timeout: 5)
+        )
+
+        app.menuItems["UI Test Hot Key Release"].click()
+        openStatusMenu(in: app)
+        XCTAssertTrue(
+            app.menuItems["Microphone muted — UI Test Microphone"]
+                .waitForExistence(timeout: 5)
+        )
     }
 
     @MainActor

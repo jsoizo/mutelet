@@ -7,12 +7,14 @@ import ServiceManagement
 final class MuteletApplicationModel: NSObject, ObservableObject {
     @Published private(set) var preferences = MuteletPreferences()
     @Published private(set) var hotKeyError: String?
+    @Published private(set) var preferencesError: String?
     @Published private(set) var launchAtLoginEnabled = false
     @Published private(set) var loginItemStatusText = NSLocalizedString(
         "Off",
         comment: "Login item disabled"
     )
     @Published private(set) var loginItemError: String?
+    @Published private(set) var loginItemRequiresApproval = false
 
     let coordinator: MuteCoordinator
 
@@ -21,7 +23,9 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private let hudController: MuteHUDController
     private let enablesSystemIntegrations: Bool
     private var hotKeyTask: Task<Void, Never>?
+    private var workspaceLifecycleTask: Task<Void, Never>?
     private var targetSelectionGeneration = 0
+    private var modeSelectionGeneration = 0
     private var started = false
     private var observesWorkspace = false
 
@@ -66,6 +70,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func selectMode(_ mode: MuteMode) {
+        modeSelectionGeneration += 1
+        let generation = modeSelectionGeneration
         var updated = preferences
         updated.mode = mode
         preferences = updated
@@ -73,7 +79,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         Task { [weak self] in
             await transition?.value
             guard let self else { return }
-            if mode == .pushToTalk, self.preferences.showsHUD {
+            if generation == self.modeSelectionGeneration,
+               mode == .pushToTalk,
+               self.coordinator.mode == .pushToTalk,
+               self.preferences.mode == .pushToTalk,
+               self.preferences.showsHUD {
                 self.hudController.showPushToTalkEnabled(
                     shortcut: self.preferences.hotKey.displayName
                 )
@@ -111,12 +121,19 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     func updateHotKey(_ configuration: GlobalHotKeyConfiguration) async {
         guard configuration.isValid else {
             hotKeyError = NSLocalizedString(
-                "A shortcut must include Command or Control.",
+                "Use at least two modifiers including Command or Control.",
                 comment: "Invalid shortcut error"
             )
             return
         }
 
+        guard await coordinator.cancelActiveHotKeyGesture() else {
+            hotKeyError = NSLocalizedString(
+                "The microphone could not be remuted, so the shortcut was not changed.",
+                comment: "Shortcut safety error"
+            )
+            return
+        }
         let previous = preferences.hotKey
         do {
             try installHotKey(configuration)
@@ -166,12 +183,15 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func stop() async {
+        removeWorkspaceObservers()
+        let pendingWorkspaceLifecycle = workspaceLifecycleTask
+        workspaceLifecycleTask = nil
+        await pendingWorkspaceLifecycle?.value
         hotKeyTask?.cancel()
         hotKeyTask = nil
         hotKeyMonitor.stop()
         hudController.hide()
         await coordinator.stop()
-        removeWorkspaceObservers()
         started = false
     }
 
@@ -198,6 +218,13 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         }
     }
 
+#if DEBUG
+    func handleUITestingHotKey(_ event: GlobalHotKeyEvent) async {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
+        await handleHotKey(event)
+    }
+#endif
+
     private func showHUDIfEnabled() {
         guard preferences.showsHUD else { return }
         hudController.show(status: coordinator.status)
@@ -206,8 +233,9 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private func savePreferences() async {
         do {
             try await preferencesStore.save(preferences)
+            preferencesError = nil
         } catch {
-            hotKeyError = String(
+            preferencesError = String(
                 format: NSLocalizedString(
                     "Saving settings failed: %@",
                     comment: "Settings persistence error"
@@ -217,13 +245,16 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         }
     }
 
-    private func refreshLoginItemStatus() {
+    func refreshLoginItemStatus() {
+        guard enablesSystemIntegrations else { return }
+        loginItemRequiresApproval = false
         switch SMAppService.mainApp.status {
         case .enabled:
             launchAtLoginEnabled = true
             loginItemStatusText = NSLocalizedString("On", comment: "Login item enabled")
         case .requiresApproval:
-            launchAtLoginEnabled = false
+            launchAtLoginEnabled = true
+            loginItemRequiresApproval = true
             loginItemStatusText = NSLocalizedString(
                 "Approval required in System Settings",
                 comment: "Login item approval status"
@@ -244,14 +275,29 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     @objc private func workspaceWillSleep() {
-        Task { [weak self] in
-            await self?.coordinator.stop()
-        }
+        enqueueWorkspaceLifecycle(shouldRun: false)
     }
 
     @objc private func workspaceDidWake() {
-        Task { [weak self] in
-            await self?.coordinator.start()
+        enqueueWorkspaceLifecycle(shouldRun: true)
+    }
+
+    @objc private func applicationDidBecomeActive() {
+        if enablesSystemIntegrations {
+            refreshLoginItemStatus()
+        }
+    }
+
+    private func enqueueWorkspaceLifecycle(shouldRun: Bool) {
+        let previous = workspaceLifecycleTask
+        workspaceLifecycleTask = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            if shouldRun {
+                await self.coordinator.start()
+            } else {
+                await self.coordinator.stop()
+            }
         }
     }
 
@@ -270,12 +316,19 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
         observesWorkspace = true
     }
 
     private func removeWorkspaceObservers() {
         guard observesWorkspace else { return }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
         observesWorkspace = false
     }
 }

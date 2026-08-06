@@ -6,6 +6,7 @@ import SwiftUI
 final class MuteHUDController {
     private var panel: NSPanel?
     private var dismissalTask: Task<Void, Never>?
+    private var presentationGeneration = 0
 
     func show(status: MuteStatus) {
         show(title: status.title, systemImageName: status.systemImageName)
@@ -25,6 +26,8 @@ final class MuteHUDController {
     }
 
     private func show(title: String, systemImageName: String) {
+        presentationGeneration += 1
+        let generation = presentationGeneration
         dismissalTask?.cancel()
 
         let panel = panel ?? makePanel()
@@ -33,12 +36,26 @@ final class MuteHUDController {
             rootView: MuteHUDView(title: title, systemImageName: systemImageName)
         )
         position(panel)
-        panel.alphaValue = 1
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            panel.animator().alphaValue = 1
+        }
         panel.orderFrontRegardless()
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                NSAccessibility.NotificationUserInfoKey.announcement: title,
+                NSAccessibility.NotificationUserInfoKey.priority:
+                    NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
 
         dismissalTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled, let self else { return }
+            guard !Task.isCancelled,
+                  let self,
+                  generation == self.presentationGeneration else { return }
             if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 self.hide()
             } else {
@@ -47,6 +64,7 @@ final class MuteHUDController {
                     panel.animator().alphaValue = 0
                 } completionHandler: {
                     Task { @MainActor in
+                        guard generation == self.presentationGeneration else { return }
                         self.hide()
                     }
                 }
@@ -55,6 +73,7 @@ final class MuteHUDController {
     }
 
     func hide() {
+        presentationGeneration += 1
         dismissalTask?.cancel()
         dismissalTask = nil
         panel?.orderOut(nil)

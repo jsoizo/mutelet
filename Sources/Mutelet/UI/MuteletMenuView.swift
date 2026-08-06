@@ -66,6 +66,30 @@ struct MuteletMenuView: View {
             Text("Shortcut unavailable")
                 .help(hotKeyError)
         }
+        if let preferencesError = applicationModel.preferencesError {
+            Text("Settings could not be saved")
+                .help(preferencesError)
+        }
+
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            Divider()
+            Button {
+                Task {
+                    await applicationModel.handleUITestingHotKey(.pressed)
+                }
+            } label: {
+                Text(verbatim: "UI Test Hot Key Press")
+            }
+            Button {
+                Task {
+                    await applicationModel.handleUITestingHotKey(.released)
+                }
+            } label: {
+                Text(verbatim: "UI Test Hot Key Release")
+            }
+        }
+#endif
 
         Divider()
 

@@ -29,6 +29,23 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNotNil(storedReceipt)
     }
 
+    func testReceiptIsSavedBeforeMutatingHardware() async {
+        let audio = FakeAudioController(state: .live)
+        let store = FaultInjectingReceiptStore(failsSave: true)
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 0)
+        if case .error = coordinator.status {
+            // Expected: persistence failed before touching Core Audio.
+        } else {
+            XCTFail("Expected a persistence error")
+        }
+    }
+
     func testToggleFromMutedRestoresAndRemovesReceipt() async throws {
         let receipt = FakeAudioController.originalReceipt
         let audio = FakeAudioController(state: .muted)
@@ -128,6 +145,44 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(muteCalls, 2)
     }
 
+    func testPushToTalkReleaseForceMutesAfterReceiptRemovalFailure() async {
+        let audio = FakeAudioController(state: .live)
+        let store = FaultInjectingReceiptStore(failsRemoval: true)
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.handleHotKey(.pressed)
+        if case .error = coordinator.status {
+            // Expected: audio restoration succeeded but receipt removal failed.
+        } else {
+            XCTFail("Expected a receipt removal error")
+        }
+
+        await coordinator.handleHotKey(.released)
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 2)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+    }
+
+    func testStoppingPushToTalkForceMutesBeforeExternalEventIsHandled() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await audio.setStateWithoutEvent(.live)
+        await coordinator.stop()
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 2)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+    }
+
     func testChangingModeWhilePressedDiscardsThePendingRelease() async {
         let audio = FakeAudioController(state: .live)
         let store = InMemoryReceiptStore()
@@ -145,6 +200,24 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
         XCTAssertEqual(muteCalls, 2)
         XCTAssertEqual(unmuteCalls, 1)
+    }
+
+    func testCancellingActivePushToTalkGestureRemutes() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.handleHotKey(.pressed)
+
+        let cancelledSafely = await coordinator.cancelActiveHotKeyGesture()
+
+        XCTAssertTrue(cancelledSafely)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 2)
     }
 
     func testStoppingWhilePushToTalkIsPressedMutesBeforeStopping() async {
@@ -256,6 +329,49 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .muted(deviceName: "All Inputs"))
     }
 
+    func testToggleTargetChangeRestoresManagedPreviousTarget() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.toggle()
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        let builtInState = await audio.state(uid: "built-in")
+        let builtInReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertEqual(builtInState, .live)
+        XCTAssertNil(builtInReceipt)
+        XCTAssertEqual(coordinator.target, .device(uid: "usb", name: "USB Mic"))
+    }
+
+    func testPushToTalkTargetChangeRestoresOldAndMutesNewTarget() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        let builtInState = await audio.state(uid: "built-in")
+        let usbState = await audio.state(uid: "usb")
+        let builtInReceipt = await store.receipt(deviceUID: "built-in")
+        let usbReceipt = await store.receipt(deviceUID: "usb")
+        XCTAssertEqual(builtInState, .live)
+        XCTAssertEqual(usbState, .muted)
+        XCTAssertNil(builtInReceipt)
+        XCTAssertNotNil(usbReceipt)
+    }
+
     func testAllInputsReportsUnsupportedDeviceAsPartial() async {
         let audio = MultiDeviceAudioController(
             states: ["built-in": .muted, "virtual": .unsupported],
@@ -304,6 +420,25 @@ final class MuteCoordinatorTests: XCTestCase {
         )
     }
 
+    func testUnverifiedRestorationKeepsReceipt() async {
+        let receipt = FakeAudioController.originalReceipt
+        let audio = FakeAudioController(state: .muted, restoresIncorrectly: true)
+        let store = InMemoryReceiptStore()
+        await store.save(receipt)
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let retainedReceipt = await store.receipt(deviceUID: FakeAudioController.uid)
+        XCTAssertNotNil(retainedReceipt)
+        if case .error = coordinator.status {
+            // Expected: receipt is retained until every value verifies.
+        } else {
+            XCTFail("Expected incomplete restoration error")
+        }
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () async -> Bool
     ) async {
@@ -333,16 +468,19 @@ private actor FakeAudioController: AudioDeviceControlling {
     private var unmuteCalls = 0
     private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
     private let suspendsUnmute: Bool
+    private let restoresIncorrectly: Bool
     private var unmuteContinuation: CheckedContinuation<Void, Never>?
 
     init(
         state: AudioDeviceMuteState,
         hasDefaultInput: Bool = true,
-        suspendsUnmute: Bool = false
+        suspendsUnmute: Bool = false,
+        restoresIncorrectly: Bool = false
     ) {
         self.state = state
         self.hasDefaultInput = hasDefaultInput
         self.suspendsUnmute = suspendsUnmute
+        self.restoresIncorrectly = restoresIncorrectly
     }
 
     func inputDevices() -> [AudioDeviceDescriptor] {
@@ -396,7 +534,7 @@ private actor FakeAudioController: AudioDeviceControlling {
                 unmuteContinuation = continuation
             }
         }
-        state = .live
+        state = restoresIncorrectly ? .mixed : .live
     }
 
     func events() -> AsyncStream<AudioHardwareEvent> {
@@ -425,6 +563,10 @@ private actor FakeAudioController: AudioDeviceControlling {
         )
     }
 
+    func setStateWithoutEvent(_ state: AudioDeviceMuteState) {
+        self.state = state
+    }
+
     private static let descriptor = AudioDeviceDescriptor(
         objectID: 42,
         uid: uid,
@@ -450,6 +592,36 @@ private actor InMemoryReceiptStore: AudioMutationReceiptStoring {
     }
 
     func removeReceipt(deviceUID: String) {
+        receipts.removeValue(forKey: deviceUID)
+    }
+}
+
+private enum ReceiptStoreTestError: Error {
+    case saveFailed
+    case removalFailed
+}
+
+private actor FaultInjectingReceiptStore: AudioMutationReceiptStoring {
+    private var receipts: [String: AudioMutationReceipt] = [:]
+    private let failsSave: Bool
+    private let failsRemoval: Bool
+
+    init(failsSave: Bool = false, failsRemoval: Bool = false) {
+        self.failsSave = failsSave
+        self.failsRemoval = failsRemoval
+    }
+
+    func receipt(deviceUID: String) -> AudioMutationReceipt? {
+        receipts[deviceUID]
+    }
+
+    func save(_ receipt: AudioMutationReceipt) throws {
+        guard !failsSave else { throw ReceiptStoreTestError.saveFailed }
+        receipts[receipt.deviceUID] = receipt
+    }
+
+    func removeReceipt(deviceUID: String) throws {
+        guard !failsRemoval else { throw ReceiptStoreTestError.removalFailed }
         receipts.removeValue(forKey: deviceUID)
     }
 }

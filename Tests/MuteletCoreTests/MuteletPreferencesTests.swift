@@ -40,7 +40,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, MuteletPreferences())
     }
 
-    func testShortcutRequiresCommandOrControl() {
+    func testShortcutRequiresCommandOrControlAndTwoModifiers() {
         let invalid = GlobalHotKeyConfiguration(
             keyCode: 46,
             keyLabel: "M",
@@ -49,6 +49,49 @@ final class MuteletPreferencesTests: XCTestCase {
 
         XCTAssertFalse(invalid.isValid)
         XCTAssertTrue(GlobalHotKeyConfiguration.default.isValid)
-        XCTAssertEqual(GlobalHotKeyConfiguration.default.displayName, "⌃⌥M")
+        XCTAssertEqual(GlobalHotKeyConfiguration.default.displayName, "⌃⇧M")
+        XCTAssertFalse(
+            GlobalHotKeyConfiguration(
+                keyCode: 8,
+                keyLabel: "C",
+                modifiers: [.command]
+            ).isValid
+        )
+        XCTAssertFalse(
+            GlobalHotKeyConfiguration(
+                keyCode: 46,
+                keyLabel: "M",
+                modifiers: [.control, .option]
+            ).isValid
+        )
+    }
+
+    func testInvalidStoredShortcutMigratesWithoutDiscardingOtherPreferences() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let oldPreferences = MuteletPreferences(
+            mode: .pushToTalk,
+            target: .allInputs,
+            hotKey: GlobalHotKeyConfiguration(
+                keyCode: 46,
+                keyLabel: "M",
+                modifiers: [.control, .option]
+            ),
+            showsHUD: false
+        )
+        defaults.set(
+            try JSONEncoder().encode(oldPreferences),
+            forKey: "muteletPreferences.v1"
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(actual.mode, .pushToTalk)
+        XCTAssertEqual(actual.target, .allInputs)
+        XCTAssertEqual(actual.hotKey, .default)
+        XCTAssertFalse(actual.showsHUD)
     }
 }

@@ -15,17 +15,48 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             operation: "reading Core Audio device list"
         )
 
-        let devices = objectIDs.compactMap { objectID -> AudioDeviceDescriptor? in
-            guard let channelCount = try? inputChannelCount(objectID: objectID), channelCount > 0 else {
-                return nil
-            }
-            return try? descriptor(
-                objectID: objectID,
-                channelCount: channelCount,
-                defaultInputID: defaultInputID
+        var devices: [AudioDeviceDescriptor] = []
+        for objectID in objectIDs {
+            let streamAddress = CoreAudioPropertyAccess.address(
+                selector: kAudioDevicePropertyStreamConfiguration,
+                scope: kAudioObjectPropertyScopeInput
             )
+            guard CoreAudioPropertyAccess.hasProperty(
+                objectID: objectID,
+                address: streamAddress
+            ) else {
+                continue
+            }
+            let channelCount = try inputChannelCount(objectID: objectID)
+            guard channelCount > 0 else {
+                continue
+            }
+            do {
+                devices.append(
+                    try descriptor(
+                        objectID: objectID,
+                        channelCount: channelCount,
+                        defaultInputID: defaultInputID
+                    )
+                )
+            } catch {
+                devices.append(
+                    AudioDeviceDescriptor(
+                        objectID: objectID,
+                        uid: "unresolved-core-audio-object-\(objectID)",
+                        name: "Unreadable Input \(objectID)",
+                        inputChannelCount: channelCount,
+                        isDefaultInput: objectID == defaultInputID,
+                        capabilities: AudioDeviceCapabilities(
+                            nativeMuteControls: [],
+                            volumeControls: [],
+                            coversAllInputChannels: false
+                        )
+                    )
+                )
+            }
         }
-        .sorted { lhs, rhs in
+        devices.sort { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
 
@@ -73,6 +104,17 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         guard original.device.capabilities.isSupported else {
             throw CoreAudioError.unsupportedDevice(uid: deviceUID)
         }
+        if let receipt {
+            let availableControls = Set(
+                original.device.capabilities.nativeMuteControls
+                    + original.device.capabilities.volumeControls
+            )
+            guard receipt.originalValues.allSatisfy({
+                availableControls.contains($0.control)
+            }) else {
+                throw CoreAudioError.incompleteRestoration(uid: deviceUID)
+            }
+        }
 
         do {
             for control in original.device.capabilities.nativeMuteControls {
@@ -108,10 +150,12 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
                 current.device.capabilities.nativeMuteControls
                     + current.device.capabilities.volumeControls
             )
-            let restorableValues = receipt.originalValues.filter {
+            guard receipt.originalValues.allSatisfy({
                 availableControls.contains($0.control)
+            }) else {
+                throw CoreAudioError.incompleteRestoration(uid: deviceUID)
             }
-            try restoreValues(restorableValues, on: current.device.objectID)
+            try restoreValues(receipt.originalValues, on: current.device.objectID)
             return
         }
 
@@ -221,17 +265,27 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         objectID: AudioObjectID,
         channelCount: UInt32
     ) -> AudioDeviceCapabilities {
-        AudioDeviceCapabilities(
-            nativeMuteControls: writableControls(
-                kind: .mute,
-                objectID: objectID,
-                channelCount: channelCount
-            ),
-            volumeControls: writableControls(
-                kind: .volume,
-                objectID: objectID,
-                channelCount: channelCount
-            )
+        let muteControls = writableControls(
+            kind: .mute,
+            objectID: objectID,
+            channelCount: channelCount
+        )
+        let volumeControls = writableControls(
+            kind: .volume,
+            objectID: objectID,
+            channelCount: channelCount
+        )
+        let controls = muteControls + volumeControls
+        let hasMainControl = controls.contains(where: \.isMain)
+        let controlledChannels = Set(
+            controls.lazy.filter { !$0.isMain }.map(\.element)
+        )
+        let coversEveryChannel = hasMainControl
+            || (1...channelCount).allSatisfy(controlledChannels.contains)
+        return AudioDeviceCapabilities(
+            nativeMuteControls: muteControls,
+            volumeControls: volumeControls,
+            coversAllInputChannels: coversEveryChannel
         )
     }
 

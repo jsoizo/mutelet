@@ -1,3 +1,4 @@
+#if DEBUG
 import CoreAudio
 import Foundation
 import MuteletCore
@@ -136,3 +137,4 @@ actor UITestingReceiptStore: AudioMutationReceiptStoring {
         receipts.removeValue(forKey: deviceUID)
     }
 }
+#endif

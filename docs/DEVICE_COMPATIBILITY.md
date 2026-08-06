@@ -11,6 +11,7 @@ Core Audio devices expose different control surfaces. Mutelet inspects each inpu
 | Several inputs with mixed results | Show partial counts and warning | No all-input guarantee |
 
 Mutelet never treats an unsupported or failed device as successfully muted.
+Per-channel controls must cover every input channel, using native mute, writable volume, or a combination of both. Partial channel coverage is reported as unsupported instead of muted.
 
 ## Selection and reconnection
 

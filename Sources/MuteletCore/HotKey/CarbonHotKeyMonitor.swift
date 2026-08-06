@@ -46,11 +46,16 @@ public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
     public static let `default` = GlobalHotKeyConfiguration(
         keyCode: UInt32(kVK_ANSI_M),
         keyLabel: "M",
-        modifiers: [.control, .option]
+        modifiers: [.control, .shift]
     )
 
     public var isValid: Bool {
-        !keyLabel.isEmpty && (modifiers.contains(.command) || modifiers.contains(.control))
+        guard !keyLabel.isEmpty,
+              modifiers.contains(.command) || modifiers.contains(.control),
+              modifiers.rawValue.nonzeroBitCount >= 2 else {
+            return false
+        }
+        return !(keyCode == UInt32(kVK_ANSI_M) && modifiers == [.control, .option])
     }
 
     public var displayName: String {
@@ -118,11 +123,6 @@ public final class CarbonHotKeyMonitor {
 
         return AsyncStream { continuation in
             self.continuation = continuation
-            continuation.onTermination = { [weak self] _ in
-                Task { @MainActor in
-                    self?.stop()
-                }
-            }
         }
     }
 

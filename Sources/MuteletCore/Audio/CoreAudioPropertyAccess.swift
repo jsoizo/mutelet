@@ -165,6 +165,6 @@ enum CoreAudioPropertyAccess {
         guard let unmanagedValue = value.pointee else {
             throw CoreAudioError.missingProperty(operation: operation)
         }
-        return unmanagedValue.takeUnretainedValue() as String
+        return unmanagedValue.takeRetainedValue() as String
     }
 }

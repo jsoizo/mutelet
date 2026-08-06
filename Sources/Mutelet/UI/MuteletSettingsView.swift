@@ -23,6 +23,11 @@ struct MuteletSettingsView: View {
                 }
 
                 Toggle("Show HUD", isOn: hudSelection)
+                if let preferencesError = applicationModel.preferencesError {
+                    Text(preferencesError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section("Shortcut") {
@@ -38,7 +43,7 @@ struct MuteletSettingsView: View {
                     }
                     .accessibilityLabel("Record global shortcut")
                 }
-                Text("The shortcut must include Command or Control.")
+                Text("Use at least two modifiers including Command or Control.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let hotKeyError = applicationModel.hotKeyError {
@@ -53,7 +58,7 @@ struct MuteletSettingsView: View {
                 Text(applicationModel.loginItemStatusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if applicationModel.loginItemStatusText.contains("Approval") {
+                if applicationModel.loginItemRequiresApproval {
                     Button("Open Login Items Settings") {
                         applicationModel.openLoginItemSettings()
                     }
@@ -74,6 +79,9 @@ struct MuteletSettingsView: View {
         .formStyle(.grouped)
         .padding()
         .frame(width: 500, height: 480)
+        .onAppear {
+            applicationModel.refreshLoginItemStatus()
+        }
         .onDisappear {
             recorder.stop()
         }
@@ -174,15 +182,15 @@ private final class HotKeyRecorder: ObservableObject {
         if flags.contains(.control) { modifiers.insert(.control) }
         if flags.contains(.option) { modifiers.insert(.option) }
         if flags.contains(.shift) { modifiers.insert(.shift) }
-        guard modifiers.contains(.command) || modifiers.contains(.control),
-              let label = keyLabel(for: event) else {
+        guard let label = keyLabel(for: event) else {
             return nil
         }
-        return GlobalHotKeyConfiguration(
+        let configuration = GlobalHotKeyConfiguration(
             keyCode: UInt32(event.keyCode),
             keyLabel: label,
             modifiers: modifiers
         )
+        return configuration.isValid ? configuration : nil
     }
 
     private static func keyLabel(for event: NSEvent) -> String? {

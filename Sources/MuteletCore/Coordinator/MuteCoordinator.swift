@@ -40,10 +40,6 @@ public final class MuteCoordinator: ObservableObject {
     public func start() async {
         guard !started else { return }
         started = true
-        await refresh()
-        if mode == .pushToTalk {
-            await muteIfNeeded()
-        }
 
         do {
             let events = try await audioController.events()
@@ -53,6 +49,10 @@ public final class MuteCoordinator: ObservableObject {
                     await self?.handleAudioEvent()
                 }
             }
+            await refresh()
+            if mode == .pushToTalk {
+                await muteIfNeeded(forceForSafety: true)
+            }
         } catch {
             status = .error(message: String(describing: error))
         }
@@ -61,7 +61,7 @@ public final class MuteCoordinator: ObservableObject {
     public func stop() async {
         isHotKeyPressed = false
         if mode == .pushToTalk {
-            await muteIfNeeded()
+            await muteIfNeeded(forceForSafety: true)
         }
         eventTask?.cancel()
         eventTask = nil
@@ -84,16 +84,20 @@ public final class MuteCoordinator: ObservableObject {
 
         isBusy = true
         return Task { [weak self] in
-            await self?.muteIfNeeded()
+            await self?.muteIfNeeded(forceForSafety: true)
         }
     }
 
     public func selectTarget(_ newTarget: AudioTargetSelection) async {
         guard newTarget.id != target.id else { return }
 
-        isHotKeyPressed = false
+        let previousDevices = (try? await resolvedTargetDevices()) ?? []
         if mode == .pushToTalk {
-            await muteIfNeeded()
+            guard await muteIfNeeded(forceForSafety: true) else { return }
+            isHotKeyPressed = false
+        } else {
+            isHotKeyPressed = false
+            guard await unmuteIfNeeded(onlyWithReceipts: true) else { return }
         }
 
         target = newTarget
@@ -101,7 +105,13 @@ public final class MuteCoordinator: ObservableObject {
         await refresh()
 
         if mode == .pushToTalk {
-            await muteIfNeeded()
+            await muteIfNeeded(forceForSafety: true)
+            let currentUIDs = Set(
+                ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
+            )
+            _ = await restoreManagedDevices(
+                previousDevices.filter { !currentUIDs.contains($0.uid) }
+            )
         }
     }
 
@@ -120,7 +130,7 @@ public final class MuteCoordinator: ObservableObject {
             guard isHotKeyPressed else { return }
             isHotKeyPressed = false
             if mode == .pushToTalk {
-                await muteIfNeeded()
+                await muteIfNeeded(forceForSafety: true)
             }
         }
     }
@@ -139,40 +149,64 @@ public final class MuteCoordinator: ObservableObject {
         await refreshStatus()
     }
 
+    @discardableResult
+    public func cancelActiveHotKeyGesture() async -> Bool {
+        guard isHotKeyPressed else { return true }
+        if mode == .pushToTalk {
+            guard await muteIfNeeded(forceForSafety: true) else { return false }
+        }
+        isHotKeyPressed = false
+        return true
+    }
+
     private func handleAudioEvent() async {
         await refresh()
 
         if mode == .pushToTalk {
             if !isHotKeyPressed {
-                await muteIfNeeded()
+                await muteIfNeeded(forceForSafety: true)
             }
         } else if target == .allInputs, keepAllInputsMuted, !shouldUnmuteTargets {
             await muteIfNeeded()
         }
     }
 
-    private func muteIfNeeded() async {
+    @discardableResult
+    private func muteIfNeeded(forceForSafety: Bool = false) async -> Bool {
         await acquireOperation()
         defer { releaseOperation() }
-        guard status.canToggle, !shouldUnmuteTargets else { return }
+        if !forceForSafety {
+            guard status.canToggle, !shouldUnmuteTargets else { return true }
+        }
 
         do {
             let devices = try await resolvedTargetDevices()
             guard !devices.isEmpty else {
                 await refreshStatus()
-                return
+                return false
             }
 
             var failures = 0
             var firstError: Error?
             for device in devices {
                 do {
-                    let existingReceipt = await receiptStore.receipt(deviceUID: device.uid)
-                    let receipt = try await audioController.mute(
+                    guard device.capabilities.isSupported else {
+                        throw CoreAudioError.unsupportedDevice(uid: device.uid)
+                    }
+                    var receipt = await receiptStore.receipt(deviceUID: device.uid)
+                    if receipt == nil {
+                        let snapshot = try await audioController.snapshot(deviceUID: device.uid)
+                        let preparedReceipt = AudioMutationReceipt(
+                            deviceUID: device.uid,
+                            originalValues: snapshot.values
+                        )
+                        try await receiptStore.save(preparedReceipt)
+                        receipt = preparedReceipt
+                    }
+                    _ = try await audioController.mute(
                         deviceUID: device.uid,
-                        preserving: existingReceipt
+                        preserving: receipt
                     )
-                    try await receiptStore.save(receipt)
                 } catch {
                     failures += 1
                     firstError = firstError ?? error
@@ -186,15 +220,18 @@ public final class MuteCoordinator: ObservableObject {
             if failures > 0, target != .allInputs, let firstError {
                 status = .error(message: String(describing: firstError))
             }
+            return failures == 0
         } catch {
             status = .error(message: String(describing: error))
+            return false
         }
     }
 
-    private func unmuteIfNeeded() async {
+    @discardableResult
+    private func unmuteIfNeeded(onlyWithReceipts: Bool = false) async -> Bool {
         await acquireOperation()
         defer { releaseOperation() }
-        guard shouldUnmuteTargets else { return }
+        guard onlyWithReceipts || shouldUnmuteTargets else { return true }
 
         if target == .allInputs {
             keepAllInputsMuted = false
@@ -207,11 +244,18 @@ public final class MuteCoordinator: ObservableObject {
             for device in devices {
                 do {
                     let receipt = await receiptStore.receipt(deviceUID: device.uid)
+                    if onlyWithReceipts, receipt == nil {
+                        continue
+                    }
                     try await audioController.unmute(
                         deviceUID: device.uid,
                         restoring: receipt
                     )
-                    if receipt != nil {
+                    if let receipt {
+                        let restored = try await audioController.snapshot(deviceUID: device.uid)
+                        guard Self.snapshot(restored, matches: receipt) else {
+                            throw CoreAudioError.incompleteRestoration(uid: device.uid)
+                        }
                         try await receiptStore.removeReceipt(deviceUID: device.uid)
                     }
                 } catch {
@@ -224,8 +268,10 @@ public final class MuteCoordinator: ObservableObject {
             if failures > 0, target != .allInputs, let firstError {
                 status = .error(message: String(describing: firstError))
             }
+            return failures == 0
         } catch {
             status = .error(message: String(describing: error))
+            return false
         }
     }
 
@@ -380,5 +426,54 @@ public final class MuteCoordinator: ObservableObject {
 
         let next = operationWaiters.removeFirst()
         next.resume()
+    }
+
+    private static func snapshot(
+        _ snapshot: AudioDeviceSnapshot,
+        matches receipt: AudioMutationReceipt
+    ) -> Bool {
+        let currentValues = Dictionary(
+            uniqueKeysWithValues: snapshot.values.map { ($0.control, $0.value) }
+        )
+        return receipt.originalValues.allSatisfy { saved in
+            guard let current = currentValues[saved.control] else { return false }
+            return abs(current - saved.value) <= 0.0001
+        }
+    }
+
+    @discardableResult
+    private func restoreManagedDevices(
+        _ devices: [AudioDeviceDescriptor]
+    ) async -> Bool {
+        guard !devices.isEmpty else { return true }
+        await acquireOperation()
+        defer { releaseOperation() }
+
+        var firstError: Error?
+        for device in devices {
+            guard let receipt = await receiptStore.receipt(deviceUID: device.uid) else {
+                continue
+            }
+            do {
+                try await audioController.unmute(
+                    deviceUID: device.uid,
+                    restoring: receipt
+                )
+                let restored = try await audioController.snapshot(deviceUID: device.uid)
+                guard Self.snapshot(restored, matches: receipt) else {
+                    throw CoreAudioError.incompleteRestoration(uid: device.uid)
+                }
+                try await receiptStore.removeReceipt(deviceUID: device.uid)
+            } catch {
+                firstError = firstError ?? error
+            }
+        }
+
+        await refreshStatus()
+        if let firstError {
+            status = .error(message: String(describing: firstError))
+            return false
+        }
+        return true
     }
 }

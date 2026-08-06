@@ -3,6 +3,34 @@ import XCTest
 @testable import MuteletCore
 
 final class AudioDeviceModelsTests: XCTestCase {
+    func testIncompleteChannelCoverageIsUnsupported() {
+        let partialCapabilities = AudioDeviceCapabilities(
+            nativeMuteControls: [],
+            volumeControls: [AudioControl(kind: .volume, element: 1)],
+            coversAllInputChannels: false
+        )
+        let device = AudioDeviceDescriptor(
+            objectID: 99,
+            uid: "partial",
+            name: "Partial Input",
+            inputChannelCount: 2,
+            isDefaultInput: true,
+            capabilities: partialCapabilities
+        )
+        let snapshot = AudioDeviceSnapshot(
+            device: device,
+            values: [
+                AudioControlValue(
+                    control: AudioControl(kind: .volume, element: 1),
+                    value: 0
+                ),
+            ]
+        )
+
+        XCTAssertFalse(partialCapabilities.isSupported)
+        XCTAssertEqual(snapshot.muteState, .unsupported)
+    }
+
     func testUnsupportedWhenNoWritableControlsExist() {
         let capabilities = AudioDeviceCapabilities(
             nativeMuteControls: [],

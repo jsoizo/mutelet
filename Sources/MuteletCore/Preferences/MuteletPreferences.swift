@@ -46,10 +46,12 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
 
     public func load() -> MuteletPreferences {
         guard let data = defaults.data(forKey: Self.storageKey),
-              let preferences = try? decoder.decode(MuteletPreferences.self, from: data),
-              preferences.schemaVersion == MuteletPreferences.currentSchemaVersion,
-              preferences.hotKey.isValid else {
+              var preferences = try? decoder.decode(MuteletPreferences.self, from: data),
+              preferences.schemaVersion == MuteletPreferences.currentSchemaVersion else {
             return MuteletPreferences()
+        }
+        if !preferences.hotKey.isValid {
+            preferences.hotKey = .default
         }
         return preferences
     }

@@ -1,17 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "A shortcut must include Command or Control." : {
-      "comment" : "Invalid shortcut error",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ショートカットにはCommandまたはControlが必要です。"
-          }
-        }
-      }
-    },
     "About" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -327,6 +316,16 @@
         }
       }
     },
+    "Settings could not be saved" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を保存できませんでした"
+          }
+        }
+      }
+    },
     "Shortcut" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -392,12 +391,24 @@
         }
       }
     },
-    "The shortcut must include Command or Control." : {
+    "Use at least two modifiers including Command or Control." : {
+      "comment" : "Invalid shortcut error",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ショートカットにはCommandまたはControlが必要です。"
+            "value" : "CommandまたはControlを含む2つ以上の修飾キーを使用してください。"
+          }
+        }
+      }
+    },
+    "The microphone could not be remuted, so the shortcut was not changed." : {
+      "comment" : "Shortcut safety error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクを再ミュートできなかったため、ショートカットは変更されませんでした。"
           }
         }
       }

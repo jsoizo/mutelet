@@ -50,7 +50,7 @@ It builds the UI tests without interrupting a Mutelet instance you may be using.
 
 ## Usage
 
-The default shortcut is **Control + Option + M**.
+The default shortcut is **Control + Shift + M**.
 
 - **Toggle:** press once to mute and once again to restore the previous state.
 - **Push to Talk:** the input is muted while idle; hold the shortcut to talk and release it to mute again.

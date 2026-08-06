@@ -27,6 +27,7 @@ struct MuteletApp: App {
     @StateObject private var applicationModel: MuteletApplicationModel
 
     init() {
+#if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         let isUITesting = arguments.contains("--ui-testing")
         let audioController: any AudioDeviceControlling = isUITesting
@@ -35,6 +36,17 @@ struct MuteletApp: App {
         let receiptStore: any AudioMutationReceiptStoring = isUITesting
             ? UITestingReceiptStore()
             : UserDefaultsAudioMutationReceiptStore()
+        let preferencesStore: any MuteletPreferencesStoring = isUITesting
+            ? UITestingPreferencesStore(arguments: arguments)
+            : UserDefaultsMuteletPreferencesStore()
+#else
+        let isUITesting = false
+        let audioController: any AudioDeviceControlling = CoreAudioDeviceController()
+        let receiptStore: any AudioMutationReceiptStoring =
+            UserDefaultsAudioMutationReceiptStore()
+        let preferencesStore: any MuteletPreferencesStoring =
+            UserDefaultsMuteletPreferencesStore()
+#endif
         let coordinator = MuteCoordinator(
             audioController: audioController,
             receiptStore: receiptStore
@@ -43,9 +55,7 @@ struct MuteletApp: App {
         _applicationModel = StateObject(
             wrappedValue: MuteletApplicationModel(
                 coordinator: coordinator,
-                preferencesStore: isUITesting
-                    ? UITestingPreferencesStore(arguments: arguments)
-                    : UserDefaultsMuteletPreferencesStore(),
+                preferencesStore: preferencesStore,
                 enablesSystemIntegrations: !isUITesting
             )
         )

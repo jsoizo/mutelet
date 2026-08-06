@@ -8,6 +8,7 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
     case unsupportedDevice(uid: String)
     case missingRestoration(uid: String)
     case invalidRestoration(expectedUID: String, actualUID: String)
+    case incompleteRestoration(uid: String)
 
     public var description: String {
         switch self {
@@ -23,6 +24,8 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
             return "Input device \(uid) is volume-only and has no saved volume to restore"
         case let .invalidRestoration(expectedUID, actualUID):
             return "Saved volume belongs to \(actualUID), not \(expectedUID)"
+        case let .incompleteRestoration(uid):
+            return "Not every saved input control for \(uid) could be restored and verified"
         }
     }
 }

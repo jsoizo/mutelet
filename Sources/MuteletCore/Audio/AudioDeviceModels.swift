@@ -48,18 +48,24 @@ public struct AudioControl: Codable, Hashable, Sendable {
 public struct AudioDeviceCapabilities: Hashable, Sendable {
     public let nativeMuteControls: [AudioControl]
     public let volumeControls: [AudioControl]
+    public let coversAllInputChannels: Bool
 
-    public init(nativeMuteControls: [AudioControl], volumeControls: [AudioControl]) {
+    public init(
+        nativeMuteControls: [AudioControl],
+        volumeControls: [AudioControl],
+        coversAllInputChannels: Bool = true
+    ) {
         self.nativeMuteControls = nativeMuteControls
         self.volumeControls = volumeControls
+        self.coversAllInputChannels = coversAllInputChannels
     }
 
     public var isSupported: Bool {
-        !nativeMuteControls.isEmpty || !volumeControls.isEmpty
+        coversAllInputChannels && (!nativeMuteControls.isEmpty || !volumeControls.isEmpty)
     }
 
     public var usesVolumeFallbackOnly: Bool {
-        nativeMuteControls.isEmpty && !volumeControls.isEmpty
+        isSupported && nativeMuteControls.isEmpty && !volumeControls.isEmpty
     }
 }
 

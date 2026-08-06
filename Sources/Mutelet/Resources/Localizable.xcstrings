@@ -402,29 +402,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プッシュ・トゥ・トーク"
-          }
-        }
-      }
-    },
-    "Push to Talk enabled" : {
-      "comment" : "Push-to-talk enabled HUD title",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "プッシュ・トゥ・トーク有効"
-          }
-        }
-      }
-    },
-    "Hold %@" : {
-      "comment" : "Push-to-talk enabled HUD shortcut",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@を長押し"
+            "value" : "プッシュトゥトーク"
           }
         }
       }

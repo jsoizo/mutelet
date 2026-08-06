@@ -20,13 +20,13 @@ final class MuteHUDController {
     func showPushToTalkEnabled(shortcut: String) {
         show(
             title: NSLocalizedString(
-                "Push to Talk enabled",
-                comment: "Push-to-talk enabled HUD title"
+                "Push to Talk",
+                comment: "Push-to-talk HUD title"
             ),
             detail: String(
                 format: NSLocalizedString(
-                    "Hold %@",
-                    comment: "Push-to-talk enabled HUD shortcut"
+                    "Hold %@ to talk",
+                    comment: "Push-to-talk HUD shortcut"
                 ),
                 shortcut
             ),

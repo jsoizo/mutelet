@@ -31,6 +31,7 @@
 		A10000000000000000000023 /* UITestingDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* UITestingDependencies.swift */; };
 		A10000000000000000000024 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* Localizable.xcstrings */; };
 		A10000000000000000000025 /* MuteletUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* MuteletUITests.swift */; };
+		A10000000000000000000026 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 		A20000000000000000000025 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = "<group>"; };
 		A20000000000000000000026 /* MuteletUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuteletUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000027 /* MuteletUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuteletUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +110,7 @@
 				A20000000000000000000021 /* MuteHUDController.swift */,
 				A20000000000000000000024 /* UITestingDependencies.swift */,
 				A20000000000000000000025 /* Localizable.xcstrings */,
+				A20000000000000000000028 /* Assets.xcassets */,
 			);
 			path = Sources/Mutelet;
 			sourceTree = "<group>";
@@ -259,7 +262,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A80000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000024 /* Localizable.xcstrings in Resources */); runOnlyForDeploymentPostprocessing = 0;};
+		A80000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000024 /* Localizable.xcstrings in Resources */, A10000000000000000000026 /* Assets.xcassets in Resources */); runOnlyForDeploymentPostprocessing = 0;};
 		A80000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
 		A80000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
 		A80000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
@@ -331,6 +334,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -353,6 +357,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;

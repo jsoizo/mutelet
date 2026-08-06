@@ -15,3 +15,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Settings, HUD feedback, launch at login, and English/Japanese localization.
 - Write-ahead restoration receipts, verified restoration, and fail-safe Push to Talk remuting.
 - Debug-only UI test dependencies and release checks that reject test switches.
+- Original application icon and complete macOS icon-size asset catalog.

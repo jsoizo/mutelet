@@ -63,8 +63,6 @@ When a device has no native mute control, Mutelet may silence it by setting writ
 
 Mutelet talks directly to Core Audio control properties. It never opens an audio stream. Before changing volume-based controls, it stores their values per device UID and channel so they can be restored safely.
 
-The project is an independent implementation inspired by the useful workflow of older utilities such as MuteKey. It is not an official successor or compatible distribution, and does not reuse their code, artwork, name, or branding. The modernization approach is also informed by [Tiley](https://github.com/yusuke/tiley): replace the role of an Intel-era utility with a small, native, maintainable open-source macOS app.
-
 ## FAQ
 
 ### Why does Mutelet show a warning for my input?

@@ -39,8 +39,8 @@ final class MuteCoordinatorTests: XCTestCase {
 
         let muteCalls = await audio.muteCallCount()
         XCTAssertEqual(muteCalls, 0)
-        if case .error = coordinator.status {
-            // Expected: persistence failed before touching Core Audio.
+        if case let .error(message) = coordinator.status {
+            XCTAssertEqual(message, "The microphone could not be controlled.")
         } else {
             XCTFail("Expected a persistence error")
         }
@@ -153,8 +153,8 @@ final class MuteCoordinatorTests: XCTestCase {
         await coordinator.setMode(.pushToTalk)
 
         await coordinator.handleHotKey(.pressed)
-        if case .error = coordinator.status {
-            // Expected: audio restoration succeeded but receipt removal failed.
+        if case let .error(message) = coordinator.status {
+            XCTAssertEqual(message, "The microphone could not be controlled.")
         } else {
             XCTFail("Expected a receipt removal error")
         }
@@ -432,8 +432,8 @@ final class MuteCoordinatorTests: XCTestCase {
 
         let retainedReceipt = await store.receipt(deviceUID: FakeAudioController.uid)
         XCTAssertNotNil(retainedReceipt)
-        if case .error = coordinator.status {
-            // Expected: receipt is retained until every value verifies.
+        if case let .error(message) = coordinator.status {
+            XCTAssertEqual(message, "The microphone could not be controlled.")
         } else {
             XCTFail("Expected incomplete restoration error")
         }

@@ -158,7 +158,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            loginItemError = String(describing: error)
+            NSLog("Mutelet login item error: %@", String(describing: error))
+            loginItemError = NSLocalizedString(
+                "Login item settings could not be changed.",
+                comment: "Login item update error"
+            )
         }
         refreshLoginItemStatus()
     }
@@ -205,7 +209,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
                 comment: "Shortcut conflict error"
             )
         }
-        return String(describing: error)
+        NSLog("Mutelet shortcut error: %@", String(describing: error))
+        return NSLocalizedString(
+            "Shortcut unavailable",
+            comment: "Shortcut registration error"
+        )
     }
 
     private func handleHotKey(_ event: GlobalHotKeyEvent) async {
@@ -233,12 +241,10 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             try await preferencesStore.save(preferences)
             preferencesError = nil
         } catch {
-            preferencesError = String(
-                format: NSLocalizedString(
-                    "Saving settings failed: %@",
-                    comment: "Settings persistence error"
-                ),
-                String(describing: error)
+            NSLog("Mutelet settings error: %@", String(describing: error))
+            preferencesError = NSLocalizedString(
+                "Settings could not be saved",
+                comment: "Settings persistence error"
             )
         }
     }

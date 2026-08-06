@@ -54,7 +54,7 @@ public final class MuteCoordinator: ObservableObject {
                 await muteIfNeeded(forceForSafety: true)
             }
         } catch {
-            status = .error(message: String(describing: error))
+            status = .error(message: userFacingErrorMessage(for: error))
         }
     }
 
@@ -218,11 +218,11 @@ public final class MuteCoordinator: ObservableObject {
             }
             await refreshStatus(additionalFailures: failures)
             if failures > 0, target != .allInputs, let firstError {
-                status = .error(message: String(describing: firstError))
+                status = .error(message: userFacingErrorMessage(for: firstError))
             }
             return failures == 0
         } catch {
-            status = .error(message: String(describing: error))
+            status = .error(message: userFacingErrorMessage(for: error))
             return false
         }
     }
@@ -266,11 +266,11 @@ public final class MuteCoordinator: ObservableObject {
 
             await refreshStatus(additionalFailures: failures)
             if failures > 0, target != .allInputs, let firstError {
-                status = .error(message: String(describing: firstError))
+                status = .error(message: userFacingErrorMessage(for: firstError))
             }
             return failures == 0
         } catch {
-            status = .error(message: String(describing: error))
+            status = .error(message: userFacingErrorMessage(for: error))
             return false
         }
     }
@@ -328,13 +328,18 @@ public final class MuteCoordinator: ObservableObject {
             } else if let snapshot = snapshots.first {
                 status = status(for: snapshot)
             } else {
-                status = .error(message: "Reading the selected input device failed")
+                status = .error(
+                    message: NSLocalizedString(
+                        "Reading the selected input device failed",
+                        comment: "Selected microphone read error"
+                    )
+                )
             }
         } catch {
             availableDevices = []
             targetWarning = nil
             shouldUnmuteTargets = false
-            status = .error(message: String(describing: error))
+            status = .error(message: userFacingErrorMessage(for: error))
         }
     }
 
@@ -374,7 +379,7 @@ public final class MuteCoordinator: ObservableObject {
 
         if failures > 0 || unsupported > 0 {
             status = .partial(
-                deviceName: "All Inputs",
+                deviceName: AudioTargetSelection.allInputs.title,
                 muted: muted,
                 live: live,
                 mixed: mixed,
@@ -382,13 +387,13 @@ public final class MuteCoordinator: ObservableObject {
                 failed: failures
             )
         } else if !snapshots.isEmpty, muted == snapshots.count {
-            status = .muted(deviceName: "All Inputs")
+            status = .muted(deviceName: AudioTargetSelection.allInputs.title)
         } else if !snapshots.isEmpty, live == snapshots.count {
-            status = .live(deviceName: "All Inputs")
+            status = .live(deviceName: AudioTargetSelection.allInputs.title)
         } else if snapshots.isEmpty {
             status = .unavailable
         } else {
-            status = .mixed(deviceName: "All Inputs")
+            status = .mixed(deviceName: AudioTargetSelection.allInputs.title)
         }
     }
 
@@ -441,6 +446,14 @@ public final class MuteCoordinator: ObservableObject {
         }
     }
 
+    private func userFacingErrorMessage(for error: Error) -> String {
+        NSLog("Mutelet microphone error: %@", String(describing: error))
+        return NSLocalizedString(
+            "The microphone could not be controlled.",
+            comment: "Generic microphone control error"
+        )
+    }
+
     @discardableResult
     private func restoreManagedDevices(
         _ devices: [AudioDeviceDescriptor]
@@ -471,7 +484,7 @@ public final class MuteCoordinator: ObservableObject {
 
         await refreshStatus()
         if let firstError {
-            status = .error(message: String(describing: firstError))
+            status = .error(message: userFacingErrorMessage(for: firstError))
             return false
         }
         return true

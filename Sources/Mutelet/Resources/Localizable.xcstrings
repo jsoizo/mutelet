@@ -7,7 +7,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ — ミュート%d、オン%d、混在%d、非対応%d、失敗%d"
+            "value" : "%@：ミュート %d台、オン %d台、一部のみミュート %d台、非対応 %d台、エラー %d台"
           }
         }
       }
@@ -18,7 +18,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このアプリについて"
+            "value" : "Muteletについて"
           }
         }
       }
@@ -29,7 +29,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべての入力"
+            "value" : "すべてのマイク"
           }
         }
       }
@@ -39,7 +39,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Siliconネイティブのマイクミュートユーティリティです。"
+            "value" : "Apple Silicon搭載Mac向けのマイクミュートアプリです。"
           }
         }
       }
@@ -50,7 +50,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "システム設定で承認が必要です"
+            "value" : "「システム設定」で許可してください"
           }
         }
       }
@@ -61,7 +61,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "動作"
+            "value" : "マイク操作"
           }
         }
       }
@@ -83,7 +83,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクを確認中…"
+            "value" : "マイクの状態を確認中…"
           }
         }
       }
@@ -105,7 +105,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エラー — %@"
+            "value" : "エラー：%@"
           }
         }
       }
@@ -138,13 +138,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "グローバルショートカット"
+            "value" : "キーボードショートカット"
           }
         }
       }
     },
     "Hold %@ to talk" : {
-      "comment" : "Push-to-talk help",
+      "comment" : "Push-to-talk HUD shortcut\nPush-to-talk help",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -160,7 +160,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力"
+            "value" : "対象のマイク"
           }
         }
       }
@@ -171,7 +171,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力未接続"
+            "value" : "マイクが接続されていません"
           }
         }
       }
@@ -182,7 +182,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力未接続 — %@"
+            "value" : "マイクが接続されていません：%@"
           }
         }
       }
@@ -198,13 +198,24 @@
         }
       }
     },
+    "Login item settings could not be changed." : {
+      "comment" : "Login item update error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログイン時の起動設定を変更できませんでした。"
+          }
+        }
+      }
+    },
     "Microphone error" : {
       "comment" : "Audio error state",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクエラー"
+            "value" : "マイクで問題が発生しました"
           }
         }
       }
@@ -215,7 +226,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクはミュート中"
+            "value" : "マイクはミュート中です"
           }
         }
       }
@@ -226,7 +237,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクはミュート中 — %@"
+            "value" : "%@：マイクはミュート中です"
           }
         }
       }
@@ -237,7 +248,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクはオン"
+            "value" : "マイクはオンです"
           }
         }
       }
@@ -248,7 +259,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクはオン — %@"
+            "value" : "%@：マイクはオンです"
           }
         }
       }
@@ -259,7 +270,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイク状態が混在 — %@"
+            "value" : "%@：一部のみミュートされています"
           }
         }
       }
@@ -270,7 +281,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイク状態が混在"
+            "value" : "一部のみミュートされています"
           }
         }
       }
@@ -313,7 +324,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力デバイスがありません"
+            "value" : "マイクが見つかりません"
           }
         }
       }
@@ -346,7 +357,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ログイン項目設定を開く"
+            "value" : "ログイン項目の設定を開く"
           }
         }
       }
@@ -357,7 +368,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一部のみ — %@（ミュート%d、オン%d、混在%d、非対応%d、失敗%d）"
+            "value" : "%@：一部を操作できません（ミュート %d台、オン %d台、一部のみミュート %d台、非対応 %d台、エラー %d台）"
           }
         }
       }
@@ -368,7 +379,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一部のみミュート"
+            "value" : "一部のマイクを操作できません"
           }
         }
       }
@@ -380,7 +391,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ショートカットを入力…"
+            "value" : "キーの組み合わせを押してください…"
           }
         }
       }
@@ -397,7 +408,7 @@
       }
     },
     "Push to Talk" : {
-      "extractionState" : "stale",
+      "comment" : "Push-to-talk HUD title",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -418,13 +429,24 @@
         }
       }
     },
+    "Reading the selected input device failed" : {
+      "comment" : "Selected microphone read error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択したマイクの状態を確認できませんでした。"
+          }
+        }
+      }
+    },
     "Record global shortcut" : {
       "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "グローバルショートカットを記録"
+            "value" : "キーボードショートカットを変更"
           }
         }
       }
@@ -435,7 +457,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ショートカットを記録…"
+            "value" : "ショートカットを変更…"
           }
         }
       }
@@ -446,18 +468,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "デフォルトに戻す"
-          }
-        }
-      }
-    },
-    "Saving settings failed: %@" : {
-      "comment" : "Settings persistence error",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定の保存に失敗しました：%@"
+            "value" : "初期設定に戻す"
           }
         }
       }
@@ -501,19 +512,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ショートカットを利用できません"
-          }
-        }
-      }
-    },
-    "Shortcut: %@" : {
-      "comment" : "Shortcut help",
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ショートカット：%@"
+            "value" : "ショートカットを登録できません"
           }
         }
       }
@@ -524,7 +523,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "HUDを表示"
+            "value" : "操作時に状態を表示"
           }
         }
       }
@@ -546,7 +545,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "システム既定"
+            "value" : "Macで選択中のマイク"
           }
         }
       }
@@ -557,7 +556,29 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクを再ミュートできなかったため、ショートカットは変更されませんでした。"
+            "value" : "マイクを再度ミュートできなかったため、ショートカットは変更しませんでした。"
+          }
+        }
+      }
+    },
+    "The microphone could not be controlled." : {
+      "comment" : "Generic microphone control error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクを操作できませんでした。"
+          }
+        }
+      }
+    },
+    "This shortcut is already in use by another app. Choose a different shortcut." : {
+      "comment" : "Shortcut conflict error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このショートカットは別のアプリで使われています。別のキーの組み合わせを選んでください。"
           }
         }
       }
@@ -579,7 +600,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "利用不可"
+            "value" : "利用できません"
           }
         }
       }
@@ -606,24 +627,13 @@
         }
       }
     },
-    "This shortcut is already in use by another app. Choose a different shortcut." : {
-      "comment" : "Shortcut conflict error",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このショートカットは別のアプリで使用されています。別のショートカットを選択してください。"
-          }
-        }
-      }
-    },
     "Unsupported input" : {
       "comment" : "Unsupported input state",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "非対応の入力"
+            "value" : "このマイクは操作できません"
           }
         }
       }
@@ -634,7 +644,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "非対応の入力 — %@"
+            "value" : "マイクを操作できません：%@"
           }
         }
       }
@@ -645,7 +655,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CommandまたはControlを含む1つ以上の修飾キーを使用してください。"
+            "value" : "CommandキーまたはControlキーを含むキーの組み合わせを指定してください。"
           }
         }
       }
@@ -655,7 +665,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CommandまたはControlを含む1つ以上の修飾キーを使用してください。Escapeでキャンセルできます。"
+            "value" : "CommandキーまたはControlキーを含むキーの組み合わせを押してください。Escキーでキャンセルできます。"
           }
         }
       }
@@ -666,7 +676,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "バージョン%@（%@）"
+            "value" : "バージョン %@（ビルド %@）"
           }
         }
       }
@@ -677,7 +687,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音量のみのミュートでは完全な無音を保証できない場合があります。"
+            "value" : "音量を0にしてミュートするマイクがあります。完全に消音できない場合があります。"
           }
         }
       }

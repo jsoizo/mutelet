@@ -15,6 +15,9 @@ final class MuteletUITests: XCTestCase {
         XCTAssertEqual(muteButton.label, "Mute")
         muteButton.click()
 
+        let hud = app.descendants(matching: .any)["mutelet-hud"]
+        XCTAssertTrue(hud.waitForExistence(timeout: 2))
+
         let status = app.descendants(matching: .any)["mutelet-status"]
         XCTAssertTrue(status.waitForExistence(timeout: 5))
         waitForValue("Microphone muted — UI Test Microphone", on: status)

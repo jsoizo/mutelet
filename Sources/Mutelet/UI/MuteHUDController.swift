@@ -9,23 +9,38 @@ final class MuteHUDController {
     private var presentationGeneration = 0
 
     func show(status: MuteStatus) {
-        show(title: status.title, systemImageName: status.systemImageName)
+        show(
+            title: status.interfaceTitle,
+            detail: status.hudDetail,
+            systemImageName: status.systemImageName,
+            color: status.interfaceColor
+        )
     }
 
     func showPushToTalkEnabled(shortcut: String) {
         show(
-            title: String(
+            title: NSLocalizedString(
+                "Push to Talk enabled",
+                comment: "Push-to-talk enabled HUD title"
+            ),
+            detail: String(
                 format: NSLocalizedString(
-                    "Push to Talk enabled — Hold %@",
-                    comment: "Push-to-talk enabled HUD"
+                    "Hold %@",
+                    comment: "Push-to-talk enabled HUD shortcut"
                 ),
                 shortcut
             ),
-            systemImageName: "mic.badge.plus"
+            systemImageName: "mic.badge.plus",
+            color: .accentColor
         )
     }
 
-    private func show(title: String, systemImageName: String) {
+    private func show(
+        title: String,
+        detail: String?,
+        systemImageName: String,
+        color: Color
+    ) {
         presentationGeneration += 1
         let generation = presentationGeneration
         dismissalTask?.cancel()
@@ -33,7 +48,12 @@ final class MuteHUDController {
         let panel = panel ?? makePanel()
         self.panel = panel
         panel.contentView = NSHostingView(
-            rootView: MuteHUDView(title: title, systemImageName: systemImageName)
+            rootView: MuteHUDView(
+                title: title,
+                detail: detail,
+                systemImageName: systemImageName,
+                color: color
+            )
         )
         position(panel)
         NSAnimationContext.runAnimationGroup { context in
@@ -41,11 +61,14 @@ final class MuteHUDController {
             panel.animator().alphaValue = 1
         }
         panel.orderFrontRegardless()
+        let announcement = [title, detail]
+            .compactMap { $0 }
+            .joined(separator: ", ")
         NSAccessibility.post(
             element: NSApplication.shared,
             notification: .announcementRequested,
             userInfo: [
-                NSAccessibility.NotificationUserInfoKey.announcement: title,
+                NSAccessibility.NotificationUserInfoKey.announcement: announcement,
                 NSAccessibility.NotificationUserInfoKey.priority:
                     NSAccessibilityPriorityLevel.high.rawValue,
             ]
@@ -82,7 +105,7 @@ final class MuteHUDController {
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 260, height: 112),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 224),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -113,21 +136,61 @@ final class MuteHUDController {
 
 private struct MuteHUDView: View {
     let title: String
+    let detail: String?
     let systemImageName: String
+    let color: Color
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             Image(systemName: systemImageName)
-                .font(.system(size: 34, weight: .semibold))
-            Text(title)
-                .font(.headline)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 72, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(color)
+
+            VStack(spacing: 5) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+
+                if let detail {
+                    Text(detail)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 324)
         }
-        .padding(18)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .background {
+            RoundedRectangle(cornerRadius: 24)
+                .fill(.regularMaterial)
+                .opacity(0.5)
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(title)
+        .accessibilityLabel([title, detail].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityIdentifier("mutelet-hud")
+    }
+}
+
+private extension MuteStatus {
+    var hudDetail: String? {
+        switch self {
+        case let .live(deviceName),
+             let .muted(deviceName),
+             let .mixed(deviceName),
+             let .disconnected(deviceName),
+             let .unsupported(deviceName),
+             let .partial(deviceName, _, _, _, _, _):
+            deviceName
+        case let .error(message):
+            message
+        case .loading, .unavailable:
+            nil
+        }
     }
 }

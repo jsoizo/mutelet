@@ -1,0 +1,53 @@
+/* Mutelet site layout */
+:root {
+  --site-section-height: 14rem;
+}
+
+.site-header {
+  padding-bottom: 0;
+}
+
+.site-header nav {
+  max-width: 45rem;
+  margin-inline: auto;
+}
+
+.site-header nav ul {
+  justify-content: flex-end;
+}
+
+main {
+  padding-top: 0;
+}
+
+main > section {
+  min-height: var(--site-section-height);
+  display: grid;
+  align-content: center;
+}
+
+main > .hero {
+  min-height: 24rem;
+  text-align: center;
+}
+
+.hero h1 {
+  margin-block: 0;
+  font-size: clamp(3rem, 12vw, 6rem);
+  letter-spacing: -0.04em;
+}
+
+@media only screen and (width <= 720px) {
+  :root {
+    --site-section-height: 11rem;
+  }
+
+  .site-header nav ul {
+    justify-content: center;
+    gap: 1.5rem;
+  }
+
+  main > .hero {
+    min-height: 18rem;
+  }
+}

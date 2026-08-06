@@ -5,5 +5,7 @@
 .vscode/
 DerivedData/
 dist/
+site/node_modules/
+site/_site/
 xcuserdata/
 *.xcuserstate

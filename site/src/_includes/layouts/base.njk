@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title | escape }}</title>
+    <link rel="stylesheet" href="/assets/vendor/simple.min.css">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <nav aria-label="{{ languageNavigationLabel }}">
+        <ul>
+          <li>
+            <a href="/" lang="en" hreflang="en"{% if lang == "en" %} aria-current="page"{% endif %}>English</a>
+          </li>
+          <li>
+            <a href="/ja/" lang="ja" hreflang="ja"{% if lang == "ja" %} aria-current="page"{% endif %}>日本語</a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      {{ content | safe }}
+    </main>
+  </body>
+</html>

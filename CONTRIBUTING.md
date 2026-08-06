@@ -29,7 +29,7 @@ Sources/MuteletProbe/  Read-mostly Core Audio diagnostics
 Tests/                 Core unit tests using fake dependencies
 MuteletUITests/        UI smoke tests using launch-time fake dependencies
 docs/                  Architecture, privacy, compatibility, and release docs
-scripts/               Reproducible verification and release tooling
+scripts/               Reproducible build, verification, and release tooling
 changelogs/            Release-note drafts
 ```
 

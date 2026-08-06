@@ -13,5 +13,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - System-default, individual-device, and all-input targeting.
 - Native mute plus writable input-volume controls, with volume-only fallback and safe value restoration.
 - Settings, HUD feedback, launch at login, and English/Japanese localization.
-
-See [changelogs/0.1.0.md](changelogs/0.1.0.md) for the first release-note draft.
+- Write-ahead restoration receipts, verified restoration, and fail-safe Push to Talk remuting.
+- Debug-only UI test dependencies and release checks that reject test switches.

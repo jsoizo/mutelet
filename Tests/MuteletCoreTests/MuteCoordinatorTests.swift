@@ -162,6 +162,39 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshedSnapshots, initialSnapshots + 1)
     }
 
+    func testStopWaitsForEventRefreshBeforeStartingANewGeneration() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await audio.suspendNextSnapshot()
+        await audio.simulateControlEvents(count: 1)
+        await waitUntil { await audio.isSnapshotSuspended() }
+
+        let stopCompletion = CompletionFlag()
+        let stopTask = Task {
+            await coordinator.stop()
+            await stopCompletion.markCompleted()
+        }
+        try? await Task.sleep(for: .milliseconds(20))
+        let stoppedWhileRefreshWasSuspended = await stopCompletion.isCompleted
+        XCTAssertFalse(stoppedWhileRefreshWasSuspended)
+
+        await audio.resumeSnapshot()
+        await stopTask.value
+        await coordinator.start()
+        let snapshotsAfterRestart = await audio.snapshotCallCount()
+
+        await audio.simulateControlEvents(count: 5)
+        await waitUntil { await audio.snapshotCallCount() > snapshotsAfterRestart }
+        try? await Task.sleep(for: .milliseconds(30))
+
+        let refreshedSnapshots = await audio.snapshotCallCount()
+        XCTAssertEqual(refreshedSnapshots, snapshotsAfterRestart + 1)
+    }
+
     func testControlEventForUnrelatedDeviceDoesNotRefresh() async {
         let audio = FakeAudioController(state: .live)
         let coordinator = MuteCoordinator(
@@ -521,6 +554,8 @@ private actor FakeAudioController: AudioDeviceControlling {
     private let suspendsUnmute: Bool
     private let restoresIncorrectly: Bool
     private var unmuteContinuation: CheckedContinuation<Void, Never>?
+    private var shouldSuspendNextSnapshot = false
+    private var snapshotContinuation: CheckedContinuation<Void, Never>?
 
     init(
         state: AudioDeviceMuteState,
@@ -542,8 +577,14 @@ private actor FakeAudioController: AudioDeviceControlling {
         hasDefaultInput ? Self.descriptor : nil
     }
 
-    func snapshot(deviceUID: String) throws -> AudioDeviceSnapshot {
+    func snapshot(deviceUID: String) async throws -> AudioDeviceSnapshot {
         snapshotCalls += 1
+        if shouldSuspendNextSnapshot {
+            shouldSuspendNextSnapshot = false
+            await withCheckedContinuation { continuation in
+                snapshotContinuation = continuation
+            }
+        }
         let values: [AudioControlValue] = switch state {
         case .live:
             [
@@ -599,6 +640,19 @@ private actor FakeAudioController: AudioDeviceControlling {
     func unmuteCallCount() -> Int { unmuteCalls }
     func snapshotCallCount() -> Int { snapshotCalls }
 
+    func suspendNextSnapshot() {
+        shouldSuspendNextSnapshot = true
+    }
+
+    func isSnapshotSuspended() -> Bool {
+        snapshotContinuation != nil
+    }
+
+    func resumeSnapshot() {
+        snapshotContinuation?.resume()
+        snapshotContinuation = nil
+    }
+
     func resumeUnmute() {
         unmuteContinuation?.resume()
         unmuteContinuation = nil
@@ -648,6 +702,14 @@ private actor FakeAudioController: AudioDeviceControlling {
             volumeControls: [volumeControl]
         )
     )
+}
+
+private actor CompletionFlag {
+    private(set) var isCompleted = false
+
+    func markCompleted() {
+        isCompleted = true
+    }
 }
 
 private actor InMemoryReceiptStore: AudioMutationReceiptStoring {

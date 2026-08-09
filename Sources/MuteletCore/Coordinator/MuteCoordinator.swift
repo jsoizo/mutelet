@@ -17,6 +17,8 @@ public final class MuteCoordinator: ObservableObject {
     private let receiptStore: any AudioMutationReceiptStoring
     private var eventTask: Task<Void, Never>?
     private var audioEventProcessingTask: Task<Void, Never>?
+    private var audioEventProcessingID: UUID?
+    private var audioEventGeneration: UInt64 = 0
     private var started = false
     private var isHotKeyPressed = false
     private var shouldUnmuteTargets = false
@@ -46,13 +48,20 @@ public final class MuteCoordinator: ObservableObject {
     public func start() async {
         guard !started else { return }
         started = true
+        audioEventGeneration &+= 1
+        let generation = audioEventGeneration
 
         do {
             let events = try await audioController.events()
             eventTask = Task { [weak self] in
                 for await event in events {
                     guard !Task.isCancelled else { break }
-                    self?.enqueueAudioEvent(event)
+                    guard let self,
+                          self.started,
+                          self.audioEventGeneration == generation else {
+                        break
+                    }
+                    self.enqueueAudioEvent(event)
                 }
             }
             await refresh()
@@ -66,15 +75,22 @@ public final class MuteCoordinator: ObservableObject {
 
     public func stop() async {
         isHotKeyPressed = false
+        audioEventGeneration &+= 1
+        let currentEventTask = eventTask
+        eventTask = nil
+        currentEventTask?.cancel()
+        let currentProcessingTask = audioEventProcessingTask
+        audioEventProcessingTask = nil
+        audioEventProcessingID = nil
+        currentProcessingTask?.cancel()
+        pendingInventoryRefresh = false
+        pendingControlObjectIDs.removeAll()
+
+        await currentEventTask?.value
+        await currentProcessingTask?.value
         if mode == .pushToTalk {
             await muteIfNeeded(forceForSafety: true)
         }
-        eventTask?.cancel()
-        eventTask = nil
-        audioEventProcessingTask?.cancel()
-        audioEventProcessingTask = nil
-        pendingInventoryRefresh = false
-        pendingControlObjectIDs.removeAll()
         started = false
     }
 
@@ -184,24 +200,39 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     private func scheduleAudioEventProcessing() {
-        guard audioEventProcessingTask == nil,
+        guard started,
+              audioEventProcessingTask == nil,
               pendingInventoryRefresh || !pendingControlObjectIDs.isEmpty else {
             return
         }
+        let generation = audioEventGeneration
+        let processingID = UUID()
+        audioEventProcessingID = processingID
         audioEventProcessingTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.audioEventCoalescingDelay)
-            guard !Task.isCancelled else { return }
-            await self?.processPendingAudioEvents()
+            do {
+                try await Task.sleep(for: Self.audioEventCoalescingDelay)
+            } catch {
+                self?.clearAudioEventProcessing(
+                    id: processingID,
+                    generation: generation
+                )
+                return
+            }
+            await self?.processPendingAudioEvents(
+                id: processingID,
+                generation: generation
+            )
         }
     }
 
-    private func processPendingAudioEvents() async {
+    private func processPendingAudioEvents(id: UUID, generation: UInt64) async {
+        guard isCurrentAudioEventProcessing(id: id, generation: generation) else { return }
         guard !operationInProgress else {
-            audioEventProcessingTask = nil
+            clearAudioEventProcessing(id: id, generation: generation)
             return
         }
         guard pendingInventoryRefresh || !pendingControlObjectIDs.isEmpty else {
-            audioEventProcessingTask = nil
+            clearAudioEventProcessing(id: id, generation: generation)
             return
         }
 
@@ -209,8 +240,9 @@ public final class MuteCoordinator: ObservableObject {
         pendingControlObjectIDs.removeAll()
         await refresh()
 
-        guard !Task.isCancelled, started else {
-            audioEventProcessingTask = nil
+        guard !Task.isCancelled,
+              isCurrentAudioEventProcessing(id: id, generation: generation) else {
+            clearAudioEventProcessing(id: id, generation: generation)
             return
         }
 
@@ -222,8 +254,26 @@ public final class MuteCoordinator: ObservableObject {
             await muteIfNeeded()
         }
 
+        if clearAudioEventProcessing(id: id, generation: generation) {
+            scheduleAudioEventProcessing()
+        }
+    }
+
+    private func isCurrentAudioEventProcessing(id: UUID, generation: UInt64) -> Bool {
+        started
+            && audioEventGeneration == generation
+            && audioEventProcessingID == id
+    }
+
+    @discardableResult
+    private func clearAudioEventProcessing(id: UUID, generation: UInt64) -> Bool {
+        guard audioEventGeneration == generation,
+              audioEventProcessingID == id else {
+            return false
+        }
         audioEventProcessingTask = nil
-        scheduleAudioEventProcessing()
+        audioEventProcessingID = nil
+        return true
     }
 
     private func controlEventAffectsCurrentTarget(objectID: AudioObjectID) -> Bool {

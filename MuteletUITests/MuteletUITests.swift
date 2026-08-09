@@ -94,15 +94,115 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
-    private func launch(arguments: [String]) -> XCUIApplication {
+    func testCaptureWebsiteAssets() throws {
+        let captures = [
+            (locale: "en_US", language: "en", deviceName: "MacBook Microphone"),
+            (locale: "ja_JP", language: "ja", deviceName: "MacBookのマイク"),
+        ]
+
+        for capture in captures {
+            let app = launch(
+                arguments: [
+                    "--ui-capture",
+                    "--ui-state=live",
+                    "--ui-device-name=\(capture.deviceName)",
+                ],
+                locale: capture.locale
+            )
+            openStatusMenu(in: app)
+
+            let primaryAction = app.buttons["mutelet-primary-action"]
+            XCTAssertTrue(primaryAction.waitForExistence(timeout: 5))
+            let menuGroup = try websiteMenuGroup(in: app)
+            attach(
+                menuGroup.screenshot(),
+                name: "toggle-\(capture.language)-0"
+            )
+
+            let initialLabel = primaryAction.label
+            primaryAction.click()
+            let labelChanged = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label != %@", initialLabel),
+                object: primaryAction
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [labelChanged], timeout: 5),
+                .completed
+            )
+            attach(
+                menuGroup.screenshot(),
+                name: "toggle-\(capture.language)-1"
+            )
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testCaptureWebsiteHUDAssets() throws {
+        let captures = [
+            (locale: "en_US", language: "en", deviceName: "MacBook Microphone"),
+            (locale: "ja_JP", language: "ja", deviceName: "MacBookのマイク"),
+        ]
+
+        for capture in captures {
+            let hudApp = launch(
+                arguments: [
+                    "--ui-capture-hud",
+                    "--ui-state=live",
+                    "--ui-device-name=\(capture.deviceName)",
+                ],
+                locale: capture.locale
+            )
+            XCTAssertTrue(hudApp.statusItems.firstMatch.waitForExistence(timeout: 5))
+            for frame in 0..<38 {
+                attach(
+                    XCUIScreen.main.screenshot(),
+                    name: String(
+                        format: "hud-%@-%02d",
+                        capture.language,
+                        frame
+                    )
+                )
+                RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
+            }
+            hudApp.terminate()
+        }
+    }
+
+    @MainActor
+    private func launch(
+        arguments: [String],
+        locale: String = "en_US"
+    ) -> XCUIApplication {
+        let language = locale.hasPrefix("ja") ? "ja" : "en"
         let app = XCUIApplication()
         app.launchArguments = [
             "--ui-testing",
-            "-AppleLanguages", "(en)",
-            "-AppleLocale", "en_US",
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", locale,
         ] + arguments
         app.launch()
         return app
+    }
+
+    @MainActor
+    private func websiteMenuGroup(in app: XCUIApplication) throws -> XCUIElement {
+        try XCTUnwrap(
+            app.groups.allElementsBoundByIndex.first { group in
+                let frame = group.frame
+                return frame.width >= 300
+                    && frame.width <= 400
+                    && frame.height >= 250
+            },
+            "Mutelet menu group was not found"
+        )
+    }
+
+    private func attach(_ screenshot: XCUIScreenshot, name: String) {
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor

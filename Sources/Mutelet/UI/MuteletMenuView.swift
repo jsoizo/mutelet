@@ -173,7 +173,8 @@ struct MuteletMenuView: View {
 #if DEBUG
     @ViewBuilder
     private var uiTestingControls: some View {
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--ui-testing") && !arguments.contains("--ui-capture") {
             Divider()
             HStack {
                 Button {

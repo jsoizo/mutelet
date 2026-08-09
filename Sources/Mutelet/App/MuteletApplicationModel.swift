@@ -24,6 +24,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private let enablesSystemIntegrations: Bool
     private var hotKeyTask: Task<Void, Never>?
     private var workspaceLifecycleTask: Task<Void, Never>?
+    private var websiteHUDCaptureTask: Task<Void, Never>?
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
     private var started = false
@@ -181,6 +182,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         await pendingWorkspaceLifecycle?.value
         hotKeyTask?.cancel()
         hotKeyTask = nil
+        websiteHUDCaptureTask?.cancel()
+        websiteHUDCaptureTask = nil
         hotKeyMonitor.stop()
         hudController.hide()
         await coordinator.stop()
@@ -228,6 +231,22 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     func handleUITestingHotKey(_ event: GlobalHotKeyEvent) async {
         guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
         await handleHotKey(event)
+    }
+
+    func startWebsiteHUDCaptureIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--ui-testing"),
+              arguments.contains("--ui-capture-hud"),
+              websiteHUDCaptureTask == nil else { return }
+
+        websiteHUDCaptureTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.toggle()
+                try? await Task.sleep(for: .seconds(3))
+            }
+        }
     }
 #endif
 

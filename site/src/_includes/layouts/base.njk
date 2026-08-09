@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ description | escape }}">
     <title>{{ title | escape }}</title>
+    <link rel="icon" href="/assets/app-icon.png">
     <link rel="stylesheet" href="/assets/vendor/simple.min.css">
     <link rel="stylesheet" href="/assets/site.css">
   </head>
@@ -23,5 +25,12 @@
     <main>
       {{ content | safe }}
     </main>
+    <footer>
+      <p>
+        <a href="https://github.com/jsoizo/mutelet">GitHub</a>
+        · <a href="https://github.com/jsoizo/mutelet/blob/main/docs/PRIVACY.md">{{ privacyLabel }}</a>
+        · <a href="https://github.com/jsoizo/mutelet/blob/main/LICENSE">MIT License</a>
+      </p>
+    </footer>
   </body>
 </html>

@@ -1,12 +1,60 @@
 import CoreAudio
 import Foundation
 
-public actor CoreAudioDeviceController: AudioDeviceControlling {
-    private let eventMonitor = CoreAudioEventMonitor()
+struct CoreAudioDeviceInventory: Sendable {
+    let devices: [AudioDeviceDescriptor]
+    let isComplete: Bool
+}
 
-    public init() {}
+public actor CoreAudioDeviceController: AudioDeviceControlling {
+    private struct InventoryCache {
+        let revision: UInt64
+        let devices: [AudioDeviceDescriptor]
+    }
+
+    private let eventMonitor: CoreAudioEventMonitor
+    private let inventoryProvider: (@Sendable () throws -> CoreAudioDeviceInventory)?
+    private var inventoryCache: InventoryCache?
+
+    public init() {
+        eventMonitor = CoreAudioEventMonitor()
+        inventoryProvider = nil
+    }
+
+    init(
+        eventMonitor: CoreAudioEventMonitor,
+        inventoryProvider: @escaping @Sendable () throws -> CoreAudioDeviceInventory
+    ) {
+        self.eventMonitor = eventMonitor
+        self.inventoryProvider = inventoryProvider
+    }
 
     public func inputDevices() async throws -> [AudioDeviceDescriptor] {
+        let measurement = CoreAudioDiagnostics.measure("inputDevices")
+        defer { measurement.finish() }
+
+        try eventMonitor.startSystemListeners()
+        let revision = eventMonitor.currentInventoryRevision()
+        if let inventoryCache, inventoryCache.revision == revision {
+            CoreAudioDiagnostics.mark("inputDevices.cacheHit")
+            return inventoryCache.devices
+        }
+
+        CoreAudioDiagnostics.mark("inputDevices.cacheMiss")
+        let inventory = try inventoryProvider?() ?? enumerateInputDevices()
+        let devices = inventory.devices
+        let synchronization = eventMonitor.synchronizeDeviceListeners(devices: devices)
+        if inventory.isComplete,
+           synchronization.failed == 0,
+           eventMonitor.currentInventoryRevision() == revision {
+            inventoryCache = InventoryCache(revision: revision, devices: devices)
+        } else {
+            inventoryCache = nil
+        }
+        return devices
+    }
+
+    private func enumerateInputDevices() throws -> CoreAudioDeviceInventory {
         let defaultInputID = try readDefaultInputObjectID()
         let address = CoreAudioPropertyAccess.address(selector: kAudioHardwarePropertyDevices)
         let objectIDs: [AudioObjectID] = try CoreAudioPropertyAccess.array(
@@ -16,6 +64,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         )
 
         var devices: [AudioDeviceDescriptor] = []
+        var isComplete = true
         for objectID in objectIDs {
             let streamAddress = CoreAudioPropertyAccess.address(
                 selector: kAudioDevicePropertyStreamConfiguration,
@@ -40,6 +89,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
                     )
                 )
             } catch {
+                isComplete = false
                 devices.append(
                     AudioDeviceDescriptor(
                         objectID: objectID,
@@ -60,23 +110,17 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
 
-        eventMonitor.replaceDeviceListeners(devices: devices)
-        return devices
+        return CoreAudioDeviceInventory(devices: devices, isComplete: isComplete)
     }
 
     public func defaultInputDevice() async throws -> AudioDeviceDescriptor? {
-        let defaultInputID = try readDefaultInputObjectID()
-        guard defaultInputID != kAudioObjectUnknown else { return nil }
-        let channelCount = try inputChannelCount(objectID: defaultInputID)
-        guard channelCount > 0 else { return nil }
-        return try descriptor(
-            objectID: defaultInputID,
-            channelCount: channelCount,
-            defaultInputID: defaultInputID
-        )
+        try await inputDevices().first(where: \.isDefaultInput)
     }
 
     public func snapshot(deviceUID: String) async throws -> AudioDeviceSnapshot {
+        let measurement = CoreAudioDiagnostics.measure("snapshot")
+        defer { measurement.finish() }
+
         let device = try await device(uid: deviceUID)
         var values: [AudioControlValue] = []
         for control in device.capabilities.nativeMuteControls + device.capabilities.volumeControls {
@@ -94,6 +138,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         deviceUID: String,
         preserving receipt: AudioMutationReceipt?
     ) async throws -> AudioMutationReceipt {
+        let measurement = CoreAudioDiagnostics.measure("mute")
+        defer { measurement.finish() }
+
         if let receipt, receipt.deviceUID != deviceUID {
             throw CoreAudioError.invalidRestoration(
                 expectedUID: deviceUID,
@@ -138,6 +185,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?
     ) async throws {
+        let measurement = CoreAudioDiagnostics.measure("unmute")
+        defer { measurement.finish() }
+
         let current = try await snapshot(deviceUID: deviceUID)
         if let receipt {
             guard receipt.deviceUID == deviceUID else {
@@ -168,14 +218,32 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
     }
 
     public func events() async throws -> AsyncStream<AudioHardwareEvent> {
-        try eventMonitor.startSystemListeners()
+        let stream = eventMonitor.stream()
         _ = try await inputDevices()
-        return eventMonitor.stream()
+        return stream
     }
 
-    private func device(uid: String) async throws -> AudioDeviceDescriptor {
+    private func device(
+        uid: String,
+        retryingAfterInvalidation: Bool = false
+    ) async throws -> AudioDeviceDescriptor {
         guard let device = try await inputDevices().first(where: { $0.uid == uid }) else {
             throw CoreAudioError.deviceNotFound(uid: uid)
+        }
+        guard !device.uid.hasPrefix("unresolved-core-audio-object-") else {
+            return device
+        }
+        do {
+            let resolvedUID = try readDeviceUID(objectID: device.objectID)
+            guard resolvedUID == uid else {
+                throw CoreAudioError.deviceNotFound(uid: uid)
+            }
+        } catch {
+            inventoryCache = nil
+            if !retryingAfterInvalidation {
+                return try await self.device(uid: uid, retryingAfterInvalidation: true)
+            }
+            throw error
         }
         return device
     }
@@ -197,13 +265,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         channelCount: UInt32,
         defaultInputID: AudioObjectID
     ) throws -> AudioDeviceDescriptor {
-        let uid = try CoreAudioPropertyAccess.string(
-            objectID: objectID,
-            address: CoreAudioPropertyAccess.address(
-                selector: kAudioDevicePropertyDeviceUID
-            ),
-            operation: "reading input device UID"
-        )
+        let uid = try readDeviceUID(objectID: objectID)
         let name = try CoreAudioPropertyAccess.string(
             objectID: objectID,
             address: CoreAudioPropertyAccess.address(
@@ -217,7 +279,17 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             name: name,
             inputChannelCount: channelCount,
             isDefaultInput: objectID == defaultInputID,
-            capabilities: capabilities(objectID: objectID, channelCount: channelCount)
+            capabilities: try capabilities(objectID: objectID, channelCount: channelCount)
+        )
+    }
+
+    private func readDeviceUID(objectID: AudioObjectID) throws -> String {
+        try CoreAudioPropertyAccess.string(
+            objectID: objectID,
+            address: CoreAudioPropertyAccess.address(
+                selector: kAudioDevicePropertyDeviceUID
+            ),
+            operation: "reading input device UID"
         )
     }
 
@@ -264,13 +336,13 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
     private func capabilities(
         objectID: AudioObjectID,
         channelCount: UInt32
-    ) -> AudioDeviceCapabilities {
-        let muteControls = writableControls(
+    ) throws -> AudioDeviceCapabilities {
+        let muteControls = try writableControls(
             kind: .mute,
             objectID: objectID,
             channelCount: channelCount
         )
-        let volumeControls = writableControls(
+        let volumeControls = try writableControls(
             kind: .volume,
             objectID: objectID,
             channelCount: channelCount
@@ -293,19 +365,22 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         kind: AudioControlKind,
         objectID: AudioObjectID,
         channelCount: UInt32
-    ) -> [AudioControl] {
+    ) throws -> [AudioControl] {
         let mainControl = AudioControl(kind: kind, element: kAudioObjectPropertyElementMain)
         let mainAddress = address(for: mainControl)
         if CoreAudioPropertyAccess.hasProperty(objectID: objectID, address: mainAddress),
-           CoreAudioPropertyAccess.isSettable(objectID: objectID, address: mainAddress) {
+           try CoreAudioPropertyAccess.isSettable(objectID: objectID, address: mainAddress) {
             return [mainControl]
         }
 
-        return (1...channelCount).compactMap { channel in
+        return try (1...channelCount).compactMap { channel in
             let control = AudioControl(kind: kind, element: channel)
             let controlAddress = address(for: control)
             guard CoreAudioPropertyAccess.hasProperty(objectID: objectID, address: controlAddress),
-                  CoreAudioPropertyAccess.isSettable(objectID: objectID, address: controlAddress) else {
+                  try CoreAudioPropertyAccess.isSettable(
+                      objectID: objectID,
+                      address: controlAddress
+                  ) else {
                 return nil
             }
             return control

@@ -30,6 +30,8 @@ AudioDeviceControlling
 
 Core Audio `AudioObjectID` values are process-local, temporary references. Mutelet persists device UIDs and resolves the current object again after hardware changes or wake.
 
+The controller keeps a process-local device inventory only while Core Audio's device-list, default-input, stream-configuration, control-list, device-change, and name revisions are unchanged. Degraded enumeration results are never cached. Cached object IDs are checked against their device UID before control access and are discarded and resolved again on a mismatch. Device-control and topology listeners are synchronized by identity and address, adding replacements before removing obsolete registrations.
+
 Core Audio operations are isolated behind an actor-conforming interface. Published UI state and mode transitions live on `@MainActor`. The coordinator uses generations and awaited transitions to prevent an older asynchronous selection from overwriting a newer one.
 
 ## State model
@@ -49,6 +51,8 @@ Mixed state toggles toward mute. Unsupported and failed targets are never folded
 ## Push to Talk safety
 
 Selecting Push to Talk immediately requests mute. Key down restores the prior state for speech; key up uses a safety path that resolves the current target and requests mute without trusting cached UI state. Repeated key-down events do not invert state. Changing the shortcut cancels an active gesture and remutes before replacing the registration. App termination waits for a safe mute; a workspace sleep notification queues the same request on a best-effort basis, and wake is serialized after it.
+
+Core Audio device-list and default-input events trigger inventory refreshes. Bursts of control-value events are coalesced and filtered to the current target before state is read back. Push to Talk remutes promptly when that read-back finds an externally unmuted target, without rewriting controls that are already confirmed muted.
 
 The HUD intentionally appears once when entering Push to Talk, not on every press and release. Toggle mode continues to show state feedback for each action.
 

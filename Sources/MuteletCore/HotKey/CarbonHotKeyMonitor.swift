@@ -157,9 +157,11 @@ public final class CarbonHotKeyMonitor {
 
         switch eventKind {
         case UInt32(kEventHotKeyPressed):
+            CoreAudioDiagnostics.mark("hotKey.pressed.received")
             continuation?.yield(.pressed)
             return noErr
         case UInt32(kEventHotKeyReleased):
+            CoreAudioDiagnostics.mark("hotKey.released.received")
             continuation?.yield(.released)
             return noErr
         default:

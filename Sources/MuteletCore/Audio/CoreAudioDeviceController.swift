@@ -63,7 +63,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
 
-        eventMonitor.replaceDeviceListeners(devices: devices)
+        eventMonitor.synchronizeDeviceListeners(devices: devices)
         return devices
     }
 

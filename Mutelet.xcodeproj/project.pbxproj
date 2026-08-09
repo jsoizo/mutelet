@@ -33,6 +33,7 @@
 		A10000000000000000000025 /* MuteletUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* MuteletUITests.swift */; };
 		A10000000000000000000026 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* Assets.xcassets */; };
 		D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* CoreAudioDiagnostics.swift */; };
+		D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 		A20000000000000000000027 /* MuteletUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuteletUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		D20000000000000000000001 /* CoreAudioDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics/CoreAudioDiagnostics.swift; sourceTree = "<group>"; };
+		D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreAudioEventMonitorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +126,7 @@
 				A20000000000000000000005 /* MuteCoordinatorTests.swift */,
 				A20000000000000000000006 /* UserDefaultsAudioMutationReceiptStoreTests.swift */,
 				A20000000000000000000023 /* MuteletPreferencesTests.swift */,
+				D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */,
 			);
 			path = Tests/MuteletCoreTests;
 			sourceTree = "<group>";
@@ -293,6 +296,7 @@
 				A10000000000000000000006 /* MuteCoordinatorTests.swift in Sources */,
 				A10000000000000000000007 /* UserDefaultsAudioMutationReceiptStoreTests.swift in Sources */,
 				A10000000000000000000022 /* MuteletPreferencesTests.swift in Sources */,
+				D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

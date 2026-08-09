@@ -1,3 +1,4 @@
+import CoreAudio
 import Foundation
 import OSLog
 
@@ -29,5 +30,25 @@ enum CoreAudioDiagnostics {
 
     static func mark(_ event: String) {
         logger.debug("\(event, privacy: .public)")
+    }
+
+    static func listenerRegistrationFailed(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress,
+        error: any Error
+    ) {
+        logger.error(
+            "Listener registration failed for object \(objectID), selector \(address.mSelector), element \(address.mElement): \(String(describing: error), privacy: .public)"
+        )
+    }
+
+    static func listenerRemovalFailed(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress,
+        status: OSStatus
+    ) {
+        logger.error(
+            "Listener removal failed for object \(objectID), selector \(address.mSelector), element \(address.mElement), status \(status)"
+        )
     }
 }

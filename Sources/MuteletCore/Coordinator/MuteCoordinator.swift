@@ -15,6 +15,8 @@ public final class MuteCoordinator: ObservableObject {
 
     private let audioController: any AudioDeviceControlling
     private let receiptStore: any AudioMutationReceiptStoring
+    private var startupTask: Task<Void, Never>?
+    private var startupID: UUID?
     private var eventTask: Task<Void, Never>?
     private var audioEventProcessingTask: Task<Void, Never>?
     private var audioEventProcessingID: UUID?
@@ -50,9 +52,24 @@ public final class MuteCoordinator: ObservableObject {
         started = true
         audioEventGeneration &+= 1
         let generation = audioEventGeneration
+        let startupID = UUID()
+        self.startupID = startupID
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performStart(id: startupID, generation: generation)
+        }
+        startupTask = task
+        await task.value
+        clearStartup(id: startupID, generation: generation)
+    }
 
+    private func performStart(id: UUID, generation: UInt64) async {
         do {
             let events = try await audioController.events()
+            guard !Task.isCancelled,
+                  isCurrentStartup(id: id, generation: generation) else {
+                return
+            }
             eventTask = Task { [weak self] in
                 for await event in events {
                     guard !Task.isCancelled else { break }
@@ -65,10 +82,18 @@ public final class MuteCoordinator: ObservableObject {
                 }
             }
             await refresh()
+            guard !Task.isCancelled,
+                  isCurrentStartup(id: id, generation: generation) else {
+                return
+            }
             if mode == .pushToTalk {
                 await muteIfNeeded(forceForSafety: true)
             }
         } catch {
+            guard !Task.isCancelled,
+                  isCurrentStartup(id: id, generation: generation) else {
+                return
+            }
             status = .error(message: userFacingErrorMessage(for: error))
         }
     }
@@ -76,6 +101,10 @@ public final class MuteCoordinator: ObservableObject {
     public func stop() async {
         isHotKeyPressed = false
         audioEventGeneration &+= 1
+        let currentStartupTask = startupTask
+        startupTask = nil
+        startupID = nil
+        currentStartupTask?.cancel()
         let currentEventTask = eventTask
         eventTask = nil
         currentEventTask?.cancel()
@@ -88,10 +117,24 @@ public final class MuteCoordinator: ObservableObject {
 
         await currentEventTask?.value
         await currentProcessingTask?.value
+        await currentStartupTask?.value
         if mode == .pushToTalk {
             await muteIfNeeded(forceForSafety: true)
         }
         started = false
+    }
+
+    private func isCurrentStartup(id: UUID, generation: UInt64) -> Bool {
+        started && audioEventGeneration == generation && startupID == id
+    }
+
+    private func clearStartup(id: UUID, generation: UInt64) {
+        guard audioEventGeneration == generation,
+              startupID == id else {
+            return
+        }
+        startupTask = nil
+        startupID = nil
     }
 
     public func setMode(_ newMode: MuteMode) async {

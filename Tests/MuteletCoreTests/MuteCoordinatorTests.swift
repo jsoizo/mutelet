@@ -195,6 +195,41 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshedSnapshots, snapshotsAfterRestart + 1)
     }
 
+    func testStopWaitsForInFlightStartupBeforeStartingANewGeneration() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await audio.suspendNextEventsSetup()
+        let startTask = Task { await coordinator.start() }
+        await waitUntil { await audio.isEventsSetupSuspended() }
+
+        let stopCompletion = CompletionFlag()
+        let stopTask = Task {
+            await coordinator.stop()
+            await stopCompletion.markCompleted()
+        }
+        try? await Task.sleep(for: .milliseconds(20))
+        let stoppedWhileStartupWasSuspended = await stopCompletion.isCompleted
+        XCTAssertFalse(stoppedWhileStartupWasSuspended)
+
+        await audio.resumeEventsSetup()
+        await startTask.value
+        await stopTask.value
+        let staleStartupSnapshots = await audio.snapshotCallCount()
+        XCTAssertEqual(staleStartupSnapshots, 0)
+
+        await coordinator.start()
+        let snapshotsAfterRestart = await audio.snapshotCallCount()
+        await audio.simulateControlEvents(count: 5)
+        await waitUntil { await audio.snapshotCallCount() > snapshotsAfterRestart }
+        try? await Task.sleep(for: .milliseconds(30))
+
+        let refreshedSnapshots = await audio.snapshotCallCount()
+        XCTAssertEqual(refreshedSnapshots, snapshotsAfterRestart + 1)
+    }
+
     func testControlEventForUnrelatedDeviceDoesNotRefresh() async {
         let audio = FakeAudioController(state: .live)
         let coordinator = MuteCoordinator(
@@ -556,6 +591,8 @@ private actor FakeAudioController: AudioDeviceControlling {
     private var unmuteContinuation: CheckedContinuation<Void, Never>?
     private var shouldSuspendNextSnapshot = false
     private var snapshotContinuation: CheckedContinuation<Void, Never>?
+    private var shouldSuspendNextEventsSetup = false
+    private var eventsSetupContinuation: CheckedContinuation<Void, Never>?
 
     init(
         state: AudioDeviceMuteState,
@@ -630,7 +667,13 @@ private actor FakeAudioController: AudioDeviceControlling {
         state = restoresIncorrectly ? .mixed : .live
     }
 
-    func events() -> AsyncStream<AudioHardwareEvent> {
+    func events() async -> AsyncStream<AudioHardwareEvent> {
+        if shouldSuspendNextEventsSetup {
+            shouldSuspendNextEventsSetup = false
+            await withCheckedContinuation { continuation in
+                eventsSetupContinuation = continuation
+            }
+        }
         let (stream, continuation) = AsyncStream<AudioHardwareEvent>.makeStream()
         eventContinuation = continuation
         return stream
@@ -651,6 +694,19 @@ private actor FakeAudioController: AudioDeviceControlling {
     func resumeSnapshot() {
         snapshotContinuation?.resume()
         snapshotContinuation = nil
+    }
+
+    func suspendNextEventsSetup() {
+        shouldSuspendNextEventsSetup = true
+    }
+
+    func isEventsSetupSuspended() -> Bool {
+        eventsSetupContinuation != nil
+    }
+
+    func resumeEventsSetup() {
+        eventsSetupContinuation?.resume()
+        eventsSetupContinuation = nil
     }
 
     func resumeUnmute() {

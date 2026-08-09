@@ -114,6 +114,32 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         XCTAssertEqual(propertyListener.events.suffix(2).map(\.kind), [.remove, .remove])
     }
 
+    func testTerminalRemovalFailureDiscardsRegistrationWithoutRetry() async {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(
+            propertyListener: propertyListener,
+            deviceListenerRetryDelay: 0.01
+        )
+        _ = monitor.synchronizeDeviceListeners(devices: [descriptor(controls: [.mute])])
+        propertyListener.failRemoving(
+            selector: kAudioDevicePropertyMute,
+            status: kAudioHardwareBadObjectError
+        )
+
+        let result = monitor.synchronizeDeviceListeners(
+            devices: [descriptor(controls: [.volume])]
+        )
+        try? await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(result, .init(added: 1, removed: 1, failed: 0))
+        XCTAssertEqual(
+            propertyListener.events.filter {
+                $0.kind == .remove && $0.selector == kAudioDevicePropertyMute
+            }.count,
+            1
+        )
+    }
+
     func testFailedDeviceRegistrationRetriesWithoutExternalSynchronization() async {
         let propertyListener = RecordingPropertyListener()
         let monitor = CoreAudioEventMonitor(
@@ -203,7 +229,7 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
     private let lock = NSLock()
     private var recordedEvents: [Event] = []
     private var failedAddSelectors: Set<AudioObjectPropertySelector> = []
-    private var failedRemoveSelectors: Set<AudioObjectPropertySelector> = []
+    private var failedRemoveStatuses: [AudioObjectPropertySelector: OSStatus] = [:]
 
     var events: [Event] {
         lock.withLock { recordedEvents }
@@ -217,12 +243,12 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
         _ = lock.withLock { failedAddSelectors.remove(selector) }
     }
 
-    func failRemoving(selector: AudioObjectPropertySelector) {
-        _ = lock.withLock { failedRemoveSelectors.insert(selector) }
+    func failRemoving(selector: AudioObjectPropertySelector, status: OSStatus = -1) {
+        lock.withLock { failedRemoveStatuses[selector] = status }
     }
 
     func allowRemoving(selector: AudioObjectPropertySelector) {
-        _ = lock.withLock { failedRemoveSelectors.remove(selector) }
+        _ = lock.withLock { failedRemoveStatuses.removeValue(forKey: selector) }
     }
 
     func addPropertyListener(
@@ -245,7 +271,7 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
     ) -> OSStatus {
         lock.withLock {
             recordedEvents.append(Event(kind: .remove, selector: address.mSelector))
-            return failedRemoveSelectors.contains(address.mSelector) ? -1 : noErr
+            return failedRemoveStatuses[address.mSelector] ?? noErr
         }
     }
 }

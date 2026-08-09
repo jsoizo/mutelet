@@ -379,11 +379,20 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 queue: queue,
                 block: registration.block
             )
-            if status == noErr {
+            let isTerminalFailure = status == kAudioHardwareBadObjectError
+                || status == kAudioHardwareUnknownPropertyError
+            if status == noErr || isTerminalFailure {
                 lock.withLock {
                     registrations.removeAll { $0.identifier == registration.identifier }
                 }
                 removedCount += 1
+                if isTerminalFailure {
+                    CoreAudioDiagnostics.listenerRemovalFailed(
+                        objectID: registration.objectID,
+                        address: address,
+                        status: status
+                    )
+                }
             } else {
                 failedCount += 1
                 CoreAudioDiagnostics.listenerRemovalFailed(

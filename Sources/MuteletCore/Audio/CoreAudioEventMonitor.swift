@@ -2,6 +2,11 @@ import CoreAudio
 import Foundation
 
 protocol CoreAudioPropertyListening {
+    func hasProperty(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress
+    ) -> Bool
+
     func addPropertyListener(
         objectID: AudioObjectID,
         address: inout AudioObjectPropertyAddress,
@@ -18,6 +23,13 @@ protocol CoreAudioPropertyListening {
 }
 
 struct SystemCoreAudioPropertyListener: CoreAudioPropertyListening {
+    func hasProperty(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress
+    ) -> Bool {
+        CoreAudioPropertyAccess.hasProperty(objectID: objectID, address: address)
+    }
+
     func addPropertyListener(
         objectID: AudioObjectID,
         address: inout AudioObjectPropertyAddress,
@@ -178,7 +190,11 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                     scope: kAudioObjectPropertyScopeInput
                 ),
                 CoreAudioPropertyAccess.address(selector: kAudioObjectPropertyControlList),
-            ]
+                CoreAudioPropertyAccess.address(selector: kAudioDevicePropertyDeviceHasChanged),
+                CoreAudioPropertyAccess.address(selector: kAudioObjectPropertyName),
+            ].filter {
+                propertyListener.hasProperty(objectID: device.objectID, address: $0)
+            }
             let controls = device.capabilities.nativeMuteControls
                 + device.capabilities.volumeControls
             addresses.append(contentsOf: controls.map { control in
@@ -324,7 +340,9 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                           changedAddress.mSelector == kAudioHardwarePropertyDefaultInputDevice {
                     eventKind = .defaultInputChanged
                 } else if changedAddress.mSelector == kAudioDevicePropertyStreamConfiguration
-                    || changedAddress.mSelector == kAudioObjectPropertyControlList {
+                    || changedAddress.mSelector == kAudioObjectPropertyControlList
+                    || changedAddress.mSelector == kAudioDevicePropertyDeviceHasChanged
+                    || changedAddress.mSelector == kAudioObjectPropertyName {
                     eventKind = .deviceListChanged
                 } else {
                     eventKind = .controlValueChanged

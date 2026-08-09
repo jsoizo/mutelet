@@ -1,8 +1,11 @@
 import Combine
+import CoreAudio
 import Foundation
 
 @MainActor
 public final class MuteCoordinator: ObservableObject {
+    private static let audioEventCoalescingDelay = Duration.milliseconds(10)
+
     @Published public private(set) var status: MuteStatus = .loading
     @Published public private(set) var isBusy = false
     @Published public private(set) var mode: MuteMode = .toggle
@@ -13,12 +16,15 @@ public final class MuteCoordinator: ObservableObject {
     private let audioController: any AudioDeviceControlling
     private let receiptStore: any AudioMutationReceiptStoring
     private var eventTask: Task<Void, Never>?
+    private var audioEventProcessingTask: Task<Void, Never>?
     private var started = false
     private var isHotKeyPressed = false
     private var shouldUnmuteTargets = false
     private var keepAllInputsMuted = false
     private var operationInProgress = false
     private var operationWaiters: [CheckedContinuation<Void, Never>] = []
+    private var pendingInventoryRefresh = false
+    private var pendingControlObjectIDs: Set<AudioObjectID> = []
 
     public init(
         audioController: any AudioDeviceControlling,
@@ -44,9 +50,9 @@ public final class MuteCoordinator: ObservableObject {
         do {
             let events = try await audioController.events()
             eventTask = Task { [weak self] in
-                for await _ in events {
+                for await event in events {
                     guard !Task.isCancelled else { break }
-                    await self?.handleAudioEvent()
+                    self?.enqueueAudioEvent(event)
                 }
             }
             await refresh()
@@ -65,6 +71,10 @@ public final class MuteCoordinator: ObservableObject {
         }
         eventTask?.cancel()
         eventTask = nil
+        audioEventProcessingTask?.cancel()
+        audioEventProcessingTask = nil
+        pendingInventoryRefresh = false
+        pendingControlObjectIDs.removeAll()
         started = false
     }
 
@@ -162,15 +172,71 @@ public final class MuteCoordinator: ObservableObject {
         return true
     }
 
-    private func handleAudioEvent() async {
+    private func enqueueAudioEvent(_ event: AudioHardwareEvent) {
+        switch event.kind {
+        case .deviceListChanged, .defaultInputChanged:
+            pendingInventoryRefresh = true
+        case .controlValueChanged:
+            guard controlEventAffectsCurrentTarget(objectID: event.objectID) else { return }
+            pendingControlObjectIDs.insert(event.objectID)
+        }
+        scheduleAudioEventProcessing()
+    }
+
+    private func scheduleAudioEventProcessing() {
+        guard audioEventProcessingTask == nil,
+              pendingInventoryRefresh || !pendingControlObjectIDs.isEmpty else {
+            return
+        }
+        audioEventProcessingTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.audioEventCoalescingDelay)
+            guard !Task.isCancelled else { return }
+            await self?.processPendingAudioEvents()
+        }
+    }
+
+    private func processPendingAudioEvents() async {
+        guard !operationInProgress else {
+            audioEventProcessingTask = nil
+            return
+        }
+        guard pendingInventoryRefresh || !pendingControlObjectIDs.isEmpty else {
+            audioEventProcessingTask = nil
+            return
+        }
+
+        pendingInventoryRefresh = false
+        pendingControlObjectIDs.removeAll()
         await refresh()
 
+        guard !Task.isCancelled, started else {
+            audioEventProcessingTask = nil
+            return
+        }
+
         if mode == .pushToTalk {
-            if !isHotKeyPressed {
+            if !isHotKeyPressed, !shouldUnmuteTargets {
                 await muteIfNeeded(forceForSafety: true)
             }
         } else if target == .allInputs, keepAllInputsMuted, !shouldUnmuteTargets {
             await muteIfNeeded()
+        }
+
+        audioEventProcessingTask = nil
+        scheduleAudioEventProcessing()
+    }
+
+    private func controlEventAffectsCurrentTarget(objectID: AudioObjectID) -> Bool {
+        guard let device = availableDevices.first(where: { $0.objectID == objectID }) else {
+            return false
+        }
+        return switch target {
+        case .systemDefault:
+            device.isDefaultInput
+        case let .device(uid, _):
+            device.uid == uid
+        case .allInputs:
+            true
         }
     }
 
@@ -432,6 +498,7 @@ public final class MuteCoordinator: ObservableObject {
         guard !operationWaiters.isEmpty else {
             operationInProgress = false
             isBusy = false
+            scheduleAudioEventProcessing()
             return
         }
 

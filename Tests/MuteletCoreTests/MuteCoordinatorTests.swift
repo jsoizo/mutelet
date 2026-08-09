@@ -145,6 +145,56 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(muteCalls, 2)
     }
 
+    func testControlEventBurstPerformsOneRefresh() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        let initialSnapshots = await audio.snapshotCallCount()
+
+        await audio.simulateControlEvents(count: 5)
+        await waitUntil { await audio.snapshotCallCount() > initialSnapshots }
+        try? await Task.sleep(for: .milliseconds(30))
+
+        let refreshedSnapshots = await audio.snapshotCallCount()
+        XCTAssertEqual(refreshedSnapshots, initialSnapshots + 1)
+    }
+
+    func testControlEventForUnrelatedDeviceDoesNotRefresh() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        let initialSnapshots = await audio.snapshotCallCount()
+
+        await audio.simulateControlEvents(count: 1, objectID: 999)
+        try? await Task.sleep(for: .milliseconds(30))
+
+        let refreshedSnapshots = await audio.snapshotCallCount()
+        XCTAssertEqual(refreshedSnapshots, initialSnapshots)
+    }
+
+    func testPushToTalkDoesNotRemuteAnAlreadyMutedControlEvent() async {
+        let audio = FakeAudioController(state: .live)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        let initialSnapshots = await audio.snapshotCallCount()
+
+        await audio.simulateControlEvents(count: 1)
+        await waitUntil { await audio.snapshotCallCount() > initialSnapshots }
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 1)
+    }
+
     func testPushToTalkReleaseForceMutesAfterReceiptRemovalFailure() async {
         let audio = FakeAudioController(state: .live)
         let store = FaultInjectingReceiptStore(failsRemoval: true)
@@ -466,6 +516,7 @@ private actor FakeAudioController: AudioDeviceControlling {
     private let hasDefaultInput: Bool
     private var muteCalls = 0
     private var unmuteCalls = 0
+    private var snapshotCalls = 0
     private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
     private let suspendsUnmute: Bool
     private let restoresIncorrectly: Bool
@@ -492,6 +543,7 @@ private actor FakeAudioController: AudioDeviceControlling {
     }
 
     func snapshot(deviceUID: String) throws -> AudioDeviceSnapshot {
+        snapshotCalls += 1
         let values: [AudioControlValue] = switch state {
         case .live:
             [
@@ -545,6 +597,7 @@ private actor FakeAudioController: AudioDeviceControlling {
 
     func muteCallCount() -> Int { muteCalls }
     func unmuteCallCount() -> Int { unmuteCalls }
+    func snapshotCallCount() -> Int { snapshotCalls }
 
     func resumeUnmute() {
         unmuteContinuation?.resume()
@@ -561,6 +614,23 @@ private actor FakeAudioController: AudioDeviceControlling {
                 element: kAudioObjectPropertyElementMain
             )
         )
+    }
+
+    func simulateControlEvents(
+        count: Int,
+        objectID: AudioObjectID? = nil
+    ) {
+        let objectID = objectID ?? Self.descriptor.objectID
+        for _ in 0..<count {
+            eventContinuation?.yield(
+                AudioHardwareEvent(
+                    kind: .controlValueChanged,
+                    objectID: objectID,
+                    selector: kAudioDevicePropertyMute,
+                    element: kAudioObjectPropertyElementMain
+                )
+            )
+        }
     }
 
     func setStateWithoutEvent(_ state: AudioDeviceMuteState) {

@@ -116,6 +116,9 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     public func handleHotKey(_ event: GlobalHotKeyEvent) async {
+        let measurement = CoreAudioDiagnostics.measure("handleHotKey.\(event.rawValue)")
+        defer { measurement.finish() }
+
         switch event {
         case .pressed:
             guard !isHotKeyPressed else { return }
@@ -276,6 +279,9 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     private func refreshStatus(additionalFailures: Int = 0) async {
+        let measurement = CoreAudioDiagnostics.measure("refreshStatus")
+        defer { measurement.finish() }
+
         do {
             let allDevices = try await audioController.inputDevices()
             availableDevices = allDevices

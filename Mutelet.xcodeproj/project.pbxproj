@@ -32,6 +32,7 @@
 		A10000000000000000000024 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* Localizable.xcstrings */; };
 		A10000000000000000000025 /* MuteletUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* MuteletUITests.swift */; };
 		A10000000000000000000026 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* Assets.xcassets */; };
+		D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* CoreAudioDiagnostics.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 		A20000000000000000000026 /* MuteletUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuteletUITests.swift; sourceTree = "<group>"; };
 		A20000000000000000000027 /* MuteletUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuteletUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		D20000000000000000000001 /* CoreAudioDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics/CoreAudioDiagnostics.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				A20000000000000000000017 /* CarbonHotKeyMonitor.swift */,
 				A20000000000000000000018 /* AudioMutationReceiptStoring.swift */,
 				A20000000000000000000022 /* MuteletPreferences.swift */,
+				D20000000000000000000001 /* CoreAudioDiagnostics.swift */,
 			);
 			path = Sources/MuteletCore;
 			sourceTree = "<group>";
@@ -308,6 +311,7 @@
 				A10000000000000000000017 /* CarbonHotKeyMonitor.swift in Sources */,
 				A10000000000000000000018 /* AudioMutationReceiptStoring.swift in Sources */,
 				A10000000000000000000021 /* MuteletPreferences.swift in Sources */,
+				D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

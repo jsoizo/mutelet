@@ -7,6 +7,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
     public init() {}
 
     public func inputDevices() async throws -> [AudioDeviceDescriptor] {
+        let measurement = CoreAudioDiagnostics.measure("inputDevices")
+        defer { measurement.finish() }
+
         let defaultInputID = try readDefaultInputObjectID()
         let address = CoreAudioPropertyAccess.address(selector: kAudioHardwarePropertyDevices)
         let objectIDs: [AudioObjectID] = try CoreAudioPropertyAccess.array(
@@ -77,6 +80,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
     }
 
     public func snapshot(deviceUID: String) async throws -> AudioDeviceSnapshot {
+        let measurement = CoreAudioDiagnostics.measure("snapshot")
+        defer { measurement.finish() }
+
         let device = try await device(uid: deviceUID)
         var values: [AudioControlValue] = []
         for control in device.capabilities.nativeMuteControls + device.capabilities.volumeControls {
@@ -94,6 +100,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         deviceUID: String,
         preserving receipt: AudioMutationReceipt?
     ) async throws -> AudioMutationReceipt {
+        let measurement = CoreAudioDiagnostics.measure("mute")
+        defer { measurement.finish() }
+
         if let receipt, receipt.deviceUID != deviceUID {
             throw CoreAudioError.invalidRestoration(
                 expectedUID: deviceUID,
@@ -138,6 +147,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?
     ) async throws {
+        let measurement = CoreAudioDiagnostics.measure("unmute")
+        defer { measurement.finish() }
+
         let current = try await snapshot(deviceUID: deviceUID)
         if let receipt {
             guard receipt.deviceUID == deviceUID else {

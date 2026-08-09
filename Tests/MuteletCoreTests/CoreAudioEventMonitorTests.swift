@@ -3,6 +3,26 @@ import XCTest
 @testable import MuteletCore
 
 final class CoreAudioEventMonitorTests: XCTestCase {
+    func testSystemListenerStartupRetriesOnlyMissingAddressAfterPartialFailure() throws {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
+        propertyListener.failAdding(selector: kAudioHardwarePropertyDefaultInputDevice)
+
+        XCTAssertThrowsError(try monitor.startSystemListeners())
+        propertyListener.allowAdding(selector: kAudioHardwarePropertyDefaultInputDevice)
+        XCTAssertNoThrow(try monitor.startSystemListeners())
+        XCTAssertNoThrow(try monitor.startSystemListeners())
+
+        XCTAssertEqual(
+            propertyListener.events,
+            [
+                .init(kind: .add, selector: kAudioHardwarePropertyDevices),
+                .init(kind: .add, selector: kAudioHardwarePropertyDefaultInputDevice),
+                .init(kind: .add, selector: kAudioHardwarePropertyDefaultInputDevice),
+            ]
+        )
+    }
+
     func testSynchronizingSameDevicesKeepsExistingListeners() {
         let propertyListener = RecordingPropertyListener()
         let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
@@ -92,6 +112,59 @@ final class CoreAudioEventMonitorTests: XCTestCase {
 
         XCTAssertEqual(retried, .init(added: 0, removed: 1, failed: 0))
         XCTAssertEqual(propertyListener.events.suffix(2).map(\.kind), [.remove, .remove])
+    }
+
+    func testFailedDeviceRegistrationRetriesWithoutExternalSynchronization() async {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(
+            propertyListener: propertyListener,
+            deviceListenerRetryDelay: 0.01
+        )
+        propertyListener.failAdding(selector: kAudioDevicePropertyMute)
+
+        let failed = monitor.synchronizeDeviceListeners(
+            devices: [descriptor(controls: [.mute])]
+        )
+        propertyListener.allowAdding(selector: kAudioDevicePropertyMute)
+
+        XCTAssertEqual(failed, .init(added: 0, removed: 0, failed: 1))
+        await waitUntil {
+            propertyListener.events.filter {
+                $0.kind == .add && $0.selector == kAudioDevicePropertyMute
+            }.count >= 2
+        }
+        let synchronized = monitor.synchronizeDeviceListeners(
+            devices: [descriptor(controls: [.mute])]
+        )
+        XCTAssertEqual(synchronized, .init(added: 0, removed: 0, failed: 0))
+    }
+
+    func testNewDesiredDevicesCancelPendingRetry() async {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(
+            propertyListener: propertyListener,
+            deviceListenerRetryDelay: 0.05
+        )
+        propertyListener.failAdding(selector: kAudioDevicePropertyMute)
+        _ = monitor.synchronizeDeviceListeners(devices: [descriptor(controls: [.mute])])
+
+        _ = monitor.synchronizeDeviceListeners(devices: [descriptor(controls: [.volume])])
+        try? await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(
+            propertyListener.events.filter {
+                $0.kind == .add && $0.selector == kAudioDevicePropertyMute
+            }.count,
+            1
+        )
+    }
+
+    private func waitUntil(_ condition: @escaping () -> Bool) async {
+        for _ in 0..<200 {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        XCTFail("Condition was not satisfied")
     }
 
     private func descriptor(

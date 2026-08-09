@@ -60,6 +60,13 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
         let element: AudioObjectPropertyElement
     }
 
+    private struct SystemRegistrationKey: Hashable {
+        let objectID: AudioObjectID
+        let selector: AudioObjectPropertySelector
+        let scope: AudioObjectPropertyScope
+        let element: AudioObjectPropertyElement
+    }
+
     struct SynchronizationResult: Equatable {
         let added: Int
         let removed: Int
@@ -67,16 +74,28 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
     }
 
     private let queue = DispatchQueue(label: "app.mutelet.core-audio-events")
+    private let listenerMutationQueue = DispatchQueue(
+        label: "app.mutelet.core-audio-listener-mutations"
+    )
     private let lock = NSLock()
     private let propertyListener: any CoreAudioPropertyListening
+    private let deviceListenerRetryDelay: TimeInterval
     private var registrations: [Registration] = []
     private var continuations: [UUID: AsyncStream<AudioHardwareEvent>.Continuation] = [:]
+    private var deviceSynchronizationGeneration: UInt64 = 0
+    private var deviceListenerRetryAttempt = 0
+    private var deviceListenerRetryWorkItem: DispatchWorkItem?
 
-    init(propertyListener: any CoreAudioPropertyListening = SystemCoreAudioPropertyListener()) {
+    init(
+        propertyListener: any CoreAudioPropertyListening = SystemCoreAudioPropertyListener(),
+        deviceListenerRetryDelay: TimeInterval = 0.25
+    ) {
         self.propertyListener = propertyListener
+        self.deviceListenerRetryDelay = deviceListenerRetryDelay
     }
 
     deinit {
+        deviceListenerRetryWorkItem?.cancel()
         let currentRegistrations = lock.withLock { registrations }
         for registration in currentRegistrations {
             var address = registration.address
@@ -104,29 +123,41 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
     }
 
     func startSystemListeners() throws {
-        let shouldStart = lock.withLock {
-            !registrations.contains { $0.kind == .system }
-        }
-        guard shouldStart else { return }
-
-        try addListener(
-            kind: .system,
-            objectID: CoreAudioPropertyAccess.systemObject,
-            address: CoreAudioPropertyAccess.address(
-                selector: kAudioHardwarePropertyDevices
-            )
-        )
-        do {
-            try addListener(
-                kind: .system,
-                objectID: CoreAudioPropertyAccess.systemObject,
-                address: CoreAudioPropertyAccess.address(
+        try listenerMutationQueue.sync {
+            let desired = [
+                CoreAudioPropertyAccess.address(selector: kAudioHardwarePropertyDevices),
+                CoreAudioPropertyAccess.address(
                     selector: kAudioHardwarePropertyDefaultInputDevice
+                ),
+            ]
+            let currentKeys = lock.withLock {
+                Set(
+                    registrations.lazy
+                        .filter { $0.kind == .system }
+                        .map(systemRegistrationKey)
                 )
-            )
-        } catch {
-            removeRegistrations(kind: .system)
-            throw error
+            }
+
+            var firstError: Error?
+            for address in desired where !currentKeys.contains(
+                systemRegistrationKey(
+                    objectID: CoreAudioPropertyAccess.systemObject,
+                    address: address
+                )
+            ) {
+                do {
+                    try addListener(
+                        kind: .system,
+                        objectID: CoreAudioPropertyAccess.systemObject,
+                        address: address
+                    )
+                } catch {
+                    firstError = firstError ?? error
+                }
+            }
+            if let firstError {
+                throw firstError
+            }
         }
     }
 
@@ -159,6 +190,22 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
             }
         }
 
+        return listenerMutationQueue.sync {
+            deviceSynchronizationGeneration &+= 1
+            deviceListenerRetryWorkItem?.cancel()
+            deviceListenerRetryWorkItem = nil
+            deviceListenerRetryAttempt = 0
+            return reconcileDeviceListeners(
+                desired: desired,
+                generation: deviceSynchronizationGeneration
+            )
+        }
+    }
+
+    private func reconcileDeviceListeners(
+        desired: [DeviceRegistrationKey: AudioObjectPropertyAddress],
+        generation: UInt64
+    ) -> SynchronizationResult {
         let current: [DeviceRegistrationKey: Registration] = lock.withLock {
             var current: [DeviceRegistrationKey: Registration] = [:]
             for registration in registrations where registration.kind == .device {
@@ -200,17 +247,48 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
         }
 
         guard failed == 0 else {
-            return SynchronizationResult(added: added, removed: 0, failed: failed)
+            let result = SynchronizationResult(added: added, removed: 0, failed: failed)
+            scheduleDeviceListenerRetry(desired: desired, generation: generation)
+            return result
         }
 
         let obsoleteKeys = Set(current.keys).subtracting(desired.keys)
         let obsoleteRegistrations = obsoleteKeys.compactMap { current[$0] }
         let removal = remove(registrations: obsoleteRegistrations)
-        return SynchronizationResult(
+        let result = SynchronizationResult(
             added: added,
             removed: removal.removed,
             failed: removal.failed
         )
+        if result.failed > 0 {
+            scheduleDeviceListenerRetry(desired: desired, generation: generation)
+        } else {
+            deviceListenerRetryAttempt = 0
+            deviceListenerRetryWorkItem = nil
+        }
+        return result
+    }
+
+    private func scheduleDeviceListenerRetry(
+        desired: [DeviceRegistrationKey: AudioObjectPropertyAddress],
+        generation: UInt64
+    ) {
+        guard generation == deviceSynchronizationGeneration else { return }
+        deviceListenerRetryWorkItem?.cancel()
+
+        let exponent = min(deviceListenerRetryAttempt, 5)
+        let delay = min(deviceListenerRetryDelay * pow(2, Double(exponent)), 30)
+        deviceListenerRetryAttempt += 1
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  generation == self.deviceSynchronizationGeneration else {
+                return
+            }
+            self.deviceListenerRetryWorkItem = nil
+            _ = self.reconcileDeviceListeners(desired: desired, generation: generation)
+        }
+        deviceListenerRetryWorkItem = workItem
+        listenerMutationQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     private func addListener(
@@ -271,11 +349,20 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
         }
     }
 
-    private func removeRegistrations(kind: RegistrationKind) {
-        let matching = lock.withLock {
-            registrations.filter { $0.kind == kind }
-        }
-        remove(registrations: matching)
+    private func systemRegistrationKey(_ registration: Registration) -> SystemRegistrationKey {
+        systemRegistrationKey(objectID: registration.objectID, address: registration.address)
+    }
+
+    private func systemRegistrationKey(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress
+    ) -> SystemRegistrationKey {
+        SystemRegistrationKey(
+            objectID: objectID,
+            selector: address.mSelector,
+            scope: address.mScope,
+            element: address.mElement
+        )
     }
 
     @discardableResult

@@ -16,6 +16,7 @@ actor UITestingAudioController: AudioDeviceControlling {
 
     private var state: AudioDeviceMuteState
     private let hasDevice: Bool
+    private let deviceName: String
 
     init(arguments: [String]) {
         let value = arguments
@@ -25,6 +26,10 @@ actor UITestingAudioController: AudioDeviceControlling {
             .flatMap { AudioDeviceMuteState(rawValue: String($0)) }
         state = value ?? .live
         hasDevice = !arguments.contains("--ui-no-input")
+        deviceName = arguments
+            .first { $0.hasPrefix("--ui-device-name=") }
+            .map { String($0.dropFirst("--ui-device-name=".count)) }
+            ?? "UI Test Microphone"
     }
 
     func inputDevices() -> [AudioDeviceDescriptor] {
@@ -72,7 +77,7 @@ actor UITestingAudioController: AudioDeviceControlling {
         return AudioDeviceDescriptor(
             objectID: 9_001,
             uid: Self.uid,
-            name: "UI Test Microphone",
+            name: deviceName,
             inputChannelCount: 2,
             isDefaultInput: true,
             capabilities: capabilities

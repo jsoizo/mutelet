@@ -75,6 +75,9 @@ struct MuteletApp: App {
                 .task {
                     appDelegate.applicationModel = applicationModel
                     await applicationModel.start()
+#if DEBUG
+                    applicationModel.startWebsiteHUDCaptureIfRequested()
+#endif
                 }
         }
         .menuBarExtraStyle(.window)

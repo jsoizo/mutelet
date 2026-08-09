@@ -244,7 +244,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.toggle()
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(3))
             }
         }
     }

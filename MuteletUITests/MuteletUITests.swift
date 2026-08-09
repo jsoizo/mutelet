@@ -154,7 +154,7 @@ final class MuteletUITests: XCTestCase {
                 locale: capture.locale
             )
             XCTAssertTrue(hudApp.statusItems.firstMatch.waitForExistence(timeout: 5))
-            for frame in 0..<28 {
+            for frame in 0..<38 {
                 attach(
                     XCUIScreen.main.screenshot(),
                     name: String(

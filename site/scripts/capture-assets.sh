@@ -43,7 +43,7 @@ xcrun xcresulttool export attachments \
     --output-path "$attachment_directory"
 
 for language in en ja; do
-    for frame in $(seq -w 0 27); do
+    for frame in $(seq -w 0 37); do
         attachment_name="hud-$language-$frame"
         exported_file="$(jq -r --arg name "$attachment_name" '
             .. | objects

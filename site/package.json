@@ -12,7 +12,8 @@
     "dev": "eleventy --serve",
     "build": "eleventy",
     "capture-assets": "./scripts/capture-assets.sh",
-    "test": "pnpm run build && node scripts/check-site.mjs"
+    "check": "node scripts/check-site.mjs",
+    "test": "pnpm run build && pnpm run check"
   },
   "devDependencies": {
     "@11ty/eleventy": "3.1.6"

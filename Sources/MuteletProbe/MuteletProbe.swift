@@ -104,7 +104,7 @@ struct MuteletProbe {
             HotKeyLifetime.shared.monitor = monitor
             return stream
         }
-        print("Watching Control-Option-M. Press Control-C to stop.")
+        print("Watching Control-Shift-M. Press Control-C to stop.")
         for await event in stream {
             print(event.rawValue)
         }
@@ -162,7 +162,7 @@ struct MuteletProbe {
               list                         List input devices and writable controls (default)
               snapshot [uid]               Read control values for a device or the default input
               watch                        Watch Core Audio device and control change events
-              hotkey                       Watch Control-Option-M pressed/released events
+              hotkey                       Watch Control-Shift-M pressed/released events
               roundtrip --confirm-write    Mute the default input for 500 ms and restore it
               roundtrip --uid UID --confirm-write
             """

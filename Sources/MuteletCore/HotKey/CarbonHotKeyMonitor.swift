@@ -54,6 +54,7 @@ public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
               modifiers.contains(.command) || modifiers.contains(.control) else {
             return false
         }
+        // Reject the former default Ctrl-Opt-M so stored preferences migrate to the current default.
         return !(keyCode == UInt32(kVK_ANSI_M) && modifiers == [.control, .option])
     }
 

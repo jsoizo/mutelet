@@ -172,17 +172,27 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
     ) -> SynchronizationResult {
         var desired: [DeviceRegistrationKey: AudioObjectPropertyAddress] = [:]
         for device in devices {
-            let controls = device.capabilities.nativeMuteControls + device.capabilities.volumeControls
-            for control in controls {
+            var addresses = [
+                CoreAudioPropertyAccess.address(
+                    selector: kAudioDevicePropertyStreamConfiguration,
+                    scope: kAudioObjectPropertyScopeInput
+                ),
+                CoreAudioPropertyAccess.address(selector: kAudioObjectPropertyControlList),
+            ]
+            let controls = device.capabilities.nativeMuteControls
+                + device.capabilities.volumeControls
+            addresses.append(contentsOf: controls.map { control in
                 let selector: AudioObjectPropertySelector = switch control.kind {
                 case .mute: kAudioDevicePropertyMute
                 case .volume: kAudioDevicePropertyVolumeScalar
                 }
-                let address = CoreAudioPropertyAccess.address(
+                return CoreAudioPropertyAccess.address(
                     selector: selector,
                     scope: kAudioObjectPropertyScopeInput,
                     element: control.element
                 )
+            })
+            for address in addresses {
                 desired[
                     DeviceRegistrationKey(
                         deviceUID: device.uid,
@@ -313,6 +323,9 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 } else if objectID == CoreAudioPropertyAccess.systemObject,
                           changedAddress.mSelector == kAudioHardwarePropertyDefaultInputDevice {
                     eventKind = .defaultInputChanged
+                } else if changedAddress.mSelector == kAudioDevicePropertyStreamConfiguration
+                    || changedAddress.mSelector == kAudioObjectPropertyControlList {
+                    eventKind = .deviceListChanged
                 } else {
                     eventKind = .controlValueChanged
                 }

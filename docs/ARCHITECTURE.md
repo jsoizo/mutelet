@@ -30,7 +30,7 @@ AudioDeviceControlling
 
 Core Audio `AudioObjectID` values are process-local, temporary references. Mutelet persists device UIDs and resolves the current object again after hardware changes or wake.
 
-The controller keeps a process-local device inventory only while the Core Audio device-list and default-input revisions are unchanged. Cached object IDs are checked against their device UID before control access and are discarded and resolved again on a mismatch. Device-control listeners are synchronized by identity and address, adding replacements before removing obsolete registrations.
+The controller keeps a process-local device inventory only while the Core Audio device-list, default-input, stream-configuration, and control-list revisions are unchanged. Degraded enumeration results are never cached. Cached object IDs are checked against their device UID before control access and are discarded and resolved again on a mismatch. Device-control and topology listeners are synchronized by identity and address, adding replacements before removing obsolete registrations.
 
 Core Audio operations are isolated behind an actor-conforming interface. Published UI state and mode transitions live on `@MainActor`. The coordinator uses generations and awaited transitions to prevent an older asynchronous selection from overwriting a newer one.
 

@@ -31,9 +31,9 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         let initial = monitor.synchronizeDeviceListeners(devices: devices)
         let repeated = monitor.synchronizeDeviceListeners(devices: devices)
 
-        XCTAssertEqual(initial, .init(added: 2, removed: 0, failed: 0))
+        XCTAssertEqual(initial, .init(added: 4, removed: 0, failed: 0))
         XCTAssertEqual(repeated, .init(added: 0, removed: 0, failed: 0))
-        XCTAssertEqual(propertyListener.events.map(\.kind), [.add, .add])
+        XCTAssertEqual(propertyListener.events.map(\.kind), Array(repeating: .add, count: 4))
     }
 
     func testSynchronizationAddsReplacementBeforeRemovingObsoleteListener() {
@@ -47,7 +47,10 @@ final class CoreAudioEventMonitorTests: XCTestCase {
 
         XCTAssertEqual(result, .init(added: 1, removed: 1, failed: 0))
         XCTAssertEqual(
-            propertyListener.events,
+            propertyListener.events.filter {
+                $0.selector == kAudioDevicePropertyMute
+                    || $0.selector == kAudioDevicePropertyVolumeScalar
+            },
             [
                 .init(kind: .add, selector: kAudioDevicePropertyMute),
                 .init(kind: .add, selector: kAudioDevicePropertyVolumeScalar),
@@ -89,8 +92,11 @@ final class CoreAudioEventMonitorTests: XCTestCase {
             devices: [descriptor(uid: "new-device", controls: [.mute])]
         )
 
-        XCTAssertEqual(result, .init(added: 1, removed: 1, failed: 0))
-        XCTAssertEqual(propertyListener.events.map(\.kind), [.add, .add, .remove])
+        XCTAssertEqual(result, .init(added: 3, removed: 3, failed: 0))
+        XCTAssertEqual(
+            propertyListener.events.filter { $0.selector == kAudioDevicePropertyMute }.map(\.kind),
+            [.add, .add, .remove]
+        )
     }
 
     func testFailedRemovalRemainsRegisteredAndRetries() {
@@ -153,7 +159,7 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         )
         propertyListener.allowAdding(selector: kAudioDevicePropertyMute)
 
-        XCTAssertEqual(failed, .init(added: 0, removed: 0, failed: 1))
+        XCTAssertEqual(failed, .init(added: 2, removed: 0, failed: 1))
         await waitUntil {
             propertyListener.events.filter {
                 $0.kind == .add && $0.selector == kAudioDevicePropertyMute
@@ -193,7 +199,7 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         XCTFail("Condition was not satisfied")
     }
 
-    func testOnlySystemInventoryEventsAdvanceRevision() throws {
+    func testSystemAndTopologyEventsAdvanceInventoryRevision() throws {
         let propertyListener = RecordingPropertyListener()
         let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
         try monitor.startSystemListeners()
@@ -212,8 +218,68 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 2)
 
         _ = monitor.synchronizeDeviceListeners(devices: [descriptor(controls: [.mute])])
+        propertyListener.emit(
+            objectID: 42,
+            selector: kAudioDevicePropertyStreamConfiguration
+        )
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 3)
+
+        propertyListener.emit(objectID: 42, selector: kAudioObjectPropertyControlList)
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 4)
+
         propertyListener.emit(objectID: 42, selector: kAudioDevicePropertyMute)
-        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 2)
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 4)
+    }
+
+    func testDegradedInventoryIsReenumeratedUntilACompleteResultCanBeCached() async throws {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
+        let device = descriptor(controls: [.mute])
+        let inventoryProvider = RecordingInventoryProvider(
+            inventories: [
+                CoreAudioDeviceInventory(devices: [device], isComplete: false),
+                CoreAudioDeviceInventory(devices: [device], isComplete: true),
+            ]
+        )
+        let controller = CoreAudioDeviceController(
+            eventMonitor: monitor,
+            inventoryProvider: { inventoryProvider.next() }
+        )
+
+        _ = try await controller.inputDevices()
+        _ = try await controller.inputDevices()
+        _ = try await controller.inputDevices()
+
+        XCTAssertEqual(inventoryProvider.callCount, 2)
+    }
+
+    func testTopologyEventInvalidatesCachedInventory() async throws {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
+        let inventoryProvider = RecordingInventoryProvider(
+            inventories: [
+                CoreAudioDeviceInventory(
+                    devices: [descriptor(controls: [.mute])],
+                    isComplete: true
+                ),
+            ]
+        )
+        let controller = CoreAudioDeviceController(
+            eventMonitor: monitor,
+            inventoryProvider: { inventoryProvider.next() }
+        )
+
+        _ = try await controller.inputDevices()
+        _ = try await controller.inputDevices()
+        XCTAssertEqual(inventoryProvider.callCount, 1)
+
+        propertyListener.emit(
+            objectID: 42,
+            selector: kAudioDevicePropertyStreamConfiguration
+        )
+        _ = try await controller.inputDevices()
+
+        XCTAssertEqual(inventoryProvider.callCount, 2)
     }
 
     private func descriptor(
@@ -235,6 +301,29 @@ final class CoreAudioEventMonitorTests: XCTestCase {
                     : []
             )
         )
+    }
+}
+
+private final class RecordingInventoryProvider: @unchecked Sendable {
+    private let lock = NSLock()
+    private let inventories: [CoreAudioDeviceInventory]
+    private var calls = 0
+
+    init(inventories: [CoreAudioDeviceInventory]) {
+        precondition(!inventories.isEmpty)
+        self.inventories = inventories
+    }
+
+    var callCount: Int {
+        lock.withLock { calls }
+    }
+
+    func next() -> CoreAudioDeviceInventory {
+        lock.withLock {
+            let inventory = inventories[min(calls, inventories.count - 1)]
+            calls += 1
+            return inventory
+        }
     }
 }
 

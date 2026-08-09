@@ -27,11 +27,17 @@ enum CoreAudioPropertyAccess {
     static func isSettable(
         objectID: AudioObjectID,
         address: AudioObjectPropertyAddress
-    ) -> Bool {
+    ) throws -> Bool {
         var mutableAddress = address
         var settable = DarwinBoolean(false)
         let status = AudioObjectIsPropertySettable(objectID, &mutableAddress, &settable)
-        return status == noErr && settable.boolValue
+        guard status == noErr else {
+            throw CoreAudioError.operationFailed(
+                operation: "checking whether a Core Audio property is settable",
+                status: status
+            )
+        }
+        return settable.boolValue
     }
 
     static func dataSize(

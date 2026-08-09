@@ -193,6 +193,29 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         XCTFail("Condition was not satisfied")
     }
 
+    func testOnlySystemInventoryEventsAdvanceRevision() throws {
+        let propertyListener = RecordingPropertyListener()
+        let monitor = CoreAudioEventMonitor(propertyListener: propertyListener)
+        try monitor.startSystemListeners()
+        let initialRevision = monitor.currentInventoryRevision()
+
+        propertyListener.emit(
+            objectID: AudioObjectID(kAudioObjectSystemObject),
+            selector: kAudioHardwarePropertyDevices
+        )
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 1)
+
+        propertyListener.emit(
+            objectID: AudioObjectID(kAudioObjectSystemObject),
+            selector: kAudioHardwarePropertyDefaultInputDevice
+        )
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 2)
+
+        _ = monitor.synchronizeDeviceListeners(devices: [descriptor(controls: [.mute])])
+        propertyListener.emit(objectID: 42, selector: kAudioDevicePropertyMute)
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 2)
+    }
+
     private func descriptor(
         uid: String = "test-device",
         controls: [AudioControlKind]
@@ -226,10 +249,17 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
         let selector: AudioObjectPropertySelector
     }
 
+    private struct Callback {
+        let objectID: AudioObjectID
+        let address: AudioObjectPropertyAddress
+        let block: AudioObjectPropertyListenerBlock
+    }
+
     private let lock = NSLock()
     private var recordedEvents: [Event] = []
     private var failedAddSelectors: Set<AudioObjectPropertySelector> = []
     private var failedRemoveStatuses: [AudioObjectPropertySelector: OSStatus] = [:]
+    private var callbacks: [Callback] = []
 
     var events: [Event] {
         lock.withLock { recordedEvents }
@@ -251,6 +281,20 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
         _ = lock.withLock { failedRemoveStatuses.removeValue(forKey: selector) }
     }
 
+    func emit(objectID: AudioObjectID, selector: AudioObjectPropertySelector) {
+        let matchingCallbacks = lock.withLock {
+            callbacks.filter {
+                $0.objectID == objectID && $0.address.mSelector == selector
+            }
+        }
+        for callback in matchingCallbacks {
+            var address = callback.address
+            withUnsafePointer(to: &address) { pointer in
+                callback.block(1, pointer)
+            }
+        }
+    }
+
     func addPropertyListener(
         objectID: AudioObjectID,
         address: inout AudioObjectPropertyAddress,
@@ -259,7 +303,9 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
     ) -> OSStatus {
         lock.withLock {
             recordedEvents.append(Event(kind: .add, selector: address.mSelector))
-            return failedAddSelectors.contains(address.mSelector) ? -1 : noErr
+            guard !failedAddSelectors.contains(address.mSelector) else { return -1 }
+            callbacks.append(Callback(objectID: objectID, address: address, block: block))
+            return noErr
         }
     }
 
@@ -271,7 +317,17 @@ private final class RecordingPropertyListener: CoreAudioPropertyListening {
     ) -> OSStatus {
         lock.withLock {
             recordedEvents.append(Event(kind: .remove, selector: address.mSelector))
-            return failedRemoveStatuses[address.mSelector] ?? noErr
+            let status = failedRemoveStatuses[address.mSelector] ?? noErr
+            guard status == noErr else { return status }
+            if let index = callbacks.firstIndex(where: {
+                $0.objectID == objectID
+                    && $0.address.mSelector == address.mSelector
+                    && $0.address.mScope == address.mScope
+                    && $0.address.mElement == address.mElement
+            }) {
+                callbacks.remove(at: index)
+            }
+            return noErr
         }
     }
 }

@@ -85,6 +85,7 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
     private var deviceSynchronizationGeneration: UInt64 = 0
     private var deviceListenerRetryAttempt = 0
     private var deviceListenerRetryWorkItem: DispatchWorkItem?
+    private var inventoryRevision: UInt64 = 0
 
     init(
         propertyListener: any CoreAudioPropertyListening = SystemCoreAudioPropertyListener(),
@@ -120,6 +121,10 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    func currentInventoryRevision() -> UInt64 {
+        lock.withLock { inventoryRevision }
     }
 
     func startSystemListeners() throws {
@@ -311,6 +316,9 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 } else {
                     eventKind = .controlValueChanged
                 }
+                if eventKind == .deviceListChanged || eventKind == .defaultInputChanged {
+                    self.markInventoryChanged()
+                }
                 self.emit(
                     AudioHardwareEvent(
                         kind: eventKind,
@@ -411,6 +419,12 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
         }
         for continuation in currentContinuations {
             continuation.yield(event)
+        }
+    }
+
+    private func markInventoryChanged() {
+        lock.withLock {
+            inventoryRevision &+= 1
         }
     }
 }

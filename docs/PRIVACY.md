@@ -19,6 +19,8 @@ Mutelet does not:
 - collect analytics, telemetry, crash reports, or identifiers;
 - include advertising or third-party tracking SDKs.
 
+The app runs inside the macOS App Sandbox without audio-input or network client/server entitlements. This enforces the application boundary without granting access to microphone audio or network communication.
+
 ## Local data
 
 Preferences include the selected mode, input UID and display name, shortcut, and HUD choice. Launch at login is managed separately by macOS through `SMAppService`. Restoration receipts contain only device UIDs and numeric control values. They do not contain audio.

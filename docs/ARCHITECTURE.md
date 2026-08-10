@@ -34,6 +34,10 @@ The controller keeps a process-local device inventory only while Core Audio's de
 
 Core Audio operations are isolated behind an actor-conforming interface. Published UI state and mode transitions live on `@MainActor`. The coordinator uses generations and awaited transitions to prevent an older asynchronous selection from overwriting a newer one.
 
+## Security boundary
+
+The app target enables both App Sandbox and Hardened Runtime. It does not request audio-input or network entitlements: microphone muting reads and writes Core Audio control properties without opening an input stream, and all application data remains local. Release and verification scripts inspect the signed application to prevent these entitlement constraints from regressing.
+
 ## State model
 
 The visible states are:

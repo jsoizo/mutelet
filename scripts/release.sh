@@ -75,6 +75,23 @@ fi
 
 codesign --verify --deep --strict --verbose=2 "$app_path"
 
+archive_entitlements="$release_working_directory/Mutelet.entitlements.plist"
+codesign -d --entitlements :- "$app_path" > "$archive_entitlements" 2>/dev/null
+if [[ "$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.app-sandbox" "$archive_entitlements" 2>/dev/null || true)" != "true" ]]; then
+    echo "error: archived app must be signed with App Sandbox enabled" >&2
+    exit 1
+fi
+
+for forbidden_entitlement in \
+    com.apple.security.device.audio-input \
+    com.apple.security.network.client \
+    com.apple.security.network.server; do
+    if /usr/libexec/PlistBuddy -c "Print :$forbidden_entitlement" "$archive_entitlements" >/dev/null 2>&1; then
+        echo "error: archived app must not include $forbidden_entitlement" >&2
+        exit 1
+    fi
+done
+
 archived_version="$(defaults read "$app_path/Contents/Info" CFBundleShortVersionString)"
 if [[ "$archived_version" != "$version" ]]; then
     echo "error: archived app version $archived_version does not match release version $version" >&2

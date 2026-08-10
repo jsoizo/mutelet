@@ -31,6 +31,27 @@ xcodebuild -quiet "${common_arguments[@]}" \
     CODE_SIGNING_REQUIRED=YES \
     CODE_SIGN_IDENTITY=- \
     build-for-testing
+
+test_app="$test_derived_data/Build/Products/Debug/Mutelet.app"
+test_entitlements="$test_derived_data/Mutelet.entitlements.plist"
+codesign -d --entitlements :- "$test_app" > "$test_entitlements" 2>/dev/null
+
+sandbox_enabled="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.app-sandbox" "$test_entitlements" 2>/dev/null || true)"
+if [[ "$sandbox_enabled" != "true" ]]; then
+    echo "error: Debug app must be signed with App Sandbox enabled" >&2
+    exit 1
+fi
+
+for forbidden_entitlement in \
+    com.apple.security.device.audio-input \
+    com.apple.security.network.client \
+    com.apple.security.network.server; do
+    if /usr/libexec/PlistBuddy -c "Print :$forbidden_entitlement" "$test_entitlements" >/dev/null 2>&1; then
+        echo "error: Debug app must not include $forbidden_entitlement" >&2
+        exit 1
+    fi
+done
+
 if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
     if pgrep -f '/Mutelet.app/Contents/MacOS/Mutelet' >/dev/null 2>&1; then
         echo "error: quit the running Mutelet app before executing UI tests" >&2
@@ -95,4 +116,4 @@ else
     ui_test_result="unit tests and UI test build (set RUN_UI_TESTS=1 to run UI tests)"
 fi
 
-echo "Verification passed: localization, $ui_test_result, Debug/Release builds, analyze, arm64, macOS 14, and LSUIElement."
+echo "Verification passed: localization, $ui_test_result, Debug/Release builds, analyze, App Sandbox, arm64, macOS 14, and LSUIElement."

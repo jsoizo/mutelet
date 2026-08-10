@@ -58,4 +58,6 @@ Mutelet is under active development. The first signed and notarized release is n
 
 Mutelet does not record audio, connect to a server, or collect telemetry. It does not request Microphone, Accessibility, or Input Monitoring permission.
 
+The macOS App Sandbox enforces this boundary: Mutelet has no entitlement to capture microphone audio or use the network.
+
 </section>

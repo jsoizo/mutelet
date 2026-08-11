@@ -44,6 +44,24 @@ The script archives the app, verifies its architecture and signature, builds `di
 
 For API-key notarization in CI, set `NOTARY_KEY`, `NOTARY_KEY_ID`, and `NOTARY_ISSUER_ID` instead of `NOTARY_PROFILE`.
 
+## Test the release workflow
+
+To exercise the complete signing, notarization, packaging, and upload path before the final release, push a prerelease tag whose numeric prefix matches `MARKETING_VERSION`:
+
+```bash
+git tag -a v0.1.0-beta.1 -m "Mutelet 0.1.0 beta 1"
+git push origin v0.1.0-beta.1
+```
+
+The workflow builds an app with version `0.1.0` and publishes the tagged release as a GitHub prerelease named `0.1.0-beta.1`. After validating the release and its downloaded DMG, remove the test release and both copies of the tag:
+
+```bash
+gh release delete v0.1.0-beta.1 --cleanup-tag --yes
+git tag -d v0.1.0-beta.1
+```
+
+Deleting the release does not erase the GitHub Actions run or Apple's notarization history.
+
 ## GitHub Actions credentials
 
 1Password is the source of truth for Apple release credentials. The release workflow loads these fields:

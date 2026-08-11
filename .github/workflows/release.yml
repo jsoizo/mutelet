@@ -78,7 +78,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
+          application_version="${version%%-*}"
           notes="changelogs/$version.md"
+          release_assets=(
+            "dist/Mutelet-$application_version.dmg"
+            "dist/Mutelet-$application_version.dmg.sha256"
+          )
+          for asset in "${release_assets[@]}"; do
+            if [[ ! -f "$asset" ]]; then
+              echo "error: release asset was not produced: $asset" >&2
+              exit 1
+            fi
+          done
           is_prerelease=false
           if [[ "$version" == *-* ]]; then
             is_prerelease=true
@@ -88,11 +99,11 @@ jobs:
               echo "error: refusing to replace assets on published release $GITHUB_REF_NAME" >&2
               exit 1
             fi
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            gh release upload "$GITHUB_REF_NAME" "${release_assets[@]}" --clobber
           elif [[ -f "$notes" ]]; then
-            gh release create "$GITHUB_REF_NAME" dist/* --draft --prerelease="$is_prerelease" --title "Mutelet $version" --notes-file "$notes"
+            gh release create "$GITHUB_REF_NAME" "${release_assets[@]}" --draft --prerelease="$is_prerelease" --title "Mutelet $version" --notes-file "$notes"
           else
-            gh release create "$GITHUB_REF_NAME" dist/* --draft --prerelease="$is_prerelease" --title "Mutelet $version" --generate-notes
+            gh release create "$GITHUB_REF_NAME" "${release_assets[@]}" --draft --prerelease="$is_prerelease" --title "Mutelet $version" --generate-notes
           fi
           gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease="$is_prerelease"
       - name: Preserve release diagnostics

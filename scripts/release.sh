@@ -99,6 +99,12 @@ if [[ "$archived_version" != "$version" ]]; then
 fi
 
 "$script_dir/build-dmg.sh" "$app_path" "$dmg_path"
+codesign \
+    --force \
+    --sign "$DEVELOPER_ID_APPLICATION" \
+    --timestamp \
+    "$dmg_path"
+codesign --verify --strict --verbose=2 "$dmg_path"
 
 set +e
 xcrun notarytool submit "$dmg_path" \
@@ -129,6 +135,7 @@ fi
 
 xcrun stapler staple "$dmg_path"
 xcrun stapler validate "$dmg_path"
+codesign --verify --strict --verbose=2 "$dmg_path"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
 
 (

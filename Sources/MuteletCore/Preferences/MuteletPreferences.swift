@@ -1,64 +1,65 @@
 import Foundation
 
-public struct MuteletPreferences: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
-
-    public var schemaVersion: Int
-    public var mode: MuteMode
-    public var target: AudioTargetSelection
-    public var hotKey: GlobalHotKeyConfiguration
-    public var showsHUD: Bool
+public struct MuteletPreferences: Equatable, Sendable {
+    public var microphone: MicrophonePreferences
+    public var shortcuts: ShortcutPreferences
+    public var hud: HUDPreferences
 
     public init(
-        schemaVersion: Int = currentSchemaVersion,
-        mode: MuteMode = .toggle,
-        target: AudioTargetSelection = .systemDefault,
-        hotKey: GlobalHotKeyConfiguration = .default,
-        showsHUD: Bool = true
+        microphone: MicrophonePreferences = MicrophonePreferences(),
+        shortcuts: ShortcutPreferences = ShortcutPreferences(),
+        hud: HUDPreferences = HUDPreferences()
     ) {
-        self.schemaVersion = schemaVersion
+        self.microphone = microphone
+        self.shortcuts = shortcuts
+        self.hud = hud
+    }
+}
+
+public struct MicrophonePreferences: Equatable, Sendable {
+    public var mode: MuteMode
+    public var target: AudioTargetSelection
+
+    public init(
+        mode: MuteMode = .toggle,
+        target: AudioTargetSelection = .systemDefault
+    ) {
         self.mode = mode
         self.target = target
-        self.hotKey = hotKey
-        self.showsHUD = showsHUD
     }
+}
+
+public struct ShortcutPreferences: Equatable, Sendable {
+    public var primary: GlobalHotKeyConfiguration
+
+    public init(primary: GlobalHotKeyConfiguration = .default) {
+        self.primary = primary
+    }
+}
+
+public struct HUDPreferences: Equatable, Sendable {
+    public var isEnabled: Bool
+
+    public init(isEnabled: Bool = true) {
+        self.isEnabled = isEnabled
+    }
+}
+
+public enum PreferencesLoadResult: Equatable, Sendable {
+    case loaded(MuteletPreferences)
+    case defaults
+    case recovered(MuteletPreferences, issues: [PreferencesRecoveryIssue])
+}
+
+public enum PreferencesRecoveryIssue: Equatable, Sendable {
+    case corruptedData
+    case unsupportedSchemaVersion(Int)
+    case invalidMicrophone
+    case invalidShortcut
+    case migrationSaveFailed
 }
 
 public protocol MuteletPreferencesStoring: Sendable {
-    func load() async -> MuteletPreferences
+    func load() async -> PreferencesLoadResult
     func save(_ preferences: MuteletPreferences) async throws
-}
-
-public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
-    private static let storageKey = "muteletPreferences.v1"
-
-    private let defaults: UserDefaults
-    private let encoder = JSONEncoder()
-    private let decoder = JSONDecoder()
-
-    public init(suiteName: String? = nil) {
-        if let suiteName, let defaults = UserDefaults(suiteName: suiteName) {
-            self.defaults = defaults
-        } else {
-            self.defaults = .standard
-        }
-    }
-
-    public func load() -> MuteletPreferences {
-        guard let data = defaults.data(forKey: Self.storageKey),
-              var preferences = try? decoder.decode(MuteletPreferences.self, from: data),
-              preferences.schemaVersion == MuteletPreferences.currentSchemaVersion else {
-            return MuteletPreferences()
-        }
-        if !preferences.hotKey.isValid {
-            preferences.hotKey = .default
-        }
-        return preferences
-    }
-
-    public func save(_ preferences: MuteletPreferences) throws {
-        var current = preferences
-        current.schemaVersion = MuteletPreferences.currentSchemaVersion
-        defaults.set(try encoder.encode(current), forKey: Self.storageKey)
-    }
 }

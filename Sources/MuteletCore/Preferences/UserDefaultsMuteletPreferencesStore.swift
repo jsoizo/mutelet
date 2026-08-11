@@ -1,0 +1,293 @@
+import Foundation
+
+public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
+    private static let storageKey = "muteletPreferences"
+    private static let currentSchemaVersion = 1
+
+    private struct StoredPreferencesHeader: Decodable {
+        let schemaVersion: Int
+    }
+
+    private struct StoredPreferencesV1: Codable {
+        let schemaVersion: Int
+        let microphone: StoredMicrophonePreferencesV1
+        let shortcuts: StoredShortcutPreferencesV1
+        let hud: StoredHUDPreferencesV1
+
+        init(preferences: MuteletPreferences) {
+            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            hud = StoredHUDPreferencesV1(preferences: preferences.hud)
+        }
+
+        func decodePreferences() -> DecodedPreferences {
+            var preferences = MuteletPreferences()
+            var issues: [PreferencesRecoveryIssue] = []
+
+            if let microphonePreferences = microphone.decodePreferences() {
+                preferences.microphone = microphonePreferences
+            } else {
+                issues.append(.invalidMicrophone)
+            }
+
+            if let shortcutPreferences = shortcuts.decodePreferences() {
+                preferences.shortcuts = shortcutPreferences
+            } else {
+                issues.append(.invalidShortcut)
+            }
+
+            preferences.hud = hud.preferences
+            return DecodedPreferences(
+                preferences: preferences,
+                issues: issues,
+                requiresSave: false
+            )
+        }
+    }
+
+    private struct StoredMicrophonePreferencesV1: Codable {
+        let mode: String
+        let target: StoredAudioTargetV1
+
+        init(preferences: MicrophonePreferences) {
+            switch preferences.mode {
+            case .toggle:
+                mode = "toggle"
+            case .pushToTalk:
+                mode = "pushToTalk"
+            }
+            target = StoredAudioTargetV1(selection: preferences.target)
+        }
+
+        func decodePreferences() -> MicrophonePreferences? {
+            let decodedMode: MuteMode
+            switch mode {
+            case "toggle":
+                decodedMode = .toggle
+            case "pushToTalk":
+                decodedMode = .pushToTalk
+            default:
+                return nil
+            }
+            guard let target = target.selection else { return nil }
+            return MicrophonePreferences(mode: decodedMode, target: target)
+        }
+    }
+
+    private struct StoredAudioTargetV1: Codable {
+        let kind: String
+        let deviceUID: String?
+        let deviceName: String?
+
+        init(selection: AudioTargetSelection) {
+            switch selection {
+            case .systemDefault:
+                kind = "systemDefault"
+                deviceUID = nil
+                deviceName = nil
+            case let .device(uid, name):
+                kind = "device"
+                deviceUID = uid
+                deviceName = name
+            case .allInputs:
+                kind = "allInputs"
+                deviceUID = nil
+                deviceName = nil
+            }
+        }
+
+        var selection: AudioTargetSelection? {
+            switch kind {
+            case "systemDefault" where deviceUID == nil && deviceName == nil:
+                .systemDefault
+            case "device":
+                if let deviceUID,
+                   !deviceUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   let deviceName {
+                    .device(uid: deviceUID, name: deviceName)
+                } else {
+                    nil
+                }
+            case "allInputs" where deviceUID == nil && deviceName == nil:
+                .allInputs
+            default:
+                nil
+            }
+        }
+    }
+
+    private struct StoredShortcutPreferencesV1: Codable {
+        let primary: StoredHotKeyV1
+
+        init(preferences: ShortcutPreferences) {
+            primary = StoredHotKeyV1(configuration: preferences.primary)
+        }
+
+        func decodePreferences() -> ShortcutPreferences? {
+            guard let primary = primary.configuration else { return nil }
+            return ShortcutPreferences(primary: primary)
+        }
+    }
+
+    private struct StoredHotKeyV1: Codable {
+        private static let commandModifier: UInt32 = 1 << 0
+        private static let controlModifier: UInt32 = 1 << 1
+        private static let optionModifier: UInt32 = 1 << 2
+        private static let shiftModifier: UInt32 = 1 << 3
+
+        let keyCode: UInt32
+        let keyLabel: String
+        let modifierRawValue: UInt32
+
+        init(configuration: GlobalHotKeyConfiguration) {
+            keyCode = configuration.keyCode
+            keyLabel = configuration.keyLabel
+            var storedModifiers: UInt32 = 0
+            if configuration.modifiers.contains(.command) {
+                storedModifiers |= Self.commandModifier
+            }
+            if configuration.modifiers.contains(.control) {
+                storedModifiers |= Self.controlModifier
+            }
+            if configuration.modifiers.contains(.option) {
+                storedModifiers |= Self.optionModifier
+            }
+            if configuration.modifiers.contains(.shift) {
+                storedModifiers |= Self.shiftModifier
+            }
+            modifierRawValue = storedModifiers
+        }
+
+        var configuration: GlobalHotKeyConfiguration? {
+            let knownModifierMask = Self.commandModifier
+                | Self.controlModifier
+                | Self.optionModifier
+                | Self.shiftModifier
+            guard modifierRawValue & ~knownModifierMask == 0 else { return nil }
+
+            var modifiers: GlobalHotKeyModifiers = []
+            if modifierRawValue & Self.commandModifier != 0 {
+                modifiers.insert(.command)
+            }
+            if modifierRawValue & Self.controlModifier != 0 {
+                modifiers.insert(.control)
+            }
+            if modifierRawValue & Self.optionModifier != 0 {
+                modifiers.insert(.option)
+            }
+            if modifierRawValue & Self.shiftModifier != 0 {
+                modifiers.insert(.shift)
+            }
+
+            let configuration = GlobalHotKeyConfiguration(
+                keyCode: keyCode,
+                keyLabel: keyLabel,
+                modifiers: modifiers
+            )
+            return configuration.isValid ? configuration : nil
+        }
+    }
+
+    private struct StoredHUDPreferencesV1: Codable {
+        let isEnabled: Bool
+
+        init(preferences: HUDPreferences) {
+            isEnabled = preferences.isEnabled
+        }
+
+        var preferences: HUDPreferences {
+            HUDPreferences(isEnabled: isEnabled)
+        }
+    }
+
+    private struct DecodedPreferences {
+        let preferences: MuteletPreferences
+        let issues: [PreferencesRecoveryIssue]
+        let requiresSave: Bool
+    }
+
+    private let defaults: UserDefaults
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    public init(suiteName: String? = nil) {
+        if let suiteName, let defaults = UserDefaults(suiteName: suiteName) {
+            self.defaults = defaults
+        } else {
+            self.defaults = .standard
+        }
+    }
+
+    public func load() -> PreferencesLoadResult {
+        guard let storedValue = defaults.object(forKey: Self.storageKey) else {
+            return .defaults
+        }
+        guard let data = storedValue as? Data else {
+            return .recovered(MuteletPreferences(), issues: [.corruptedData])
+        }
+
+        let header: StoredPreferencesHeader
+        do {
+            header = try decoder.decode(StoredPreferencesHeader.self, from: data)
+        } catch {
+            return .recovered(MuteletPreferences(), issues: [.corruptedData])
+        }
+
+        var decoded: DecodedPreferences
+        do {
+            decoded = try decodePreferences(data, schemaVersion: header.schemaVersion)
+        } catch let error as StoredPreferencesError {
+            switch error {
+            case let .unsupportedSchemaVersion(version):
+                return .recovered(
+                    MuteletPreferences(),
+                    issues: [.unsupportedSchemaVersion(version)]
+                )
+            }
+        } catch {
+            return .recovered(MuteletPreferences(), issues: [.corruptedData])
+        }
+
+        if decoded.requiresSave {
+            do {
+                try save(decoded.preferences)
+            } catch {
+                decoded = DecodedPreferences(
+                    preferences: decoded.preferences,
+                    issues: decoded.issues + [.migrationSaveFailed],
+                    requiresSave: false
+                )
+            }
+        }
+
+        return decoded.issues.isEmpty
+            ? .loaded(decoded.preferences)
+            : .recovered(decoded.preferences, issues: decoded.issues)
+    }
+
+    public func save(_ preferences: MuteletPreferences) throws {
+        defaults.set(
+            try encoder.encode(StoredPreferencesV1(preferences: preferences)),
+            forKey: Self.storageKey
+        )
+    }
+
+    private func decodePreferences(
+        _ data: Data,
+        schemaVersion: Int
+    ) throws -> DecodedPreferences {
+        switch schemaVersion {
+        case Self.currentSchemaVersion:
+            return try decoder
+                .decode(StoredPreferencesV1.self, from: data)
+                .decodePreferences()
+        default:
+            throw StoredPreferencesError.unsupportedSchemaVersion(schemaVersion)
+        }
+    }
+
+    private enum StoredPreferencesError: Error {
+        case unsupportedSchemaVersion(Int)
+    }
+}

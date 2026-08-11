@@ -117,6 +117,14 @@ struct MuteletMenuView: View {
                 color: .orange
             )
         }
+        if let recoveryWarning = applicationModel.preferencesRecoveryWarning {
+            notice(
+                recoveryWarning,
+                systemImage: "exclamationmark.triangle.fill",
+                color: .orange
+            )
+            .accessibilityIdentifier("mutelet-preferences-recovery-warning")
+        }
         if let hotKeyError = applicationModel.hotKeyError {
             notice(hotKeyError, systemImage: "keyboard.badge.exclamationmark", color: .red)
         }
@@ -199,14 +207,14 @@ struct MuteletMenuView: View {
 
     private var modeSelection: Binding<MuteMode> {
         Binding(
-            get: { applicationModel.preferences.mode },
+            get: { applicationModel.preferences.microphone.mode },
             set: { applicationModel.selectMode($0) }
         )
     }
 
     private var targetSelection: Binding<AudioTargetSelection> {
         Binding(
-            get: { applicationModel.preferences.target },
+            get: { applicationModel.preferences.microphone.target },
             set: { applicationModel.selectTarget($0) }
         )
     }
@@ -237,11 +245,11 @@ struct MuteletMenuView: View {
     private var shortcutHelp: String {
         switch coordinator.mode {
         case .toggle:
-            applicationModel.preferences.hotKey.displayName
+            applicationModel.preferences.shortcuts.primary.displayName
         case .pushToTalk:
             String(
                 format: NSLocalizedString("Hold %@ to talk", comment: "Push-to-talk help"),
-                applicationModel.preferences.hotKey.displayName
+                applicationModel.preferences.shortcuts.primary.displayName
             )
         }
     }

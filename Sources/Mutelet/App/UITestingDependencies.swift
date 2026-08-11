@@ -112,19 +112,35 @@ actor UITestingAudioController: AudioDeviceControlling {
 }
 
 actor UITestingPreferencesStore: MuteletPreferencesStoring {
-    private let preferences: MuteletPreferences
+    private let loadResult: PreferencesLoadResult
+    private var remainingSaveFailures: Int
 
     init(arguments: [String]) {
-        preferences = MuteletPreferences(
-            mode: arguments.contains("--ui-push-to-talk") ? .pushToTalk : .toggle
+        let preferences = MuteletPreferences(
+            microphone: MicrophonePreferences(
+                mode: arguments.contains("--ui-push-to-talk") ? .pushToTalk : .toggle
+            )
         )
+        loadResult = arguments.contains("--ui-preferences-recovered")
+            ? .recovered(preferences, issues: [.corruptedData])
+            : .loaded(preferences)
+        remainingSaveFailures = arguments.contains("--ui-preferences-save-fails-once") ? 1 : 0
     }
 
-    func load() -> MuteletPreferences {
-        preferences
+    func load() -> PreferencesLoadResult {
+        loadResult
     }
 
-    func save(_ preferences: MuteletPreferences) {}
+    func save(_ preferences: MuteletPreferences) throws {
+        if remainingSaveFailures > 0 {
+            remainingSaveFailures -= 1
+            throw UITestingPreferencesError.saveFailed
+        }
+    }
+}
+
+private enum UITestingPreferencesError: Error {
+    case saveFailed
 }
 
 actor UITestingReceiptStore: AudioMutationReceiptStoring {

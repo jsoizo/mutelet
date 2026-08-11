@@ -473,6 +473,16 @@
         }
       }
     },
+    "Some settings were invalid and have been reset to defaults." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部の設定が無効だったため、初期値に戻しました。"
+          }
+        }
+      }
+    },
     "Settings could not be saved" : {
       "extractionState" : "stale",
       "localizations" : {

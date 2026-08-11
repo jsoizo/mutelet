@@ -8,6 +8,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     @Published private(set) var preferences = MuteletPreferences()
     @Published private(set) var hotKeyError: String?
     @Published private(set) var preferencesError: String?
+    @Published private(set) var preferencesRecoveryIssues: [PreferencesRecoveryIssue] = []
     @Published private(set) var launchAtLoginEnabled = false
     @Published private(set) var loginItemStatusText = NSLocalizedString(
         "Off",
@@ -30,6 +31,14 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var started = false
     private var observesWorkspace = false
 
+    var preferencesRecoveryWarning: String? {
+        guard !preferencesRecoveryIssues.isEmpty else { return nil }
+        return NSLocalizedString(
+            "Some settings were invalid and have been reset to defaults.",
+            comment: "Settings recovery warning"
+        )
+    }
+
     init(
         coordinator: MuteCoordinator,
         hotKeyMonitor: CarbonHotKeyMonitor = CarbonHotKeyMonitor(),
@@ -48,8 +57,22 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
-        preferences = await preferencesStore.load()
-        coordinator.configure(mode: preferences.mode, target: preferences.target)
+        switch await preferencesStore.load() {
+        case let .loaded(loadedPreferences):
+            preferences = loadedPreferences
+        case .defaults:
+            preferences = MuteletPreferences()
+        case let .recovered(recoveredPreferences, issues):
+            preferences = recoveredPreferences
+            preferencesRecoveryIssues = issues
+            for issue in issues {
+                NSLog("Mutelet settings recovery: %@", diagnosticDescription(for: issue))
+            }
+        }
+        coordinator.configure(
+            mode: preferences.microphone.mode,
+            target: preferences.microphone.target
+        )
         installWorkspaceObservers()
         if enablesSystemIntegrations {
             refreshLoginItemStatus()
@@ -58,7 +81,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
         if enablesSystemIntegrations {
             do {
-                try installHotKey(preferences.hotKey)
+                try installHotKey(preferences.shortcuts.primary)
             } catch {
                 hotKeyError = hotKeyErrorMessage(for: error)
             }
@@ -74,7 +97,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         modeSelectionGeneration += 1
         let generation = modeSelectionGeneration
         var updated = preferences
-        updated.mode = mode
+        updated.microphone.mode = mode
         preferences = updated
         let transition = coordinator.selectMode(mode)
         Task { [weak self] in
@@ -83,10 +106,10 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             if generation == self.modeSelectionGeneration,
                mode == .pushToTalk,
                self.coordinator.mode == .pushToTalk,
-               self.preferences.mode == .pushToTalk,
-               self.preferences.showsHUD {
+               self.preferences.microphone.mode == .pushToTalk,
+               self.preferences.hud.isEnabled {
                 self.hudController.showPushToTalkEnabled(
-                    shortcut: self.preferences.hotKey.displayName
+                    shortcut: self.preferences.shortcuts.primary.displayName
                 )
             }
             await self.savePreferences()
@@ -97,14 +120,14 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         targetSelectionGeneration += 1
         let generation = targetSelectionGeneration
         var updated = preferences
-        updated.target = target
+        updated.microphone.target = target
         preferences = updated
         Task { [weak self] in
             guard let self else { return }
             await self.coordinator.selectTarget(target)
             guard generation == self.targetSelectionGeneration else { return }
             var reconciled = self.preferences
-            reconciled.target = self.coordinator.target
+            reconciled.microphone.target = self.coordinator.target
             self.preferences = reconciled
             await self.savePreferences()
         }
@@ -112,7 +135,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     func setShowsHUD(_ showsHUD: Bool) {
         var updated = preferences
-        updated.showsHUD = showsHUD
+        updated.hud.isEnabled = showsHUD
         preferences = updated
         Task { [weak self] in
             await self?.savePreferences()
@@ -135,11 +158,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             )
             return
         }
-        let previous = preferences.hotKey
+        let previous = preferences.shortcuts.primary
         do {
             try installHotKey(configuration)
             var updated = preferences
-            updated.hotKey = configuration
+            updated.shortcuts.primary = configuration
             preferences = updated
             hotKeyError = nil
             await savePreferences()
@@ -251,7 +274,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 #endif
 
     private func showHUDIfEnabled() {
-        guard preferences.showsHUD else { return }
+        guard preferences.hud.isEnabled else { return }
         hudController.show(status: coordinator.status)
     }
 
@@ -259,12 +282,28 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         do {
             try await preferencesStore.save(preferences)
             preferencesError = nil
+            preferencesRecoveryIssues = []
         } catch {
             NSLog("Mutelet settings error: %@", String(describing: error))
             preferencesError = NSLocalizedString(
                 "Settings could not be saved",
                 comment: "Settings persistence error"
             )
+        }
+    }
+
+    private func diagnosticDescription(for issue: PreferencesRecoveryIssue) -> String {
+        switch issue {
+        case .corruptedData:
+            "corrupted data"
+        case let .unsupportedSchemaVersion(version):
+            "unsupported schema version \(version)"
+        case .invalidMicrophone:
+            "invalid microphone preferences"
+        case .invalidShortcut:
+            "invalid shortcut"
+        case .migrationSaveFailed:
+            "saving migrated preferences failed"
         }
     }
 

@@ -25,11 +25,11 @@ Mutelet is an open-source microphone mute utility for Apple Silicon Macs. It can
 
 ## Download
 
-Mutelet is under active development. The first signed and notarized release is not available yet. When it is ready, it will be published on [GitHub Releases](https://github.com/jsoizo/mutelet/releases). Until then, it can be built from source using the instructions in the repository.
+Mutelet 0.1.0 is available as a Developer ID-signed and Apple-notarized release.
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet">View source on GitHub</a>
-  <a href="https://github.com/jsoizo/mutelet/releases">Check releases</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.1.0/Mutelet-0.1.0.dmg">Download Mutelet 0.1.0</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.1.0">Release details and checksum</a>
 </p>
 
 **Requirements**

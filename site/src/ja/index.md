@@ -25,11 +25,11 @@ Muteletは、Apple Silicon搭載Mac向けのオープンソースのマイクミ
 
 ## ダウンロード
 
-Muteletは現在開発中です。署名・公証済みの初回リリースはまだ公開していません。公開後は[GitHub Releases](https://github.com/jsoizo/mutelet/releases)からダウンロードできます。それまでは、リポジトリの手順に従ってソースコードからビルドできます。
+Developer IDで署名し、Appleの公証を受けたMutelet 0.1.0を公開しています。
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet">GitHubでソースコードを見る</a>
-  <a href="https://github.com/jsoizo/mutelet/releases">リリースを確認</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.1.0/Mutelet-0.1.0.dmg">Mutelet 0.1.0をダウンロード</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.1.0">リリース詳細とチェックサム</a>
 </p>
 
 **動作環境**

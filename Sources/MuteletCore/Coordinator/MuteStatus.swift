@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MuteMode: String, CaseIterable, Codable, Identifiable, Sendable {
+public enum MuteMode: String, CaseIterable, Identifiable, Sendable {
     case toggle
     case pushToTalk
 
@@ -16,7 +16,7 @@ public enum MuteMode: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
-public enum AudioTargetSelection: Codable, Hashable, Identifiable, Sendable {
+public enum AudioTargetSelection: Hashable, Identifiable, Sendable {
     case systemDefault
     case device(uid: String, name: String)
     case allInputs

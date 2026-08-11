@@ -6,7 +6,7 @@ public enum GlobalHotKeyEvent: String, Sendable {
     case released
 }
 
-public struct GlobalHotKeyModifiers: OptionSet, Codable, Hashable, Sendable {
+public struct GlobalHotKeyModifiers: OptionSet, Hashable, Sendable {
     public let rawValue: UInt32
 
     public init(rawValue: UInt32) {
@@ -28,7 +28,7 @@ public struct GlobalHotKeyModifiers: OptionSet, Codable, Hashable, Sendable {
     }
 }
 
-public struct GlobalHotKeyConfiguration: Codable, Equatable, Sendable {
+public struct GlobalHotKeyConfiguration: Equatable, Sendable {
     public let keyCode: UInt32
     public let keyLabel: String
     public let modifiers: GlobalHotKeyModifiers

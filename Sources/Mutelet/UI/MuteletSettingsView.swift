@@ -7,26 +7,50 @@ struct MuteletSettingsView: View {
     @ObservedObject var coordinator: MuteCoordinator
 
     var body: some View {
-        TabView {
-            GeneralSettingsView(
-                applicationModel: applicationModel,
-                coordinator: coordinator
-            )
-            .tabItem {
-                Label("General", systemImage: "gearshape")
+        VStack(spacing: 0) {
+            settingsNotices
+
+            TabView {
+                GeneralSettingsView(
+                    applicationModel: applicationModel,
+                    coordinator: coordinator
+                )
+                .tabItem {
+                    Label("General", systemImage: "gearshape")
+                }
+
+                ShortcutSettingsView(applicationModel: applicationModel)
+                    .tabItem {
+                        Label("Shortcut", systemImage: "keyboard")
+                    }
+
+                AboutSettingsView()
+                    .tabItem {
+                        Label("About", systemImage: "info.circle")
+                    }
             }
-
-            ShortcutSettingsView(applicationModel: applicationModel)
-                .tabItem {
-                    Label("Shortcut", systemImage: "keyboard")
-                }
-
-            AboutSettingsView()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
         }
         .frame(width: 520, height: 370)
+    }
+
+    @ViewBuilder
+    private var settingsNotices: some View {
+        if applicationModel.preferencesRecoveryWarning != nil
+            || applicationModel.preferencesError != nil {
+            VStack(alignment: .leading, spacing: 6) {
+                if let recoveryWarning = applicationModel.preferencesRecoveryWarning {
+                    SettingsWarningText(recoveryWarning)
+                        .accessibilityIdentifier("settings-preferences-recovery-warning")
+                }
+                if let preferencesError = applicationModel.preferencesError {
+                    SettingsErrorText(preferencesError)
+                        .accessibilityIdentifier("settings-preferences-save-error")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+        }
     }
 }
 
@@ -53,9 +77,6 @@ private struct GeneralSettingsView: View {
 
                 Toggle("Show HUD", isOn: hudSelection)
                     .accessibilityIdentifier("settings-show-hud")
-                if let preferencesError = applicationModel.preferencesError {
-                    SettingsErrorText(preferencesError)
-                }
             }
 
             Section("Startup") {
@@ -83,21 +104,21 @@ private struct GeneralSettingsView: View {
 
     private var modeSelection: Binding<MuteMode> {
         Binding(
-            get: { applicationModel.preferences.mode },
+            get: { applicationModel.preferences.microphone.mode },
             set: { applicationModel.selectMode($0) }
         )
     }
 
     private var targetSelection: Binding<AudioTargetSelection> {
         Binding(
-            get: { applicationModel.preferences.target },
+            get: { applicationModel.preferences.microphone.target },
             set: { applicationModel.selectTarget($0) }
         )
     }
 
     private var hudSelection: Binding<Bool> {
         Binding(
-            get: { applicationModel.preferences.showsHUD },
+            get: { applicationModel.preferences.hud.isEnabled },
             set: { applicationModel.setShowsHUD($0) }
         )
     }
@@ -131,7 +152,7 @@ private struct ShortcutSettingsView: View {
         Form {
             Section("Global shortcut") {
                 LabeledContent("Current shortcut") {
-                    Text(applicationModel.preferences.hotKey.displayName)
+                    Text(applicationModel.preferences.shortcuts.primary.displayName)
                         .font(.system(.body, design: .rounded, weight: .semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -158,7 +179,7 @@ private struct ShortcutSettingsView: View {
                             await applicationModel.updateHotKey(.default)
                         }
                     }
-                    .disabled(applicationModel.preferences.hotKey == .default)
+                    .disabled(applicationModel.preferences.shortcuts.primary == .default)
                 }
 
                 if recorder.isRecording {
@@ -241,6 +262,20 @@ private struct SettingsErrorText: View {
         Label(message, systemImage: "exclamationmark.triangle.fill")
             .font(.caption)
             .foregroundStyle(.red)
+    }
+}
+
+private struct SettingsWarningText: View {
+    let message: String
+
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var body: some View {
+        Label(message, systemImage: "exclamationmark.triangle.fill")
+            .font(.caption)
+            .foregroundStyle(.orange)
     }
 }
 

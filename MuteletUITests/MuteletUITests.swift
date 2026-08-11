@@ -94,6 +94,46 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
+    func testRecoveredPreferencesWarningAppearsAndClearsAfterSave() throws {
+        let app = launch(arguments: [
+            "--ui-state=live",
+            "--ui-preferences-recovered",
+            "--ui-preferences-save-fails-once",
+        ])
+        openStatusMenu(in: app)
+
+        let menuWarning = app.descendants(matching: .any)[
+            "mutelet-preferences-recovery-warning"
+        ]
+        XCTAssertTrue(menuWarning.waitForExistence(timeout: 5))
+
+        let settingsLink = app.buttons["mutelet-settings-link"]
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 2))
+        settingsLink.click()
+
+        let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
+        XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        let settingsWarning = app.descendants(matching: .any)[
+            "settings-preferences-recovery-warning"
+        ]
+        XCTAssertTrue(settingsWarning.waitForExistence(timeout: 5))
+
+        let hudToggle = app.descendants(matching: .any)["settings-show-hud"]
+        XCTAssertTrue(hudToggle.waitForExistence(timeout: 2))
+        hudToggle.click()
+        XCTAssertTrue(settingsWarning.waitForExistence(timeout: 2))
+        let saveError = app.descendants(matching: .any)["settings-preferences-save-error"]
+        XCTAssertTrue(saveError.waitForExistence(timeout: 5))
+
+        hudToggle.click()
+        XCTAssertTrue(settingsWarning.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(saveError.waitForNonExistence(timeout: 2))
+
+        openStatusMenu(in: app)
+        XCTAssertTrue(menuWarning.waitForNonExistence(timeout: 2))
+    }
+
+    @MainActor
     func testCaptureWebsiteAssets() throws {
         let captures = [
             (locale: "en_US", language: "en", deviceName: "MacBook Microphone"),

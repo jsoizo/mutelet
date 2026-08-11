@@ -34,6 +34,7 @@
 		A10000000000000000000026 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* Assets.xcassets */; };
 		D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* CoreAudioDiagnostics.swift */; };
 		D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */; };
+		F10000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		A20000000000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		D20000000000000000000001 /* CoreAudioDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics/CoreAudioDiagnostics.swift; sourceTree = "<group>"; };
 		D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreAudioEventMonitorTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/UserDefaultsMuteletPreferencesStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +158,7 @@
 				A20000000000000000000017 /* CarbonHotKeyMonitor.swift */,
 				A20000000000000000000018 /* AudioMutationReceiptStoring.swift */,
 				A20000000000000000000022 /* MuteletPreferences.swift */,
+				F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */,
 				D20000000000000000000001 /* CoreAudioDiagnostics.swift */,
 			);
 			path = Sources/MuteletCore;
@@ -315,6 +318,7 @@
 				A10000000000000000000017 /* CarbonHotKeyMonitor.swift in Sources */,
 				A10000000000000000000018 /* AudioMutationReceiptStoring.swift in Sources */,
 				A10000000000000000000021 /* MuteletPreferences.swift in Sources */,
+				F10000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift in Sources */,
 				D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

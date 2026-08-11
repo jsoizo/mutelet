@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Configurable HUD size, position, display target, duration, and manual preview.
+
+## [0.1.0] - 2026-08-11
+
+### Added
+
 - Apple Silicon-native macOS menu bar app targeting macOS 14 and later.
 - Toggle and Push to Talk modes with a configurable global shortcut.
 - System-default, individual-device, and all-input targeting.

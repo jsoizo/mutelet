@@ -39,6 +39,10 @@ struct MuteletApp: App {
         let preferencesStore: any MuteletPreferencesStoring = isUITesting
             ? UITestingPreferencesStore(arguments: arguments)
             : UserDefaultsMuteletPreferencesStore()
+        let hudController = MuteHUDController(
+            disablesAutomaticDismissal: isUITesting
+                && arguments.contains("--ui-keep-hud-visible")
+        )
 #else
         let isUITesting = false
         let audioController: any AudioDeviceControlling = CoreAudioDeviceController()
@@ -46,6 +50,7 @@ struct MuteletApp: App {
             UserDefaultsAudioMutationReceiptStore()
         let preferencesStore: any MuteletPreferencesStoring =
             UserDefaultsMuteletPreferencesStore()
+        let hudController = MuteHUDController()
 #endif
         let coordinator = MuteCoordinator(
             audioController: audioController,
@@ -56,6 +61,7 @@ struct MuteletApp: App {
             wrappedValue: MuteletApplicationModel(
                 coordinator: coordinator,
                 preferencesStore: preferencesStore,
+                hudController: hudController,
                 enablesSystemIntegrations: !isUITesting
             )
         )

@@ -34,6 +34,17 @@
         }
       }
     },
+    "All screens" : {
+      "comment" : "HUD display target",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての画面"
+          }
+        }
+      }
+    },
     "Apple Silicon-native microphone mute utility." : {
       "localizations" : {
         "ja" : {
@@ -66,6 +77,39 @@
         }
       }
     },
+    "Bottom center" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下中央"
+          }
+        }
+      }
+    },
+    "Bottom left" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左下"
+          }
+        }
+      }
+    },
+    "Bottom right" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右下"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -73,6 +117,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "Center" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中央"
+          }
+        }
+      }
+    },
+    "Center left" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左中央"
+          }
+        }
+      }
+    },
+    "Center right" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右中央"
           }
         }
       }
@@ -88,6 +165,17 @@
         }
       }
     },
+    "Compact" : {
+      "comment" : "Compact HUD size",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンパクト"
+          }
+        }
+      }
+    },
     "Current shortcut" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -95,6 +183,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在のショートカット"
+          }
+        }
+      }
+    },
+    "Duration" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示時間"
           }
         }
       }
@@ -154,6 +253,17 @@
         }
       }
     },
+    "HUD position" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HUDの位置"
+          }
+        }
+      }
+    },
     "Input" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -187,6 +297,17 @@
         }
       }
     },
+    "Large" : {
+      "comment" : "Large HUD size",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大"
+          }
+        }
+      }
+    },
     "Launch at login" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -205,6 +326,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ログイン時の起動設定を変更できませんでした。"
+          }
+        }
+      }
+    },
+    "Long (2 seconds)" : {
+      "comment" : "Long HUD duration with seconds",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長い（2秒）"
+          }
+        }
+      }
+    },
+    "Main screen" : {
+      "comment" : "HUD display target",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メイン画面"
+          }
+        }
+      }
+    },
+    "Microphone controls" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイク操作"
           }
         }
       }
@@ -351,6 +505,17 @@
         }
       }
     },
+    "On-screen display" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面表示"
+          }
+        }
+      }
+    },
     "Open Login Items Settings" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -384,6 +549,17 @@
         }
       }
     },
+    "Position" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置"
+          }
+        }
+      }
+    },
     "Press shortcut…" : {
       "comment" : "Shortcut recorder prompt",
       "extractionState" : "stale",
@@ -392,6 +568,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "キーの組み合わせを押してください…"
+          }
+        }
+      }
+    },
+    "Preview HUD" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HUDをプレビュー"
           }
         }
       }
@@ -431,6 +618,7 @@
     },
     "Reading the selected input device failed" : {
       "comment" : "Selected microphone read error",
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -473,18 +661,30 @@
         }
       }
     },
-    "Some settings were invalid and have been reset to defaults." : {
+    "Screen" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一部の設定が無効だったため、初期値に戻しました。"
+            "value" : "表示する画面"
+          }
+        }
+      }
+    },
+    "Screen with pointer" : {
+      "comment" : "HUD display target",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ポインタがある画面"
           }
         }
       }
     },
     "Settings could not be saved" : {
-      "extractionState" : "stale",
+      "comment" : "Settings persistence error",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -505,6 +705,17 @@
         }
       }
     },
+    "Short (0.5 seconds)" : {
+      "comment" : "Short HUD duration with seconds",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短い（0.5秒）"
+          }
+        }
+      }
+    },
     "Shortcut" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -517,7 +728,7 @@
       }
     },
     "Shortcut unavailable" : {
-      "extractionState" : "stale",
+      "comment" : "Shortcut registration error",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -534,6 +745,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "操作時に状態を表示"
+          }
+        }
+      }
+    },
+    "Show status after actions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作時に状態を表示"
+          }
+        }
+      }
+    },
+    "Size" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サイズ"
+          }
+        }
+      }
+    },
+    "Some settings were invalid and have been reset to defaults." : {
+      "comment" : "Settings recovery warning",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部の設定が無効だったため、初期値に戻しました。"
+          }
+        }
+      }
+    },
+    "Standard" : {
+      "comment" : "Standard HUD size or duration",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標準"
+          }
+        }
+      }
+    },
+    "Standard (1 second)" : {
+      "comment" : "Standard HUD duration with seconds",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標準（1秒）"
           }
         }
       }
@@ -560,6 +826,18 @@
         }
       }
     },
+    "The microphone could not be controlled." : {
+      "comment" : "Generic microphone control error",
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクを操作できませんでした。"
+          }
+        }
+      }
+    },
     "The microphone could not be remuted, so the shortcut was not changed." : {
       "comment" : "Shortcut safety error",
       "localizations" : {
@@ -567,17 +845,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "マイクを再度ミュートできなかったため、ショートカットは変更しませんでした。"
-          }
-        }
-      }
-    },
-    "The microphone could not be controlled." : {
-      "comment" : "Generic microphone control error",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "マイクを操作できませんでした。"
           }
         }
       }
@@ -600,6 +867,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "トグル"
+          }
+        }
+      }
+    },
+    "Top center" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上中央"
+          }
+        }
+      }
+    },
+    "Top left" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左上"
+          }
+        }
+      }
+    },
+    "Top right" : {
+      "comment" : "HUD position",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右上"
           }
         }
       }

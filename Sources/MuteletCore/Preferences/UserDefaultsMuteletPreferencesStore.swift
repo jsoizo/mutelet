@@ -2,7 +2,7 @@ import Foundation
 
 public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     private static let storageKey = "muteletPreferences"
-    private static let currentSchemaVersion = 1
+    private static let currentSchemaVersion = 2
 
     private struct StoredPreferencesHeader: Decodable {
         let schemaVersion: Int
@@ -15,7 +15,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         let hud: StoredHUDPreferencesV1
 
         init(preferences: MuteletPreferences) {
-            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            schemaVersion = 1
             microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
             shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
             hud = StoredHUDPreferencesV1(preferences: preferences.hud)
@@ -38,6 +38,49 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             }
 
             preferences.hud = hud.preferences
+            return DecodedPreferences(
+                preferences: preferences,
+                issues: issues,
+                requiresSave: true
+            )
+        }
+    }
+
+    private struct StoredPreferencesV2: Codable {
+        let schemaVersion: Int
+        let microphone: StoredMicrophonePreferencesV1
+        let shortcuts: StoredShortcutPreferencesV1
+        let hud: StoredHUDPreferencesV2
+
+        init(preferences: MuteletPreferences) {
+            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
+        }
+
+        func decodePreferences() -> DecodedPreferences {
+            var preferences = MuteletPreferences()
+            var issues: [PreferencesRecoveryIssue] = []
+
+            if let microphonePreferences = microphone.decodePreferences() {
+                preferences.microphone = microphonePreferences
+            } else {
+                issues.append(.invalidMicrophone)
+            }
+
+            if let shortcutPreferences = shortcuts.decodePreferences() {
+                preferences.shortcuts = shortcutPreferences
+            } else {
+                issues.append(.invalidShortcut)
+            }
+
+            if let hudPreferences = hud.decodePreferences() {
+                preferences.hud = hudPreferences
+            } else {
+                issues.append(.invalidHUD)
+            }
+
             return DecodedPreferences(
                 preferences: preferences,
                 issues: issues,
@@ -201,6 +244,46 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         }
     }
 
+    private struct StoredHUDPreferencesV2: Codable {
+        let isEnabled: Bool
+        let size: String
+        let horizontalPosition: String
+        let verticalPosition: String
+        let displayTarget: String
+        let duration: String
+
+        init(preferences: HUDPreferences) {
+            isEnabled = preferences.isEnabled
+            size = preferences.size.rawValue
+            horizontalPosition = preferences.position.horizontal.rawValue
+            verticalPosition = preferences.position.vertical.rawValue
+            displayTarget = preferences.displayTarget.rawValue
+            duration = preferences.duration.rawValue
+        }
+
+        func decodePreferences() -> HUDPreferences? {
+            guard let size = HUDSize(rawValue: size),
+                  let horizontalPosition = HUDHorizontalPosition(
+                    rawValue: horizontalPosition
+                  ),
+                  let verticalPosition = HUDVerticalPosition(rawValue: verticalPosition),
+                  let displayTarget = HUDDisplayTarget(rawValue: displayTarget),
+                  let duration = HUDDuration(rawValue: duration) else {
+                return nil
+            }
+            return HUDPreferences(
+                isEnabled: isEnabled,
+                size: size,
+                position: HUDPosition(
+                    horizontal: horizontalPosition,
+                    vertical: verticalPosition
+                ),
+                displayTarget: displayTarget,
+                duration: duration
+            )
+        }
+    }
+
     private struct DecodedPreferences {
         let preferences: MuteletPreferences
         let issues: [PreferencesRecoveryIssue]
@@ -208,6 +291,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     private let defaults: UserDefaults
+    private let dataWriter: (@Sendable (Data) throws -> Void)?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -217,6 +301,19 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         } else {
             self.defaults = .standard
         }
+        dataWriter = nil
+    }
+
+    init(
+        suiteName: String?,
+        dataWriter: @escaping @Sendable (Data) throws -> Void
+    ) {
+        if let suiteName, let defaults = UserDefaults(suiteName: suiteName) {
+            self.defaults = defaults
+        } else {
+            self.defaults = .standard
+        }
+        self.dataWriter = dataWriter
     }
 
     public func load() -> PreferencesLoadResult {
@@ -267,10 +364,12 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     public func save(_ preferences: MuteletPreferences) throws {
-        defaults.set(
-            try encoder.encode(StoredPreferencesV1(preferences: preferences)),
-            forKey: Self.storageKey
-        )
+        let data = try encoder.encode(StoredPreferencesV2(preferences: preferences))
+        if let dataWriter {
+            try dataWriter(data)
+        } else {
+            defaults.set(data, forKey: Self.storageKey)
+        }
     }
 
     private func decodePreferences(
@@ -278,9 +377,13 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         schemaVersion: Int
     ) throws -> DecodedPreferences {
         switch schemaVersion {
-        case Self.currentSchemaVersion:
+        case 1:
             return try decoder
                 .decode(StoredPreferencesV1.self, from: data)
+                .decodePreferences()
+        case Self.currentSchemaVersion:
+            return try decoder
+                .decode(StoredPreferencesV2.self, from: data)
                 .decodePreferences()
         default:
             throw StoredPreferencesError.unsupportedSchemaVersion(schemaVersion)

@@ -23,7 +23,7 @@ The app runs inside the macOS App Sandbox without audio-input or network client/
 
 ## Local data
 
-Preferences include the selected mode, input UID and display name, shortcut, and HUD choice. Launch at login is managed separately by macOS through `SMAppService`. Restoration receipts contain only device UIDs and numeric control values. They do not contain audio.
+Preferences include the selected mode, input UID and display name, shortcut, and HUD display choices. Launch at login is managed separately by macOS through `SMAppService`. Restoration receipts contain only device UIDs and numeric control values. They do not contain audio.
 
 Removing Mutelet does not automatically delete its `UserDefaults` domain. Users may remove that local preference data with:
 

@@ -84,6 +84,8 @@ Use Mutelet-specific Apple credentials instead of copying credentials from anoth
 2. Verify Toggle, Push to Talk, settings, login item approval, sleep/wake, and quit safety with real hardware.
 3. Commit the version and release-note changes.
 4. Create and push an annotated `v<version>` tag.
-5. Confirm the protected `release` environment is approved and the release workflow publishes the DMG, checksum, and notarization logs.
+5. Confirm the protected `release` environment is approved and the release workflow publishes the DMG and checksum.
+
+Notarization JSON is used internally by the release script and is not attached to the public GitHub release. If the workflow fails after producing diagnostics, those files are retained in the private `release-diagnostics-<run-id>` Actions artifact for 14 days.
 
 Before enabling the tag workflow, configure its 1Password service account and `OP_SERVICE_ACCOUNT_TOKEN` environment secret, protect `v*` tags, configure required reviewers for the `release` environment, and enable private vulnerability reporting or publish a private security contact. GitHub-hosted artifacts are not a substitute for manually checking the final stapled download.

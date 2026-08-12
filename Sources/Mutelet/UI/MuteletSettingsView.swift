@@ -30,7 +30,7 @@ struct MuteletSettingsView: View {
                     }
             }
         }
-        .frame(width: 560, height: 560)
+        .frame(width: 600, height: 720)
     }
 
     @ViewBuilder
@@ -77,6 +77,9 @@ private struct GeneralSettingsView: View {
             }
 
             Section("On-screen display") {
+                Text("After actions")
+                    .font(.headline)
+
                 Toggle("Show status after actions", isOn: hudSelection)
                     .accessibilityIdentifier("settings-show-hud")
 
@@ -119,6 +122,14 @@ private struct GeneralSettingsView: View {
                     applicationModel.previewHUD()
                 }
                 .accessibilityIdentifier("settings-hud-preview")
+
+                Divider()
+
+                StatusOverlaySettingsView(
+                    applicationModel: applicationModel,
+                    coordinator: coordinator,
+                    controller: applicationModel.statusOverlayController
+                )
             }
 
             Section("Startup") {
@@ -168,7 +179,11 @@ private struct GeneralSettingsView: View {
     private var hudSizeSelection: Binding<HUDSize> {
         Binding(
             get: { applicationModel.preferences.hud.size },
-            set: { applicationModel.setHUDSize($0) }
+            set: { size in
+                Task { @MainActor in
+                    applicationModel.setHUDSize(size)
+                }
+            }
         )
     }
 
@@ -189,7 +204,11 @@ private struct GeneralSettingsView: View {
     private var hudDurationSelection: Binding<HUDDuration> {
         Binding(
             get: { applicationModel.preferences.hud.duration },
-            set: { applicationModel.setHUDDuration($0) }
+            set: { duration in
+                Task { @MainActor in
+                    applicationModel.setHUDDuration(duration)
+                }
+            }
         )
     }
 
@@ -211,6 +230,111 @@ private struct GeneralSettingsView: View {
         }
         targets.append(.allInputs)
         return targets
+    }
+}
+
+private struct StatusOverlaySettingsView: View {
+    @ObservedObject var applicationModel: MuteletApplicationModel
+    @ObservedObject var coordinator: MuteCoordinator
+    @ObservedObject var controller: StatusOverlayController
+
+    var body: some View {
+        Text("Persistent status")
+            .font(.headline)
+
+        Toggle("Show persistent status", isOn: enabledSelection)
+            .accessibilityIdentifier("settings-status-overlay-enabled")
+
+        Picker("Show", selection: visibilitySelection) {
+            ForEach(StatusOverlayVisibility.allCases, id: \.self) { visibility in
+                Text(visibility.title).tag(visibility)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-visibility")
+
+        Picker("Content", selection: contentStyleSelection) {
+            ForEach(StatusOverlayContentStyle.allCases, id: \.self) { contentStyle in
+                Text(contentStyle.title).tag(contentStyle)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-content")
+
+        Picker("Size", selection: sizeSelection) {
+            ForEach(StatusOverlaySize.allCases, id: \.self) { size in
+                Text(size.title).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("settings-status-overlay-size")
+
+        Picker("Screen", selection: displayTargetSelection) {
+            ForEach(controller.displayOptions) { option in
+                Text(option.title).tag(option.target)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-screen")
+
+        Toggle("Click to toggle mute", isOn: togglesMuteOnClickSelection)
+            .accessibilityIdentifier("settings-status-overlay-click-toggle")
+
+        Text(
+            coordinator.mode == .pushToTalk
+                ? "In Push to Talk mode, only status display and dragging are available."
+                : "In Toggle mode, click the persistent status to toggle mute."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+        Button("Reset Position") {
+            applicationModel.resetStatusOverlayPosition()
+        }
+        .accessibilityIdentifier("settings-status-overlay-reset-position")
+    }
+
+    private var enabledSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.isEnabled },
+            set: { applicationModel.setStatusOverlayEnabled($0) }
+        )
+    }
+
+    private var visibilitySelection: Binding<StatusOverlayVisibility> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.visibility },
+            set: { applicationModel.setStatusOverlayVisibility($0) }
+        )
+    }
+
+    private var contentStyleSelection: Binding<StatusOverlayContentStyle> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.contentStyle },
+            set: { applicationModel.setStatusOverlayContentStyle($0) }
+        )
+    }
+
+    private var sizeSelection: Binding<StatusOverlaySize> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.size },
+            set: { size in
+                Task { @MainActor in
+                    applicationModel.setStatusOverlaySize(size)
+                }
+            }
+        )
+    }
+
+    private var displayTargetSelection: Binding<StatusOverlayDisplayTarget> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.displayTarget },
+            set: { applicationModel.setStatusOverlayDisplayTarget($0) }
+        )
+    }
+
+    private var togglesMuteOnClickSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.togglesMuteOnClick },
+            set: { applicationModel.setStatusOverlayTogglesMuteOnClick($0) }
+        )
     }
 }
 
@@ -298,6 +422,44 @@ private extension HUDSize {
             NSLocalizedString("Standard", comment: "Standard HUD size or duration")
         case .large:
             NSLocalizedString("Large", comment: "Large HUD size")
+        }
+    }
+}
+
+private extension StatusOverlayVisibility {
+    var title: String {
+        switch self {
+        case .always:
+            NSLocalizedString("Always", comment: "Persistent status visibility")
+        case .whenPotentiallyLive:
+            NSLocalizedString(
+                "When live or status is unknown",
+                comment: "Persistent status visibility"
+            )
+        }
+    }
+}
+
+private extension StatusOverlayContentStyle {
+    var title: String {
+        switch self {
+        case .iconOnly:
+            NSLocalizedString("Icon only", comment: "Persistent status content")
+        case .iconAndStatus:
+            NSLocalizedString("Icon and status", comment: "Persistent status content")
+        }
+    }
+}
+
+private extension StatusOverlaySize {
+    var title: String {
+        switch self {
+        case .compact:
+            NSLocalizedString("Compact", comment: "Persistent status size")
+        case .standard:
+            NSLocalizedString("Standard", comment: "Persistent status size")
+        case .large:
+            NSLocalizedString("Large", comment: "Persistent status size")
         }
     }
 }

@@ -36,6 +36,9 @@
 		D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */; };
 		F10000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */; };
 		F10000000000000000000002 /* HUDLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* HUDLayout.swift */; };
+		F10000000000000000000003 /* StatusOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* StatusOverlayController.swift */; };
+		F10000000000000000000004 /* StatusOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* StatusOverlayController.swift */; };
+		F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* StatusOverlayControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +80,8 @@
 		D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreAudioEventMonitorTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/UserDefaultsMuteletPreferencesStore.swift; sourceTree = "<group>"; };
 		F20000000000000000000002 /* HUDLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/HUDLayout.swift; sourceTree = "<group>"; };
+		F20000000000000000000003 /* StatusOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/StatusOverlayController.swift; sourceTree = "<group>"; };
+		F20000000000000000000004 /* StatusOverlayControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOverlayControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +121,7 @@
 				A20000000000000000000003 /* MuteletMenuView.swift */,
 				A20000000000000000000020 /* MuteletSettingsView.swift */,
 				A20000000000000000000021 /* MuteHUDController.swift */,
+				F20000000000000000000003 /* StatusOverlayController.swift */,
 				A20000000000000000000024 /* UITestingDependencies.swift */,
 				A20000000000000000000025 /* Localizable.xcstrings */,
 				A20000000000000000000028 /* Assets.xcassets */,
@@ -131,6 +137,7 @@
 				A20000000000000000000006 /* UserDefaultsAudioMutationReceiptStoreTests.swift */,
 				A20000000000000000000023 /* MuteletPreferencesTests.swift */,
 				D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */,
+				F20000000000000000000004 /* StatusOverlayControllerTests.swift */,
 			);
 			path = Tests/MuteletCoreTests;
 			sourceTree = "<group>";
@@ -290,6 +297,7 @@
 				A10000000000000000000003 /* MuteletMenuView.swift in Sources */,
 				A10000000000000000000019 /* MuteletSettingsView.swift in Sources */,
 				A10000000000000000000020 /* MuteHUDController.swift in Sources */,
+				F10000000000000000000003 /* StatusOverlayController.swift in Sources */,
 				A10000000000000000000023 /* UITestingDependencies.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -303,6 +311,8 @@
 				A10000000000000000000007 /* UserDefaultsAudioMutationReceiptStoreTests.swift in Sources */,
 				A10000000000000000000022 /* MuteletPreferencesTests.swift in Sources */,
 				D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */,
+				F10000000000000000000004 /* StatusOverlayController.swift in Sources */,
+				F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -52,12 +52,21 @@ final class MuteletPreferencesTests: XCTestCase {
                 position: HUDPosition(horizontal: .trailing, vertical: .top),
                 displayTarget: .all,
                 duration: .long
+            ),
+            statusOverlay: StatusOverlayPreferences(
+                isEnabled: true,
+                visibility: .whenPotentiallyLive,
+                contentStyle: .iconAndStatus,
+                size: .compact,
+                displayTarget: .display(id: "display-uuid", lastKnownName: "Studio Display"),
+                position: NormalizedScreenPosition(x: 0.25, y: 0.75),
+                togglesMuteOnClick: true
             )
         )
         let fixture = Data(
             #"""
             {
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "microphone": {
                 "mode": "pushToTalk",
                 "target": {
@@ -80,6 +89,19 @@ final class MuteletPreferencesTests: XCTestCase {
                 "verticalPosition": "top",
                 "displayTarget": "all",
                 "duration": "long"
+              },
+              "statusOverlay": {
+                "isEnabled": true,
+                "visibility": "whenPotentiallyLive",
+                "contentStyle": "iconAndStatus",
+                "size": "compact",
+                "displayTarget": {
+                  "kind": "display",
+                  "displayID": "display-uuid",
+                  "lastKnownName": "Studio Display"
+                },
+                "position": { "x": 0.25, "y": 0.75 },
+                "togglesMuteOnClick": true
               }
             }
             """#.utf8
@@ -95,7 +117,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, .loaded(expected))
         let data = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
         let header = try JSONDecoder().decode(StoredPreferencesHeader.self, from: data)
-        XCTAssertEqual(header.schemaVersion, 2)
+        XCTAssertEqual(header.schemaVersion, 3)
         XCTAssertEqual(
             try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? NSDictionary),
             try XCTUnwrap(JSONSerialization.jsonObject(with: fixture) as? NSDictionary)
@@ -103,7 +125,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertNil(defaults.data(forKey: Self.legacyStorageKey))
     }
 
-    func testVersionOnePreferencesMigrateToVersionTwo() async throws {
+    func testVersionOnePreferencesMigrateToVersionThree() async throws {
         let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -157,7 +179,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            2
+            3
         )
         let reloaded = await UserDefaultsMuteletPreferencesStore(
             suiteName: suiteName
@@ -213,6 +235,65 @@ final class MuteletPreferencesTests: XCTestCase {
         )
     }
 
+    func testVersionTwoPreferencesMigrateToVersionThree() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 2,
+                  "microphone": {
+                    "mode": "toggle",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": false,
+                    "size": "large",
+                    "horizontalPosition": "trailing",
+                    "verticalPosition": "bottom",
+                    "displayTarget": "main",
+                    "duration": "long"
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+        let store = UserDefaultsMuteletPreferencesStore(suiteName: suiteName)
+
+        let actual = await store.load()
+
+        XCTAssertEqual(
+            actual,
+            .loaded(
+                MuteletPreferences(
+                    hud: HUDPreferences(
+                        isEnabled: false,
+                        size: .large,
+                        position: HUDPosition(horizontal: .trailing, vertical: .bottom),
+                        displayTarget: .main,
+                        duration: .long
+                    )
+                )
+            )
+        )
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            3
+        )
+    }
+
     func testHUDDefaultsMatchExistingPresentation() {
         let hud = HUDPreferences()
 
@@ -221,6 +302,73 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(hud.position, HUDPosition())
         XCTAssertEqual(hud.displayTarget, .pointer)
         XCTAssertEqual(hud.duration, .standard)
+    }
+
+    func testStatusOverlayDefaults() {
+        let overlay = StatusOverlayPreferences()
+
+        XCTAssertFalse(overlay.isEnabled)
+        XCTAssertEqual(overlay.visibility, .always)
+        XCTAssertEqual(overlay.contentStyle, .iconOnly)
+        XCTAssertEqual(overlay.size, .standard)
+        XCTAssertEqual(overlay.displayTarget, .main)
+        XCTAssertEqual(overlay.position, NormalizedScreenPosition(x: 1, y: 0.5))
+        XCTAssertFalse(overlay.togglesMuteOnClick)
+    }
+
+    func testEachStatusOverlaySettingValueRoundTrips() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsMuteletPreferencesStore(suiteName: suiteName)
+        var values = StatusOverlayVisibility.allCases.map {
+            StatusOverlayPreferences(visibility: $0)
+        }
+        values += StatusOverlayContentStyle.allCases.map {
+            StatusOverlayPreferences(contentStyle: $0)
+        }
+        values += StatusOverlaySize.allCases.map {
+            StatusOverlayPreferences(size: $0)
+        }
+        values += [
+            StatusOverlayPreferences(displayTarget: .main),
+            StatusOverlayPreferences(
+                displayTarget: .display(id: "display-uuid", lastKnownName: "Display")
+            ),
+            StatusOverlayPreferences(
+                isEnabled: true,
+                position: NormalizedScreenPosition(x: 0, y: 1),
+                togglesMuteOnClick: true
+            ),
+        ]
+
+        for statusOverlay in values {
+            let preferences = MuteletPreferences(statusOverlay: statusOverlay)
+            try await store.save(preferences)
+            let loaded = await store.load()
+            XCTAssertEqual(loaded, .loaded(preferences))
+        }
+    }
+
+    func testStatusOverlayVisibilityForEveryStatus() {
+        let statuses: [(MuteStatus, Bool)] = [
+            (.loading, true),
+            (.live(deviceName: "Mic"), true),
+            (.muted(deviceName: "Mic"), false),
+            (.mixed(deviceName: "Mic"), true),
+            (.unavailable, false),
+            (.disconnected(deviceName: "Mic"), false),
+            (.unsupported(deviceName: "Mic"), true),
+            (.partial(deviceName: "All", muted: 1, live: 0, mixed: 0, unsupported: 0, failed: 0), true),
+            (.error(message: "Failed"), true),
+        ]
+
+        for (status, potentiallyLive) in statuses {
+            XCTAssertTrue(StatusOverlayVisibility.always.includes(status))
+            XCTAssertEqual(
+                StatusOverlayVisibility.whenPotentiallyLive.includes(status),
+                potentiallyLive
+            )
+        }
     }
 
     func testEachHUDSettingValueRoundTrips() async throws {
@@ -308,6 +456,85 @@ final class MuteletPreferencesTests: XCTestCase {
                     )
                 ),
                 issues: [.invalidHUD]
+            )
+        )
+    }
+
+    func testInvalidStatusOverlayRecoversOnlyStatusOverlayGroup() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 3,
+                  "microphone": {
+                    "mode": "pushToTalk",
+                    "target": { "kind": "allInputs" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 49,
+                      "keyLabel": "Space",
+                      "modifierRawValue": 9
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": false,
+                    "size": "large",
+                    "horizontalPosition": "trailing",
+                    "verticalPosition": "top",
+                    "displayTarget": "all",
+                    "duration": "long"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": true,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": {
+                      "kind": "display",
+                      "displayID": "",
+                      "lastKnownName": "Display"
+                    },
+                    "position": { "x": 1.2, "y": 0.5 },
+                    "togglesMuteOnClick": true
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(
+            actual,
+            .recovered(
+                MuteletPreferences(
+                    microphone: MicrophonePreferences(
+                        mode: .pushToTalk,
+                        target: .allInputs
+                    ),
+                    shortcuts: ShortcutPreferences(
+                        primary: GlobalHotKeyConfiguration(
+                            keyCode: 49,
+                            keyLabel: "Space",
+                            modifiers: [.command, .shift]
+                        )
+                    ),
+                    hud: HUDPreferences(
+                        isEnabled: false,
+                        size: .large,
+                        position: HUDPosition(horizontal: .trailing, vertical: .top),
+                        displayTarget: .all,
+                        duration: .long
+                    )
+                ),
+                issues: [.invalidStatusOverlay]
             )
         )
     }

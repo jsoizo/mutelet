@@ -32,3 +32,15 @@ The compatibility table will be populated as physical testing is completed.
 | USB audio input | USB | Pending | Pending | Pending | Pending | Channel-layout testing required |
 
 When reporting results, include the exact device name shown by macOS, macOS version, connection type, and whether Mutelet displayed a volume-only warning.
+
+## Persistent status presentation checks
+
+Before a release, manually verify the persistent status on macOS 14 and the latest stable macOS:
+
+- Move it within one display and across two displays, then restart Mutelet and confirm the display and position are restored.
+- Disconnect the selected display, confirm fallback to the primary display at the same relative position, reconnect it, and confirm the saved display is restored.
+- Change resolution, display scaling, Dock position, menu bar placement, and the primary display; the full panel must remain inside the visible frame with its 12-point margin.
+- Switch normal Spaces, enter a standard full-screen Space, and use Mission Control and Stage Manager; the panel should remain visible without joining the normal window switcher or stealing keyboard focus.
+- Verify both content styles and all three sizes against light and dark backgrounds.
+- Enable Reduce Motion and Reduce Transparency and confirm immediate state/visibility changes and an opaque system background respectively.
+- Confirm click-to-toggle works only in Toggle mode and that dragging, Push to Talk, busy operations, and non-actionable states never toggle the microphone.

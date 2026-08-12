@@ -53,6 +53,54 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
+    func testPersistentStatusReflectsStateAndTogglesMute() throws {
+        let app = launch(arguments: [
+            "--ui-state=live",
+            "--ui-hud-disabled",
+            "--ui-status-overlay-enabled",
+            "--ui-status-overlay-content=iconAndStatus",
+            "--ui-status-overlay-size=large",
+            "--ui-status-overlay-click-toggle",
+        ])
+        let overlay = app.descendants(matching: .any)["mutelet-status-overlay"]
+        XCTAssertTrue(overlay.waitForExistence(timeout: 5))
+        XCTAssertEqual(overlay.label, "Microphone on — UI Test Microphone")
+        XCTAssertGreaterThanOrEqual(overlay.frame.width, 170)
+        XCTAssertLessThanOrEqual(overlay.frame.width, 182)
+
+        overlay.click()
+
+        waitForLabel("Microphone muted — UI Test Microphone", on: overlay)
+    }
+
+    @MainActor
+    func testPersistentStatusCanBeEnabledAndResetFromSettings() throws {
+        let app = launch(arguments: ["--ui-state=live"])
+        openStatusMenu(in: app)
+        let settingsLink = app.buttons["mutelet-settings-link"]
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
+        settingsLink.click()
+
+        let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
+        XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        let generalTab = settingsWindow.buttons["General"]
+        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
+        generalTab.click()
+
+        let enabled = app.descendants(matching: .any)["settings-status-overlay-enabled"]
+        XCTAssertTrue(enabled.waitForExistence(timeout: 5))
+        let overlay = app.descendants(matching: .any)["mutelet-status-overlay"]
+        XCTAssertFalse(overlay.exists)
+        enabled.click()
+
+        XCTAssertTrue(overlay.waitForExistence(timeout: 5))
+        let reset = app.buttons["settings-status-overlay-reset-position"]
+        XCTAssertTrue(reset.waitForExistence(timeout: 2))
+        reset.click()
+        XCTAssertTrue(overlay.exists)
+    }
+
+    @MainActor
     func testSettingsWindowClosesPopoverAndReactivatesExistingWindow() throws {
         let app = launch(arguments: ["--ui-state=live"])
         openStatusMenu(in: app)

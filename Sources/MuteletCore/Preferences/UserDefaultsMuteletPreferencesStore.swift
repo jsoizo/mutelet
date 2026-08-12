@@ -2,7 +2,7 @@ import Foundation
 
 public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     private static let storageKey = "muteletPreferences"
-    private static let currentSchemaVersion = 2
+    private static let currentSchemaVersion = 3
 
     private struct StoredPreferencesHeader: Decodable {
         let schemaVersion: Int
@@ -53,7 +53,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         let hud: StoredHUDPreferencesV2
 
         init(preferences: MuteletPreferences) {
-            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            schemaVersion = 2
             microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
             shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
             hud = StoredHUDPreferencesV2(preferences: preferences.hud)
@@ -79,6 +79,59 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
                 preferences.hud = hudPreferences
             } else {
                 issues.append(.invalidHUD)
+            }
+
+            return DecodedPreferences(
+                preferences: preferences,
+                issues: issues,
+                requiresSave: true
+            )
+        }
+    }
+
+    private struct StoredPreferencesV3: Codable {
+        let schemaVersion: Int
+        let microphone: StoredMicrophonePreferencesV1
+        let shortcuts: StoredShortcutPreferencesV1
+        let hud: StoredHUDPreferencesV2
+        let statusOverlay: StoredStatusOverlayPreferencesV3
+
+        init(preferences: MuteletPreferences) {
+            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
+            statusOverlay = StoredStatusOverlayPreferencesV3(
+                preferences: preferences.statusOverlay
+            )
+        }
+
+        func decodePreferences() -> DecodedPreferences {
+            var preferences = MuteletPreferences()
+            var issues: [PreferencesRecoveryIssue] = []
+
+            if let microphonePreferences = microphone.decodePreferences() {
+                preferences.microphone = microphonePreferences
+            } else {
+                issues.append(.invalidMicrophone)
+            }
+
+            if let shortcutPreferences = shortcuts.decodePreferences() {
+                preferences.shortcuts = shortcutPreferences
+            } else {
+                issues.append(.invalidShortcut)
+            }
+
+            if let hudPreferences = hud.decodePreferences() {
+                preferences.hud = hudPreferences
+            } else {
+                issues.append(.invalidHUD)
+            }
+
+            if let overlayPreferences = statusOverlay.decodePreferences() {
+                preferences.statusOverlay = overlayPreferences
+            } else {
+                issues.append(.invalidStatusOverlay)
             }
 
             return DecodedPreferences(
@@ -284,6 +337,86 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         }
     }
 
+    private struct StoredStatusOverlayPreferencesV3: Codable {
+        let isEnabled: Bool
+        let visibility: String
+        let contentStyle: String
+        let size: String
+        let displayTarget: StoredStatusOverlayDisplayTargetV3
+        let position: NormalizedScreenPosition
+        let togglesMuteOnClick: Bool
+
+        init(preferences: StatusOverlayPreferences) {
+            isEnabled = preferences.isEnabled
+            visibility = preferences.visibility.rawValue
+            contentStyle = preferences.contentStyle.rawValue
+            size = preferences.size.rawValue
+            displayTarget = StoredStatusOverlayDisplayTargetV3(
+                target: preferences.displayTarget
+            )
+            position = preferences.position
+            togglesMuteOnClick = preferences.togglesMuteOnClick
+        }
+
+        func decodePreferences() -> StatusOverlayPreferences? {
+            guard let visibility = StatusOverlayVisibility(rawValue: visibility),
+                  let contentStyle = StatusOverlayContentStyle(rawValue: contentStyle),
+                  let size = StatusOverlaySize(rawValue: size),
+                  let displayTarget = displayTarget.target,
+                  position.x.isFinite,
+                  position.y.isFinite,
+                  (0...1).contains(position.x),
+                  (0...1).contains(position.y) else {
+                return nil
+            }
+            return StatusOverlayPreferences(
+                isEnabled: isEnabled,
+                visibility: visibility,
+                contentStyle: contentStyle,
+                size: size,
+                displayTarget: displayTarget,
+                position: position,
+                togglesMuteOnClick: togglesMuteOnClick
+            )
+        }
+    }
+
+    private struct StoredStatusOverlayDisplayTargetV3: Codable {
+        let kind: String
+        let displayID: String?
+        let lastKnownName: String?
+
+        init(target: StatusOverlayDisplayTarget) {
+            switch target {
+            case .main:
+                kind = "main"
+                displayID = nil
+                lastKnownName = nil
+            case let .display(id, lastKnownName):
+                kind = "display"
+                displayID = id
+                self.lastKnownName = lastKnownName
+            }
+        }
+
+        var target: StatusOverlayDisplayTarget? {
+            switch kind {
+            case "main" where displayID == nil && lastKnownName == nil:
+                .main
+            case "display":
+                if let displayID,
+                   !displayID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   let lastKnownName {
+                    .display(id: displayID, lastKnownName: lastKnownName)
+                } else {
+                    nil
+                }
+            default:
+                nil
+            }
+        }
+    }
+
     private struct DecodedPreferences {
         let preferences: MuteletPreferences
         let issues: [PreferencesRecoveryIssue]
@@ -364,7 +497,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     public func save(_ preferences: MuteletPreferences) throws {
-        let data = try encoder.encode(StoredPreferencesV2(preferences: preferences))
+        let data = try encoder.encode(StoredPreferencesV3(preferences: preferences))
         if let dataWriter {
             try dataWriter(data)
         } else {
@@ -381,9 +514,13 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             return try decoder
                 .decode(StoredPreferencesV1.self, from: data)
                 .decodePreferences()
-        case Self.currentSchemaVersion:
+        case 2:
             return try decoder
                 .decode(StoredPreferencesV2.self, from: data)
+                .decodePreferences()
+        case Self.currentSchemaVersion:
+            return try decoder
+                .decode(StoredPreferencesV3.self, from: data)
                 .decodePreferences()
         default:
             throw StoredPreferencesError.unsupportedSchemaVersion(schemaVersion)

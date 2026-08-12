@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import MuteletCore
 import ServiceManagement
@@ -18,6 +19,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     @Published private(set) var loginItemRequiresApproval = false
 
     let coordinator: MuteCoordinator
+    let statusOverlayController: StatusOverlayController
 
     private let hotKeyMonitor: CarbonHotKeyMonitor
     private let preferencesStore: any MuteletPreferencesStoring
@@ -27,6 +29,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var workspaceLifecycleTask: Task<Void, Never>?
     private var websiteHUDCaptureTask: Task<Void, Never>?
     private var preferencesSaveTask: Task<Void, Never>?
+    private var statusOverlayObservation: AnyCancellable?
     private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
@@ -46,14 +49,22 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         hotKeyMonitor: CarbonHotKeyMonitor = CarbonHotKeyMonitor(),
         preferencesStore: any MuteletPreferencesStoring = UserDefaultsMuteletPreferencesStore(),
         hudController: MuteHUDController = MuteHUDController(),
+        statusOverlayController: StatusOverlayController = StatusOverlayController(),
         enablesSystemIntegrations: Bool = true
     ) {
         self.coordinator = coordinator
         self.hotKeyMonitor = hotKeyMonitor
         self.preferencesStore = preferencesStore
         self.hudController = hudController
+        self.statusOverlayController = statusOverlayController
         self.enablesSystemIntegrations = enablesSystemIntegrations
         super.init()
+        statusOverlayController.onPreferencesChange = { [weak self] overlayPreferences in
+            self?.setStatusOverlayPreferences(overlayPreferences)
+        }
+        statusOverlayController.onToggle = { [weak self] in
+            await self?.toggleFromStatusOverlay()
+        }
     }
 
     func start() async {
@@ -80,6 +91,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             refreshLoginItemStatus()
         }
         await coordinator.start()
+        installStatusOverlayObservation()
+        updateStatusOverlay()
 
         if enablesSystemIntegrations {
             do {
@@ -160,6 +173,34 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         hudController.show(status: coordinator.status, preferences: preferences.hud)
     }
 
+    func setStatusOverlayEnabled(_ isEnabled: Bool) {
+        updateStatusOverlayPreferences { $0.isEnabled = isEnabled }
+    }
+
+    func setStatusOverlayVisibility(_ visibility: StatusOverlayVisibility) {
+        updateStatusOverlayPreferences { $0.visibility = visibility }
+    }
+
+    func setStatusOverlayContentStyle(_ contentStyle: StatusOverlayContentStyle) {
+        updateStatusOverlayPreferences { $0.contentStyle = contentStyle }
+    }
+
+    func setStatusOverlaySize(_ size: StatusOverlaySize) {
+        updateStatusOverlayPreferences { $0.size = size }
+    }
+
+    func setStatusOverlayDisplayTarget(_ displayTarget: StatusOverlayDisplayTarget) {
+        updateStatusOverlayPreferences { $0.displayTarget = displayTarget }
+    }
+
+    func setStatusOverlayTogglesMuteOnClick(_ togglesMuteOnClick: Bool) {
+        updateStatusOverlayPreferences { $0.togglesMuteOnClick = togglesMuteOnClick }
+    }
+
+    func resetStatusOverlayPosition() {
+        statusOverlayController.resetPosition()
+    }
+
     func updateHotKey(_ configuration: GlobalHotKeyConfiguration) async {
         guard configuration.isValid else {
             hotKeyError = NSLocalizedString(
@@ -229,6 +270,9 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         websiteHUDCaptureTask = nil
         hotKeyMonitor.stop()
         hudController.hide()
+        statusOverlayObservation?.cancel()
+        statusOverlayObservation = nil
+        statusOverlayController.stop()
         await coordinator.stop()
         started = false
     }
@@ -304,9 +348,64 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         var updated = preferences
         update(&updated.hud)
         preferences = updated
+        updateStatusOverlay()
         Task { [weak self] in
             await self?.savePreferences()
         }
+    }
+
+    private func updateStatusOverlayPreferences(
+        _ update: (inout StatusOverlayPreferences) -> Void
+    ) {
+        var updated = preferences
+        update(&updated.statusOverlay)
+        preferences = updated
+        updateStatusOverlay()
+        Task { [weak self] in
+            await self?.savePreferences()
+        }
+    }
+
+    private func setStatusOverlayPreferences(_ overlayPreferences: StatusOverlayPreferences) {
+        guard overlayPreferences != preferences.statusOverlay else { return }
+        var updated = preferences
+        updated.statusOverlay = overlayPreferences
+        preferences = updated
+        updateStatusOverlay()
+        Task { [weak self] in
+            await self?.savePreferences()
+        }
+    }
+
+    private func installStatusOverlayObservation() {
+        statusOverlayObservation?.cancel()
+        statusOverlayObservation = Publishers.CombineLatest3(
+            coordinator.$status,
+            coordinator.$mode,
+            coordinator.$isBusy
+        )
+        .sink { [weak self] _, _, _ in
+            self?.updateStatusOverlay()
+        }
+    }
+
+    private func updateStatusOverlay() {
+        statusOverlayController.update(
+            status: coordinator.status,
+            mode: coordinator.mode,
+            isBusy: coordinator.isBusy,
+            preferences: preferences.statusOverlay,
+            transientHUDEnabled: preferences.hud.isEnabled
+        )
+    }
+
+    private func toggleFromStatusOverlay() async -> MuteStatus? {
+        guard coordinator.mode == .toggle,
+              !coordinator.isBusy,
+              coordinator.status.canToggle else { return nil }
+        await coordinator.toggle()
+        showHUDIfEnabled()
+        return coordinator.status
     }
 
     private func savePreferences() async {
@@ -352,6 +451,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             "invalid shortcut"
         case .invalidHUD:
             "invalid HUD preferences"
+        case .invalidStatusOverlay:
+            "invalid status overlay preferences"
         case .migrationSaveFailed:
             "saving migrated preferences failed"
         }
@@ -407,7 +508,10 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             guard let self else { return }
             if shouldRun {
                 await self.coordinator.start()
+                self.statusOverlayController.resume()
+                self.updateStatusOverlay()
             } else {
+                self.statusOverlayController.suspend()
                 await self.coordinator.stop()
             }
         }

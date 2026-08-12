@@ -1,6 +1,92 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (Disconnected)" : {
+      "comment" : "Disconnected status overlay display",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@（未接続）" } } }
+    },
+    "After actions" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "操作時の表示" } } }
+    },
+    "Always" : {
+      "comment" : "Persistent status visibility",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常に表示" } } }
+    },
+    "Checking…" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "確認中…" } } }
+    },
+    "Click to toggle mute" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "クリックでミュートを切り替える" } } }
+    },
+    "Content" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "表示内容" } } }
+    },
+    "Disconnected" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "未接続" } } }
+    },
+    "Drag to move the persistent status." : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ドラッグして常駐ステータスを移動できます。" } } }
+    },
+    "Error" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "エラー" } } }
+    },
+    "Icon and status" : {
+      "comment" : "Persistent status content",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイコン＋状態" } } }
+    },
+    "Icon only" : {
+      "comment" : "Persistent status content",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイコンのみ" } } }
+    },
+    "In Push to Talk mode, only status display and dragging are available." : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talkモードでは、状態表示とドラッグだけが有効です。" } } }
+    },
+    "In Toggle mode, click the persistent status to toggle mute." : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "トグルモードではクリックでミュートを切り替えます。" } } }
+    },
+    "Live" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライブ" } } }
+    },
+    "Mixed" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "混在" } } }
+    },
+    "Muted" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ミュート" } } }
+    },
+    "No input" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力なし" } } }
+    },
+    "Partial" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "一部のみ" } } }
+    },
+    "Persistent status" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常駐ステータス" } } }
+    },
+    "Reset Position" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "位置をリセット" } } }
+    },
+    "Show" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "表示する状態" } } }
+    },
+    "Show persistent status" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常駐ステータスを表示" } } }
+    },
+    "Unsupported" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "非対応" } } }
+    },
+    "When live or status is unknown" : {
+      "comment" : "Persistent status visibility",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライブまたは状態不明のとき" } } }
+    },
     "%@ — %d muted, %d live, %d mixed, %d unsupported, %d failed" : {
       "comment" : "Partial mute detail",
       "localizations" : {

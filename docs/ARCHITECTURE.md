@@ -3,7 +3,7 @@
 Mutelet separates operating-system I/O from its mute state machine so safety behavior can be tested without changing a real microphone.
 
 ```text
-MenuBarExtra / Settings / HUD
+MenuBarExtra / Settings / HUD / persistent status
               |
               v
   MuteletApplicationModel
@@ -24,6 +24,7 @@ AudioDeviceControlling
 - `MuteCoordinator` owns the selected mode and target, aggregates state, serializes transitions, and enforces Push to Talk safety.
 - `CarbonHotKeyMonitor` registers a system hot key and publishes press/release events without an event tap.
 - `MuteletApplicationModel` joins app lifecycle, persisted settings, UI commands, HUD, login item, and global hot-key handling on the main actor.
+- `StatusOverlayController` owns one non-activating floating panel, resolves physical displays by Core Graphics UUID, and converts its draggable position to normalized coordinates. It subscribes to coordinator state through the application model but does not share the transient HUD's window or lifetime.
 - `AudioMutationReceiptStoring` persists the exact values to restore before Core Audio is mutated. Restoration receipts are removed only after a read-back verifies every saved control.
 
 ## Identity and concurrency
@@ -59,6 +60,8 @@ Selecting Push to Talk immediately requests mute. Key down restores the prior st
 Core Audio device-list and default-input events trigger inventory refreshes. Bursts of control-value events are coalesced and filtered to the current target before state is read back. Push to Talk remutes promptly when that read-back finds an externally unmuted target, without rewriting controls that are already confirmed muted.
 
 The HUD intentionally appears once when entering Push to Talk, not on every press and release. Toggle mode continues to show state feedback for each action.
+
+The persistent status can optionally invoke the same toggle command, but only in Toggle mode while the coordinator is actionable and idle. Passive status refreshes do not announce through VoiceOver. A click result is announced by either the transient HUD or the persistent status, never both.
 
 ## Testing
 

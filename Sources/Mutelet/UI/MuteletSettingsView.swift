@@ -19,6 +19,14 @@ struct MuteletSettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
+                DisplaySettingsView(
+                    applicationModel: applicationModel,
+                    coordinator: coordinator
+                )
+                .tabItem {
+                    Label("Display", systemImage: "display")
+                }
+
                 ShortcutSettingsView(applicationModel: applicationModel)
                     .tabItem {
                         Label("Shortcut", systemImage: "keyboard")
@@ -30,7 +38,7 @@ struct MuteletSettingsView: View {
                     }
             }
         }
-        .frame(width: 560, height: 560)
+        .frame(width: 600, height: 360)
     }
 
     @ViewBuilder
@@ -76,7 +84,71 @@ private struct GeneralSettingsView: View {
                 .accessibilityIdentifier("settings-input-picker")
             }
 
-            Section("On-screen display") {
+            Section("Startup") {
+                Toggle("Launch at login", isOn: launchAtLoginSelection)
+                    .accessibilityIdentifier("settings-launch-at-login")
+                Text(applicationModel.loginItemStatusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if applicationModel.loginItemRequiresApproval {
+                    Button("Open Login Items Settings") {
+                        applicationModel.openLoginItemSettings()
+                    }
+                }
+                if let loginItemError = applicationModel.loginItemError {
+                    SettingsErrorText(loginItemError)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear {
+            applicationModel.refreshLoginItemStatus()
+        }
+    }
+
+    private var modeSelection: Binding<MuteMode> {
+        Binding(
+            get: { applicationModel.preferences.microphone.mode },
+            set: { applicationModel.selectMode($0) }
+        )
+    }
+
+    private var targetSelection: Binding<AudioTargetSelection> {
+        Binding(
+            get: { applicationModel.preferences.microphone.target },
+            set: { applicationModel.selectTarget($0) }
+        )
+    }
+
+    private var launchAtLoginSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.launchAtLoginEnabled },
+            set: { applicationModel.setLaunchAtLogin($0) }
+        )
+    }
+
+    private var settingsTargets: [AudioTargetSelection] {
+        var targets: [AudioTargetSelection] = [.systemDefault]
+        targets += coordinator.availableDevices.map {
+            .device(uid: $0.uid, name: $0.name)
+        }
+        if case .device = coordinator.target,
+           !targets.contains(where: { $0.id == coordinator.target.id }) {
+            targets.append(coordinator.target)
+        }
+        targets.append(.allInputs)
+        return targets
+    }
+}
+
+private struct DisplaySettingsView: View {
+    @ObservedObject var applicationModel: MuteletApplicationModel
+    @ObservedObject var coordinator: MuteCoordinator
+
+    var body: some View {
+        Form {
+            Section("After actions") {
                 Toggle("Show status after actions", isOn: hudSelection)
                     .accessibilityIdentifier("settings-show-hud")
 
@@ -121,41 +193,16 @@ private struct GeneralSettingsView: View {
                 .accessibilityIdentifier("settings-hud-preview")
             }
 
-            Section("Startup") {
-                Toggle("Launch at login", isOn: launchAtLoginSelection)
-                    .accessibilityIdentifier("settings-launch-at-login")
-                Text(applicationModel.loginItemStatusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if applicationModel.loginItemRequiresApproval {
-                    Button("Open Login Items Settings") {
-                        applicationModel.openLoginItemSettings()
-                    }
-                }
-                if let loginItemError = applicationModel.loginItemError {
-                    SettingsErrorText(loginItemError)
-                }
+            Section("Persistent status") {
+                StatusOverlaySettingsView(
+                    applicationModel: applicationModel,
+                    coordinator: coordinator,
+                    controller: applicationModel.statusOverlayController
+                )
             }
         }
         .formStyle(.grouped)
         .padding()
-        .onAppear {
-            applicationModel.refreshLoginItemStatus()
-        }
-    }
-
-    private var modeSelection: Binding<MuteMode> {
-        Binding(
-            get: { applicationModel.preferences.microphone.mode },
-            set: { applicationModel.selectMode($0) }
-        )
-    }
-
-    private var targetSelection: Binding<AudioTargetSelection> {
-        Binding(
-            get: { applicationModel.preferences.microphone.target },
-            set: { applicationModel.selectTarget($0) }
-        )
     }
 
     private var hudSelection: Binding<Bool> {
@@ -168,7 +215,11 @@ private struct GeneralSettingsView: View {
     private var hudSizeSelection: Binding<HUDSize> {
         Binding(
             get: { applicationModel.preferences.hud.size },
-            set: { applicationModel.setHUDSize($0) }
+            set: { size in
+                Task { @MainActor in
+                    applicationModel.setHUDSize(size)
+                }
+            }
         )
     }
 
@@ -189,28 +240,114 @@ private struct GeneralSettingsView: View {
     private var hudDurationSelection: Binding<HUDDuration> {
         Binding(
             get: { applicationModel.preferences.hud.duration },
-            set: { applicationModel.setHUDDuration($0) }
+            set: { duration in
+                Task { @MainActor in
+                    applicationModel.setHUDDuration(duration)
+                }
+            }
         )
     }
+}
 
-    private var launchAtLoginSelection: Binding<Bool> {
+private struct StatusOverlaySettingsView: View {
+    @ObservedObject var applicationModel: MuteletApplicationModel
+    @ObservedObject var coordinator: MuteCoordinator
+    @ObservedObject var controller: StatusOverlayController
+
+    var body: some View {
+        Toggle("Show persistent status", isOn: enabledSelection)
+            .accessibilityIdentifier("settings-status-overlay-enabled")
+
+        Picker("Show", selection: visibilitySelection) {
+            ForEach(StatusOverlayVisibility.allCases, id: \.self) { visibility in
+                Text(visibility.title).tag(visibility)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-visibility")
+
+        Picker("Content", selection: contentStyleSelection) {
+            ForEach(StatusOverlayContentStyle.allCases, id: \.self) { contentStyle in
+                Text(contentStyle.title).tag(contentStyle)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-content")
+
+        Picker("Size", selection: sizeSelection) {
+            ForEach(StatusOverlaySize.allCases, id: \.self) { size in
+                Text(size.title).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("settings-status-overlay-size")
+
+        Picker("Screen", selection: displayTargetSelection) {
+            ForEach(controller.displayOptions) { option in
+                Text(option.title).tag(option.target)
+            }
+        }
+        .accessibilityIdentifier("settings-status-overlay-screen")
+
+        Toggle("Click to toggle mute", isOn: togglesMuteOnClickSelection)
+            .accessibilityIdentifier("settings-status-overlay-click-toggle")
+
+        Text(
+            coordinator.mode == .pushToTalk
+                ? "In Push to Talk mode, only status display and dragging are available."
+                : "In Toggle mode, click the persistent status to toggle mute."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+        Button("Reset Position") {
+            applicationModel.resetStatusOverlayPosition()
+        }
+        .accessibilityIdentifier("settings-status-overlay-reset-position")
+    }
+
+    private var enabledSelection: Binding<Bool> {
         Binding(
-            get: { applicationModel.launchAtLoginEnabled },
-            set: { applicationModel.setLaunchAtLogin($0) }
+            get: { applicationModel.preferences.statusOverlay.isEnabled },
+            set: { applicationModel.setStatusOverlayEnabled($0) }
         )
     }
 
-    private var settingsTargets: [AudioTargetSelection] {
-        var targets: [AudioTargetSelection] = [.systemDefault]
-        targets += coordinator.availableDevices.map {
-            .device(uid: $0.uid, name: $0.name)
-        }
-        if case .device = coordinator.target,
-           !targets.contains(where: { $0.id == coordinator.target.id }) {
-            targets.append(coordinator.target)
-        }
-        targets.append(.allInputs)
-        return targets
+    private var visibilitySelection: Binding<StatusOverlayVisibility> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.visibility },
+            set: { applicationModel.setStatusOverlayVisibility($0) }
+        )
+    }
+
+    private var contentStyleSelection: Binding<StatusOverlayContentStyle> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.contentStyle },
+            set: { applicationModel.setStatusOverlayContentStyle($0) }
+        )
+    }
+
+    private var sizeSelection: Binding<StatusOverlaySize> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.size },
+            set: { size in
+                Task { @MainActor in
+                    applicationModel.setStatusOverlaySize(size)
+                }
+            }
+        )
+    }
+
+    private var displayTargetSelection: Binding<StatusOverlayDisplayTarget> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.displayTarget },
+            set: { applicationModel.setStatusOverlayDisplayTarget($0) }
+        )
+    }
+
+    private var togglesMuteOnClickSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.statusOverlay.togglesMuteOnClick },
+            set: { applicationModel.setStatusOverlayTogglesMuteOnClick($0) }
+        )
     }
 }
 
@@ -298,6 +435,44 @@ private extension HUDSize {
             NSLocalizedString("Standard", comment: "Standard HUD size or duration")
         case .large:
             NSLocalizedString("Large", comment: "Large HUD size")
+        }
+    }
+}
+
+private extension StatusOverlayVisibility {
+    var title: String {
+        switch self {
+        case .always:
+            NSLocalizedString("Always", comment: "Persistent status visibility")
+        case .whenPotentiallyLive:
+            NSLocalizedString(
+                "When live or status is unknown",
+                comment: "Persistent status visibility"
+            )
+        }
+    }
+}
+
+private extension StatusOverlayContentStyle {
+    var title: String {
+        switch self {
+        case .iconOnly:
+            NSLocalizedString("Icon only", comment: "Persistent status content")
+        case .iconAndStatus:
+            NSLocalizedString("Icon and status", comment: "Persistent status content")
+        }
+    }
+}
+
+private extension StatusOverlaySize {
+    var title: String {
+        switch self {
+        case .compact:
+            NSLocalizedString("Compact", comment: "Persistent status size")
+        case .standard:
+            NSLocalizedString("Standard", comment: "Persistent status size")
+        case .large:
+            NSLocalizedString("Large", comment: "Persistent status size")
         }
     }
 }

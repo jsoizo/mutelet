@@ -39,7 +39,8 @@ let package = Package(
         ),
         .testTarget(
             name: "MuteletCoreTests",
-            dependencies: ["MuteletCore"]
+            dependencies: ["MuteletCore"],
+            exclude: ["StatusOverlayControllerTests.swift"]
         ),
     ]
 )

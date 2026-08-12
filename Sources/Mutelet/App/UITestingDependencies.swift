@@ -141,6 +141,18 @@ actor UITestingPreferencesStore: MuteletPreferencesStoring {
                     .flatMap(HUDDisplayTarget.init(rawValue:)) ?? .pointer,
                 duration: arguments.value(after: "--ui-hud-duration=")
                     .flatMap(HUDDuration.init(rawValue:)) ?? .standard
+            ),
+            statusOverlay: StatusOverlayPreferences(
+                isEnabled: arguments.contains("--ui-status-overlay-enabled"),
+                visibility: arguments.value(after: "--ui-status-overlay-visibility=")
+                    .flatMap(StatusOverlayVisibility.init(rawValue:)) ?? .always,
+                contentStyle: arguments.value(after: "--ui-status-overlay-content=")
+                    .flatMap(StatusOverlayContentStyle.init(rawValue:)) ?? .iconOnly,
+                size: arguments.value(after: "--ui-status-overlay-size=")
+                    .flatMap(StatusOverlaySize.init(rawValue:)) ?? .standard,
+                displayTarget: .main,
+                position: NormalizedScreenPosition(),
+                togglesMuteOnClick: arguments.contains("--ui-status-overlay-click-toggle")
             )
         )
         loadResult = arguments.contains("--ui-preferences-recovered")

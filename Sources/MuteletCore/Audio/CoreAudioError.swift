@@ -9,6 +9,8 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
     case missingRestoration(uid: String)
     case invalidRestoration(expectedUID: String, actualUID: String)
     case incompleteRestoration(uid: String)
+    case staleSnapshot(uid: String)
+    case muteNotConfirmed(uid: String)
 
     public var description: String {
         switch self {
@@ -26,6 +28,10 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
             return "Saved volume belongs to \(actualUID), not \(expectedUID)"
         case let .incompleteRestoration(uid):
             return "Not every saved input control for \(uid) could be restored and verified"
+        case let .staleSnapshot(uid):
+            return "Input controls for \(uid) changed before they could be muted"
+        case let .muteNotConfirmed(uid):
+            return "Input device \(uid) did not report a muted state after the write"
         }
     }
 }

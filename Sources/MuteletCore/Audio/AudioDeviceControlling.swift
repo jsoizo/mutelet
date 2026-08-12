@@ -8,6 +8,11 @@ public protocol AudioDeviceControlling: Sendable {
         deviceUID: String,
         preserving receipt: AudioMutationReceipt?
     ) async throws -> AudioMutationReceipt
+    func mute(
+        deviceUID: String,
+        preserving receipt: AudioMutationReceipt?,
+        expected snapshot: AudioDeviceSnapshot
+    ) async throws -> AudioMutationReceipt
     func unmute(
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?

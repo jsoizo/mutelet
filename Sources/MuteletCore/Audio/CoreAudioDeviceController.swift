@@ -76,11 +76,9 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             ) else {
                 continue
             }
-            let channelCount = try inputChannelCount(objectID: objectID)
-            guard channelCount > 0 else {
-                continue
-            }
             do {
+                let channelCount = try inputChannelCount(objectID: objectID)
+                guard channelCount > 0 else { continue }
                 devices.append(
                     try descriptor(
                         objectID: objectID,
@@ -90,12 +88,21 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
                 )
             } catch {
                 isComplete = false
+                let uid = (try? readDeviceUID(objectID: objectID))
+                    ?? "unresolved-core-audio-object-\(objectID)"
+                let name = (try? CoreAudioPropertyAccess.string(
+                    objectID: objectID,
+                    address: CoreAudioPropertyAccess.address(
+                        selector: kAudioObjectPropertyName
+                    ),
+                    operation: "reading input device name"
+                )) ?? "Unreadable Input \(objectID)"
                 devices.append(
                     AudioDeviceDescriptor(
                         objectID: objectID,
-                        uid: "unresolved-core-audio-object-\(objectID)",
-                        name: "Unreadable Input \(objectID)",
-                        inputChannelCount: channelCount,
+                        uid: uid,
+                        name: name,
+                        inputChannelCount: 0,
                         isDefaultInput: objectID == defaultInputID,
                         capabilities: AudioDeviceCapabilities(
                             nativeMuteControls: [],
@@ -138,6 +145,19 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         deviceUID: String,
         preserving receipt: AudioMutationReceipt?
     ) async throws -> AudioMutationReceipt {
+        let snapshot = try await snapshot(deviceUID: deviceUID)
+        return try await mute(
+            deviceUID: deviceUID,
+            preserving: receipt,
+            expected: snapshot
+        )
+    }
+
+    public func mute(
+        deviceUID: String,
+        preserving receipt: AudioMutationReceipt?,
+        expected expectedSnapshot: AudioDeviceSnapshot
+    ) async throws -> AudioMutationReceipt {
         let measurement = CoreAudioDiagnostics.measure("mute")
         defer { measurement.finish() }
 
@@ -148,17 +168,14 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             )
         }
         let original = try await snapshot(deviceUID: deviceUID)
+        guard Self.snapshot(original, matches: expectedSnapshot) else {
+            throw CoreAudioError.staleSnapshot(uid: deviceUID)
+        }
         guard original.device.capabilities.isSupported else {
             throw CoreAudioError.unsupportedDevice(uid: deviceUID)
         }
         if let receipt {
-            let availableControls = Set(
-                original.device.capabilities.nativeMuteControls
-                    + original.device.capabilities.volumeControls
-            )
-            guard receipt.originalValues.allSatisfy({
-                availableControls.contains($0.control)
-            }) else {
+            guard receipt.hasSameControls(as: original.values) else {
                 throw CoreAudioError.incompleteRestoration(uid: deviceUID)
             }
         }
@@ -181,6 +198,21 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         )
     }
 
+    private static func snapshot(
+        _ lhs: AudioDeviceSnapshot,
+        matches rhs: AudioDeviceSnapshot
+    ) -> Bool {
+        guard lhs.device.uid == rhs.device.uid,
+              lhs.device.capabilities == rhs.device.capabilities else { return false }
+        let lhsValues = Dictionary(uniqueKeysWithValues: lhs.values.map { ($0.control, $0.value) })
+        let rhsValues = Dictionary(uniqueKeysWithValues: rhs.values.map { ($0.control, $0.value) })
+        guard lhsValues.keys == rhsValues.keys else { return false }
+        return lhsValues.allSatisfy { control, value in
+            guard let other = rhsValues[control] else { return false }
+            return abs(value - other) <= 0.0001
+        }
+    }
+
     public func unmute(
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?
@@ -196,13 +228,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
                     actualUID: receipt.deviceUID
                 )
             }
-            let availableControls = Set(
-                current.device.capabilities.nativeMuteControls
-                    + current.device.capabilities.volumeControls
-            )
-            guard receipt.originalValues.allSatisfy({
-                availableControls.contains($0.control)
-            }) else {
+            guard receipt.hasSameControls(as: current.values) else {
                 throw CoreAudioError.incompleteRestoration(uid: deviceUID)
             }
             try restoreValues(receipt.originalValues, on: current.device.objectID)

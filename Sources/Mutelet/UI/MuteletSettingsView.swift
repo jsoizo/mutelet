@@ -44,7 +44,8 @@ struct MuteletSettingsView: View {
     @ViewBuilder
     private var settingsNotices: some View {
         if applicationModel.preferencesRecoveryWarning != nil
-            || applicationModel.preferencesError != nil {
+            || applicationModel.preferencesError != nil
+            || applicationModel.restorationWarning != nil {
             VStack(alignment: .leading, spacing: 6) {
                 if let recoveryWarning = applicationModel.preferencesRecoveryWarning {
                     SettingsWarningText(recoveryWarning)
@@ -53,6 +54,11 @@ struct MuteletSettingsView: View {
                 if let preferencesError = applicationModel.preferencesError {
                     SettingsErrorText(preferencesError)
                         .accessibilityIdentifier("settings-preferences-save-error")
+                }
+                if let restorationWarning = applicationModel.restorationWarning {
+                    SettingsWarningText(restorationWarning)
+                        .help(applicationModel.restorationWarningHelp ?? restorationWarning)
+                        .accessibilityIdentifier("settings-input-restoration-warning")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,6 +88,16 @@ private struct GeneralSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("settings-input-picker")
+
+                Toggle(
+                    "Keep muted when input changes",
+                    isOn: maintainsMuteOnInputChangeSelection
+                )
+                .accessibilityIdentifier("settings-maintain-mute-on-input-change")
+
+                Text("In Toggle mode, newly selected or reconnected inputs are kept muted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Startup") {
@@ -125,6 +141,13 @@ private struct GeneralSettingsView: View {
         Binding(
             get: { applicationModel.launchAtLoginEnabled },
             set: { applicationModel.setLaunchAtLogin($0) }
+        )
+    }
+
+    private var maintainsMuteOnInputChangeSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.microphone.maintainsMuteOnInputChange },
+            set: { applicationModel.setMaintainsMuteOnInputChange($0) }
         )
     }
 

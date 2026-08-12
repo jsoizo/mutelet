@@ -45,12 +45,55 @@ final class MuteHUDController {
         )
     }
 
+    func showMaintenanceFeedback(
+        _ feedback: AutomaticMuteMaintenanceFeedback,
+        preferences: HUDPreferences,
+        announces: Bool
+    ) {
+        switch feedback {
+        case let .maintained(_, status):
+            show(
+                title: status.interfaceTitle,
+                detail: status.hudDetail,
+                systemImageName: status.systemImageName,
+                color: status.interfaceColor,
+                preferences: preferences,
+                announces: announces
+            )
+        case let .restorationFailed(_, _, devices):
+            let detail: String
+            if devices.count == 1, let device = devices.first {
+                detail = device.deviceName
+            } else {
+                detail = String(
+                    format: NSLocalizedString(
+                        "%d previous inputs could not be restored",
+                        comment: "Deferred input restoration HUD detail"
+                    ),
+                    devices.count
+                )
+            }
+            show(
+                title: NSLocalizedString(
+                    "Input restoration failed",
+                    comment: "Deferred input restoration HUD title"
+                ),
+                detail: detail,
+                systemImageName: "exclamationmark.triangle.fill",
+                color: .orange,
+                preferences: preferences,
+                announces: announces
+            )
+        }
+    }
+
     private func show(
         title: String,
         detail: String?,
         systemImageName: String,
         color: Color,
-        preferences: HUDPreferences
+        preferences: HUDPreferences,
+        announces: Bool = true
     ) {
         presentationGeneration += 1
         let generation = presentationGeneration
@@ -110,7 +153,9 @@ final class MuteHUDController {
         for panel in activePanels {
             panel.orderFrontRegardless()
         }
-        postAnnouncement(title: title, detail: detail)
+        if announces {
+            postAnnouncement(title: title, detail: detail)
+        }
 
         guard !disablesAutomaticDismissal else { return }
 

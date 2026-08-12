@@ -103,11 +103,12 @@ enum StatusOverlayInteraction {
         mode: MuteMode,
         status: MuteStatus,
         isBusy: Bool,
-        isClickInFlight: Bool
+        isClickInFlight: Bool,
+        hasToggleMuteIntent: Bool = false
     ) -> Bool {
         preferences.togglesMuteOnClick
             && mode == .toggle
-            && status.canToggle
+            && (status.canToggle || hasToggleMuteIntent)
             && !isBusy
             && !isClickInFlight
     }
@@ -203,6 +204,7 @@ final class StatusOverlayController: NSObject, ObservableObject {
     private var status: MuteStatus = .loading
     private var mode: MuteMode = .toggle
     private var isBusy = false
+    private var hasToggleMuteIntent = false
     private var transientHUDEnabled = true
     private var preferences = StatusOverlayPreferences()
     private var isSuspended = false
@@ -232,6 +234,7 @@ final class StatusOverlayController: NSObject, ObservableObject {
         status: MuteStatus,
         mode: MuteMode,
         isBusy: Bool,
+        hasToggleMuteIntent: Bool,
         preferences newPreferences: StatusOverlayPreferences,
         transientHUDEnabled: Bool
     ) {
@@ -240,6 +243,7 @@ final class StatusOverlayController: NSObject, ObservableObject {
         self.status = status
         self.mode = mode
         self.isBusy = isBusy
+        self.hasToggleMuteIntent = hasToggleMuteIntent
         self.transientHUDEnabled = transientHUDEnabled
         preferences = newPreferences
         if reconcileConnectedDisplayName() {
@@ -348,7 +352,8 @@ final class StatusOverlayController: NSObject, ObservableObject {
             mode: mode,
             status: status,
             isBusy: isBusy,
-            isClickInFlight: isClickInFlight
+            isClickInFlight: isClickInFlight,
+            hasToggleMuteIntent: hasToggleMuteIntent
         )
         let rootView = StatusOverlayView(
             status: status,
@@ -493,7 +498,8 @@ final class StatusOverlayController: NSObject, ObservableObject {
             mode: mode,
             status: status,
             isBusy: isBusy,
-            isClickInFlight: isClickInFlight
+            isClickInFlight: isClickInFlight,
+            hasToggleMuteIntent: hasToggleMuteIntent
         ) else { return }
         isClickInFlight = true
         updateContent()

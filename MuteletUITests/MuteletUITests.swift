@@ -126,6 +126,11 @@ final class MuteletUITests: XCTestCase {
         generalTab.click()
         XCTAssertTrue(app.descendants(matching: .any)["settings-mode-picker"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["settings-input-picker"].exists)
+        let maintenanceToggle = app.descendants(matching: .any)[
+            "settings-maintain-mute-on-input-change"
+        ]
+        XCTAssertTrue(maintenanceToggle.exists)
+        assertValue("1", on: maintenanceToggle)
         XCTAssertFalse(app.descendants(matching: .any)["settings-show-hud"].exists)
 
         let displayTab = settingsWindow.buttons["Display"]
@@ -151,6 +156,27 @@ final class MuteletUITests: XCTestCase {
         )
         settingsWindow.typeKey("w", modifierFlags: .command)
         XCTAssertTrue(settingsWindow.waitForNonExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testMuteMaintenanceSettingCanStartDisabled() throws {
+        let app = launch(arguments: ["--ui-maintenance-disabled"])
+        openStatusMenu(in: app)
+        let settingsLink = app.buttons["mutelet-settings-link"]
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
+        settingsLink.click()
+
+        let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
+        XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        let generalTab = settingsWindow.buttons["General"]
+        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
+        generalTab.click()
+
+        let toggle = app.descendants(matching: .any)[
+            "settings-maintain-mute-on-input-change"
+        ]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        assertValue("0", on: toggle)
     }
 
     @MainActor

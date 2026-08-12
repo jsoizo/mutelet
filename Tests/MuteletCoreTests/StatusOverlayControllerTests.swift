@@ -194,6 +194,16 @@ final class StatusOverlayControllerTests: XCTestCase {
                 isClickInFlight: false
             )
         )
+        XCTAssertTrue(
+            StatusOverlayInteraction.isActionable(
+                preferences: enabled,
+                mode: .toggle,
+                status: .disconnected(deviceName: "Mic"),
+                isBusy: false,
+                isClickInFlight: false,
+                hasToggleMuteIntent: true
+            )
+        )
         XCTAssertFalse(
             StatusOverlayInteraction.isActionable(
                 preferences: enabled,

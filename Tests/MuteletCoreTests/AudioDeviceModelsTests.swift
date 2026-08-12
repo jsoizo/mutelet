@@ -88,6 +88,31 @@ final class AudioDeviceModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.muteState, .live)
     }
 
+    func testReceiptRequiresAnExactNonDuplicatedControlTopology() {
+        let mute = AudioControl(kind: .mute, element: kAudioObjectPropertyElementMain)
+        let volume = AudioControl(kind: .volume, element: kAudioObjectPropertyElementMain)
+        let receipt = AudioMutationReceipt(
+            deviceUID: "test-device",
+            originalValues: [AudioControlValue(control: mute, value: 0)]
+        )
+
+        XCTAssertTrue(
+            receipt.hasSameControls(as: [AudioControlValue(control: mute, value: 1)])
+        )
+        XCTAssertFalse(
+            receipt.hasSameControls(as: [
+                AudioControlValue(control: mute, value: 1),
+                AudioControlValue(control: volume, value: 0),
+            ])
+        )
+        XCTAssertFalse(
+            receipt.hasSameControls(as: [
+                AudioControlValue(control: mute, value: 1),
+                AudioControlValue(control: mute, value: 1),
+            ])
+        )
+    }
+
     private func makeSnapshot(
         muteValues: [Float],
         volumeValues: [Float]

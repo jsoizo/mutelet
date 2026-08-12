@@ -128,6 +128,14 @@ public struct AudioMutationReceipt: Codable, Hashable, Sendable {
         self.deviceUID = deviceUID
         self.originalValues = originalValues
     }
+
+    public func hasSameControls(as values: [AudioControlValue]) -> Bool {
+        let savedControls = Set(originalValues.map(\.control))
+        let currentControls = Set(values.map(\.control))
+        return savedControls.count == originalValues.count
+            && currentControls.count == values.count
+            && savedControls == currentControls
+    }
 }
 
 public enum AudioHardwareEventKind: String, Sendable {
@@ -139,17 +147,20 @@ public enum AudioHardwareEventKind: String, Sendable {
 public struct AudioHardwareEvent: Sendable {
     public let kind: AudioHardwareEventKind
     public let objectID: AudioObjectID
+    public let deviceUID: String?
     public let selector: AudioObjectPropertySelector
     public let element: AudioObjectPropertyElement
 
     public init(
         kind: AudioHardwareEventKind,
         objectID: AudioObjectID,
+        deviceUID: String? = nil,
         selector: AudioObjectPropertySelector,
         element: AudioObjectPropertyElement
     ) {
         self.kind = kind
         self.objectID = objectID
+        self.deviceUID = deviceUID
         self.selector = selector
         self.element = element
     }

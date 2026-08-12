@@ -38,7 +38,7 @@ struct MuteletSettingsView: View {
                     }
             }
         }
-        .frame(width: 600, height: 720)
+        .frame(width: 600, height: 360)
     }
 
     @ViewBuilder

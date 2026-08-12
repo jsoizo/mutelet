@@ -83,12 +83,14 @@ final class MuteletUITests: XCTestCase {
 
         let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
         XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(settingsWindow.frame.height, 460)
         let displayTab = settingsWindow.buttons["Display"]
         XCTAssertTrue(displayTab.waitForExistence(timeout: 2))
         displayTab.click()
 
         let enabled = app.descendants(matching: .any)["settings-status-overlay-enabled"]
         XCTAssertTrue(enabled.waitForExistence(timeout: 5))
+        settingsWindow.scroll(byDeltaX: 0, deltaY: -260)
         let overlay = app.descendants(matching: .any)["mutelet-status-overlay"]
         XCTAssertFalse(overlay.exists)
         enabled.click()
@@ -96,6 +98,7 @@ final class MuteletUITests: XCTestCase {
         XCTAssertTrue(overlay.waitForExistence(timeout: 5))
         let reset = app.buttons["settings-status-overlay-reset-position"]
         XCTAssertTrue(reset.waitForExistence(timeout: 2))
+        settingsWindow.scroll(byDeltaX: 0, deltaY: -260)
         reset.click()
         XCTAssertTrue(overlay.exists)
     }

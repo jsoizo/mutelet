@@ -30,7 +30,7 @@ struct MuteletSettingsView: View {
                     }
             }
         }
-        .frame(width: 520, height: 370)
+        .frame(width: 560, height: 560)
     }
 
     @ViewBuilder
@@ -60,7 +60,7 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Behavior") {
+            Section("Microphone controls") {
                 Picker("Mode", selection: modeSelection) {
                     ForEach(MuteMode.allCases) { mode in
                         Text(mode.title).tag(mode)
@@ -74,9 +74,51 @@ private struct GeneralSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("settings-input-picker")
+            }
 
-                Toggle("Show HUD", isOn: hudSelection)
+            Section("On-screen display") {
+                Toggle("Show status after actions", isOn: hudSelection)
                     .accessibilityIdentifier("settings-show-hud")
+
+                Picker("Size", selection: hudSizeSelection) {
+                    ForEach(HUDSize.allCases, id: \.self) { size in
+                        Text(size.title).tag(size)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("settings-hud-size")
+
+                LabeledContent("Position") {
+                    HStack(spacing: 10) {
+                        Text(applicationModel.preferences.hud.position.title)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: 92, alignment: .trailing)
+                            .accessibilityIdentifier("settings-hud-position-value")
+
+                        HUDPositionGrid(selection: hudPositionSelection)
+                    }
+                }
+
+                Picker("Screen", selection: hudDisplayTargetSelection) {
+                    ForEach(HUDDisplayTarget.allCases, id: \.self) { target in
+                        Text(target.title).tag(target)
+                    }
+                }
+                .accessibilityIdentifier("settings-hud-screen")
+
+                Picker("Duration", selection: hudDurationSelection) {
+                    ForEach(HUDDuration.allCases, id: \.self) { duration in
+                        Text(duration.title).tag(duration)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("settings-hud-duration")
+
+                Button("Preview HUD") {
+                    applicationModel.previewHUD()
+                }
+                .accessibilityIdentifier("settings-hud-preview")
             }
 
             Section("Startup") {
@@ -123,6 +165,34 @@ private struct GeneralSettingsView: View {
         )
     }
 
+    private var hudSizeSelection: Binding<HUDSize> {
+        Binding(
+            get: { applicationModel.preferences.hud.size },
+            set: { applicationModel.setHUDSize($0) }
+        )
+    }
+
+    private var hudPositionSelection: Binding<HUDPosition> {
+        Binding(
+            get: { applicationModel.preferences.hud.position },
+            set: { applicationModel.setHUDPosition($0) }
+        )
+    }
+
+    private var hudDisplayTargetSelection: Binding<HUDDisplayTarget> {
+        Binding(
+            get: { applicationModel.preferences.hud.displayTarget },
+            set: { applicationModel.setHUDDisplayTarget($0) }
+        )
+    }
+
+    private var hudDurationSelection: Binding<HUDDuration> {
+        Binding(
+            get: { applicationModel.preferences.hud.duration },
+            set: { applicationModel.setHUDDuration($0) }
+        )
+    }
+
     private var launchAtLoginSelection: Binding<Bool> {
         Binding(
             get: { applicationModel.launchAtLoginEnabled },
@@ -141,6 +211,154 @@ private struct GeneralSettingsView: View {
         }
         targets.append(.allInputs)
         return targets
+    }
+}
+
+private struct HUDPositionGrid: View {
+    @Binding var selection: HUDPosition
+    @FocusState private var focusedPosition: HUDPosition?
+    @State private var hoveredPosition: HUDPosition?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ForEach(HUDVerticalPosition.allCases, id: \.self) { vertical in
+                HStack(spacing: 6) {
+                    ForEach(HUDHorizontalPosition.allCases, id: \.self) { horizontal in
+                        let position = HUDPosition(
+                            horizontal: horizontal,
+                            vertical: vertical
+                        )
+                        positionButton(position)
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("HUD position")
+        .accessibilityIdentifier("settings-hud-position-grid")
+    }
+
+    private func positionButton(_ position: HUDPosition) -> some View {
+        let isSelected = selection == position
+        let isFocused = focusedPosition == position
+        let isHovered = hoveredPosition == position
+        return Button {
+            selection = position
+        } label: {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    isSelected
+                        ? Color.accentColor
+                        : Color(nsColor: .controlBackgroundColor)
+                )
+                .frame(width: 32, height: 18)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(
+                            isFocused
+                                ? Color.accentColor
+                                : isHovered
+                                    ? Color.accentColor.opacity(0.8)
+                                    : isSelected
+                                        ? Color.accentColor.opacity(0.8)
+                                        : Color.secondary.opacity(0.35),
+                            lineWidth: isFocused ? 2 : 1
+                        )
+                }
+                .overlay {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .focusable()
+        .focused($focusedPosition, equals: position)
+        .onHover { isHovering in
+            hoveredPosition = isHovering ? position : nil
+        }
+        .accessibilityLabel(position.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier(
+            "settings-hud-position-\(position.vertical.rawValue)-\(position.horizontal.rawValue)"
+        )
+    }
+}
+
+private extension HUDSize {
+    var title: String {
+        switch self {
+        case .compact:
+            NSLocalizedString("Compact", comment: "Compact HUD size")
+        case .standard:
+            NSLocalizedString("Standard", comment: "Standard HUD size or duration")
+        case .large:
+            NSLocalizedString("Large", comment: "Large HUD size")
+        }
+    }
+}
+
+private extension HUDDisplayTarget {
+    var title: String {
+        switch self {
+        case .pointer:
+            NSLocalizedString("Screen with pointer", comment: "HUD display target")
+        case .main:
+            NSLocalizedString("Main screen", comment: "HUD display target")
+        case .all:
+            NSLocalizedString("All screens", comment: "HUD display target")
+        }
+    }
+}
+
+private extension HUDDuration {
+    var title: String {
+        switch self {
+        case .short:
+            NSLocalizedString(
+                "Short (0.5 seconds)",
+                comment: "Short HUD duration with seconds"
+            )
+        case .standard:
+            NSLocalizedString(
+                "Standard (1 second)",
+                comment: "Standard HUD duration with seconds"
+            )
+        case .long:
+            NSLocalizedString(
+                "Long (2 seconds)",
+                comment: "Long HUD duration with seconds"
+            )
+        }
+    }
+}
+
+private extension HUDPosition {
+    var title: String {
+        switch (vertical, horizontal) {
+        case (.top, .leading):
+            NSLocalizedString("Top left", comment: "HUD position")
+        case (.top, .center):
+            NSLocalizedString("Top center", comment: "HUD position")
+        case (.top, .trailing):
+            NSLocalizedString("Top right", comment: "HUD position")
+        case (.center, .leading):
+            NSLocalizedString("Center left", comment: "HUD position")
+        case (.center, .center):
+            NSLocalizedString("Center", comment: "HUD position")
+        case (.center, .trailing):
+            NSLocalizedString("Center right", comment: "HUD position")
+        case (.bottom, .leading):
+            NSLocalizedString("Bottom left", comment: "HUD position")
+        case (.bottom, .center):
+            NSLocalizedString("Bottom center", comment: "HUD position")
+        case (.bottom, .trailing):
+            NSLocalizedString("Bottom right", comment: "HUD position")
+        }
     }
 }
 

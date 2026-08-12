@@ -134,6 +134,95 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
+    func testDisabledCompactHUDCanBePreviewedFromSettings() throws {
+        let app = launch(arguments: [
+            "--ui-state=live",
+            "--ui-hud-disabled",
+            "--ui-hud-size=compact",
+            "--ui-hud-position=top-leading",
+            "--ui-hud-display-target=all",
+            "--ui-hud-duration=long",
+            "--ui-keep-hud-visible",
+        ])
+        openStatusMenu(in: app)
+        let settingsLink = app.buttons["mutelet-settings-link"]
+        XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
+        settingsLink.click()
+
+        let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
+        XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.buttons["mutelet-primary-action"]
+                .waitForNonExistence(timeout: 2)
+        )
+        let generalTab = settingsWindow.buttons["General"]
+        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
+        generalTab.click()
+        let hudToggle = app.descendants(matching: .any)["settings-show-hud"]
+        XCTAssertTrue(hudToggle.waitForExistence(timeout: 5))
+        assertValue("0", on: hudToggle)
+        let sizePicker = app.descendants(matching: .any)["settings-hud-size"]
+        XCTAssertTrue(sizePicker.waitForExistence(timeout: 2))
+        let compactSize = sizePicker.descendants(matching: .any)["Compact"]
+        XCTAssertTrue(compactSize.waitForExistence(timeout: 2))
+        assertValue("1", on: compactSize)
+
+        let durationPicker = app.descendants(matching: .any)["settings-hud-duration"]
+        XCTAssertTrue(durationPicker.waitForExistence(timeout: 2))
+        let longDuration = durationPicker.descendants(matching: .any)[
+            "Long (2 seconds)"
+        ]
+        XCTAssertTrue(longDuration.waitForExistence(timeout: 2))
+        assertValue("1", on: longDuration)
+
+        let topLeading = app.descendants(matching: .any)[
+            "settings-hud-position-top-leading"
+        ]
+        XCTAssertTrue(topLeading.waitForExistence(timeout: 2))
+        XCTAssertTrue(topLeading.isSelected)
+
+        let screenPicker = app.descendants(matching: .any)["settings-hud-screen"]
+        XCTAssertTrue(screenPicker.waitForExistence(timeout: 2))
+        XCTAssertEqual(screenPicker.value as? String, "All screens")
+
+        let preview = app.buttons["settings-hud-preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 2))
+        preview.click()
+
+        let hud = app.descendants(matching: .any)["mutelet-hud"]
+        XCTAssertTrue(hud.waitForExistence(timeout: 2))
+        assertValue("Microphone on", on: hud)
+        XCTAssertGreaterThanOrEqual(hud.frame.width, 290)
+        XCTAssertLessThanOrEqual(hud.frame.width, 310)
+
+        let largeSize = sizePicker.descendants(matching: .any)["Large"]
+        XCTAssertTrue(largeSize.waitForExistence(timeout: 2))
+        largeSize.click()
+        assertValue("1", on: largeSize)
+
+        let bottomTrailing = app.descendants(matching: .any)[
+            "settings-hud-position-bottom-trailing"
+        ]
+        XCTAssertTrue(bottomTrailing.waitForExistence(timeout: 2))
+        bottomTrailing.click()
+        XCTAssertTrue(bottomTrailing.isSelected)
+
+        screenPicker.click()
+        let mainScreen = app.menuItems["Main screen"]
+        XCTAssertTrue(mainScreen.waitForExistence(timeout: 2))
+        mainScreen.click()
+        XCTAssertEqual(screenPicker.value as? String, "Main screen")
+
+        let shortDuration = durationPicker.descendants(matching: .any)[
+            "Short (0.5 seconds)"
+        ]
+        XCTAssertTrue(shortDuration.waitForExistence(timeout: 2))
+        shortDuration.click()
+        assertValue("1", on: shortDuration)
+        assertValue("0", on: hudToggle)
+    }
+
+    @MainActor
     func testCaptureWebsiteAssets() throws {
         let captures = [
             (locale: "en_US", language: "en", deviceName: "MacBook Microphone"),
@@ -250,9 +339,11 @@ final class MuteletUITests: XCTestCase {
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         let primaryAction = app.buttons["mutelet-primary-action"]
+        let settingsLink = app.buttons["mutelet-settings-link"]
         for _ in 0..<2 {
             statusItem.click()
-            if primaryAction.waitForExistence(timeout: 2) {
+            if primaryAction.waitForExistence(timeout: 2),
+               settingsLink.waitForExistence(timeout: 2) {
                 return
             }
         }
@@ -275,5 +366,20 @@ final class MuteletUITests: XCTestCase {
             object: element
         )
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
+    @MainActor
+    private func assertValue(
+        _ expected: String,
+        on element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(
+            element.value.map { String(describing: $0) },
+            expected,
+            file: file,
+            line: line
+        )
     }
 }

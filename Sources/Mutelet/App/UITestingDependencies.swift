@@ -116,9 +116,31 @@ actor UITestingPreferencesStore: MuteletPreferencesStoring {
     private var remainingSaveFailures: Int
 
     init(arguments: [String]) {
+        let hudPositionComponents = arguments
+            .value(after: "--ui-hud-position=")?
+            .split(separator: "-", maxSplits: 1)
+        let verticalPosition = hudPositionComponents?.first
+            .flatMap { HUDVerticalPosition(rawValue: String($0)) }
+            ?? .center
+        let horizontalPosition = hudPositionComponents?.dropFirst().first
+            .flatMap { HUDHorizontalPosition(rawValue: String($0)) }
+            ?? .center
         let preferences = MuteletPreferences(
             microphone: MicrophonePreferences(
                 mode: arguments.contains("--ui-push-to-talk") ? .pushToTalk : .toggle
+            ),
+            hud: HUDPreferences(
+                isEnabled: !arguments.contains("--ui-hud-disabled"),
+                size: arguments.value(after: "--ui-hud-size=")
+                    .flatMap(HUDSize.init(rawValue:)) ?? .standard,
+                position: HUDPosition(
+                    horizontal: horizontalPosition,
+                    vertical: verticalPosition
+                ),
+                displayTarget: arguments.value(after: "--ui-hud-display-target=")
+                    .flatMap(HUDDisplayTarget.init(rawValue:)) ?? .pointer,
+                duration: arguments.value(after: "--ui-hud-duration=")
+                    .flatMap(HUDDuration.init(rawValue:)) ?? .standard
             )
         )
         loadResult = arguments.contains("--ui-preferences-recovered")
@@ -136,6 +158,12 @@ actor UITestingPreferencesStore: MuteletPreferencesStoring {
             remainingSaveFailures -= 1
             throw UITestingPreferencesError.saveFailed
         }
+    }
+}
+
+private extension Array where Element == String {
+    func value(after prefix: String) -> String? {
+        first { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
     }
 }
 

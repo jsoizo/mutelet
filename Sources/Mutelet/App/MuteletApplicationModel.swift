@@ -26,6 +26,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var hotKeyTask: Task<Void, Never>?
     private var workspaceLifecycleTask: Task<Void, Never>?
     private var websiteHUDCaptureTask: Task<Void, Never>?
+    private var preferencesSaveTask: Task<Void, Never>?
+    private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
     private var started = false
@@ -109,7 +111,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
                self.preferences.microphone.mode == .pushToTalk,
                self.preferences.hud.isEnabled {
                 self.hudController.showPushToTalkEnabled(
-                    shortcut: self.preferences.shortcuts.primary.displayName
+                    shortcut: self.preferences.shortcuts.primary.displayName,
+                    preferences: self.preferences.hud
                 )
             }
             await self.savePreferences()
@@ -134,12 +137,27 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func setShowsHUD(_ showsHUD: Bool) {
-        var updated = preferences
-        updated.hud.isEnabled = showsHUD
-        preferences = updated
-        Task { [weak self] in
-            await self?.savePreferences()
-        }
+        updateHUDPreferences { $0.isEnabled = showsHUD }
+    }
+
+    func setHUDSize(_ size: HUDSize) {
+        updateHUDPreferences { $0.size = size }
+    }
+
+    func setHUDPosition(_ position: HUDPosition) {
+        updateHUDPreferences { $0.position = position }
+    }
+
+    func setHUDDisplayTarget(_ displayTarget: HUDDisplayTarget) {
+        updateHUDPreferences { $0.displayTarget = displayTarget }
+    }
+
+    func setHUDDuration(_ duration: HUDDuration) {
+        updateHUDPreferences { $0.duration = duration }
+    }
+
+    func previewHUD() {
+        hudController.show(status: coordinator.status, preferences: preferences.hud)
     }
 
     func updateHotKey(_ configuration: GlobalHotKeyConfiguration) async {
@@ -199,6 +217,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func stop() async {
+        await preferencesSaveTask?.value
+        preferencesSaveTask = nil
         removeWorkspaceObservers()
         let pendingWorkspaceLifecycle = workspaceLifecycleTask
         workspaceLifecycleTask = nil
@@ -275,12 +295,40 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     private func showHUDIfEnabled() {
         guard preferences.hud.isEnabled else { return }
-        hudController.show(status: coordinator.status)
+        hudController.show(status: coordinator.status, preferences: preferences.hud)
+    }
+
+    private func updateHUDPreferences(
+        _ update: (inout HUDPreferences) -> Void
+    ) {
+        var updated = preferences
+        update(&updated.hud)
+        preferences = updated
+        Task { [weak self] in
+            await self?.savePreferences()
+        }
     }
 
     private func savePreferences() async {
+        preferencesSaveGeneration += 1
+        let generation = preferencesSaveGeneration
+        let snapshot = preferences
+        let previousSave = preferencesSaveTask
+        let saveTask = Task { [weak self] in
+            await previousSave?.value
+            guard let self else { return }
+            await self.persistPreferences(snapshot)
+        }
+        preferencesSaveTask = saveTask
+        await saveTask.value
+        if generation == preferencesSaveGeneration {
+            preferencesSaveTask = nil
+        }
+    }
+
+    private func persistPreferences(_ snapshot: MuteletPreferences) async {
         do {
-            try await preferencesStore.save(preferences)
+            try await preferencesStore.save(snapshot)
             preferencesError = nil
             preferencesRecoveryIssues = []
         } catch {
@@ -302,6 +350,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             "invalid microphone preferences"
         case .invalidShortcut:
             "invalid shortcut"
+        case .invalidHUD:
+            "invalid HUD preferences"
         case .migrationSaveFailed:
             "saving migrated preferences failed"
         }

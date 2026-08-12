@@ -10,6 +10,10 @@ final class MuteletPreferencesTests: XCTestCase {
         let schemaVersion: Int
     }
 
+    private enum StubPreferencesError: Error {
+        case saveFailed
+    }
+
     func testDuplicateHotKeyStatusHasSpecificError() {
         let duplicate = CarbonHotKeyError.registrationFailure(
             status: OSStatus(eventHotKeyExistsErr)
@@ -42,12 +46,18 @@ final class MuteletPreferencesTests: XCTestCase {
                     modifiers: [.command, .shift]
                 )
             ),
-            hud: HUDPreferences(isEnabled: false)
+            hud: HUDPreferences(
+                isEnabled: false,
+                size: .large,
+                position: HUDPosition(horizontal: .trailing, vertical: .top),
+                displayTarget: .all,
+                duration: .long
+            )
         )
         let fixture = Data(
             #"""
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "microphone": {
                 "mode": "pushToTalk",
                 "target": {
@@ -63,7 +73,14 @@ final class MuteletPreferencesTests: XCTestCase {
                   "modifierRawValue": 9
                 }
               },
-              "hud": { "isEnabled": false }
+              "hud": {
+                "isEnabled": false,
+                "size": "large",
+                "horizontalPosition": "trailing",
+                "verticalPosition": "top",
+                "displayTarget": "all",
+                "duration": "long"
+              }
             }
             """#.utf8
         )
@@ -78,12 +95,320 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, .loaded(expected))
         let data = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
         let header = try JSONDecoder().decode(StoredPreferencesHeader.self, from: data)
-        XCTAssertEqual(header.schemaVersion, 1)
+        XCTAssertEqual(header.schemaVersion, 2)
         XCTAssertEqual(
             try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? NSDictionary),
             try XCTUnwrap(JSONSerialization.jsonObject(with: fixture) as? NSDictionary)
         )
         XCTAssertNil(defaults.data(forKey: Self.legacyStorageKey))
+    }
+
+    func testVersionOnePreferencesMigrateToVersionTwo() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 1,
+                  "microphone": {
+                    "mode": "pushToTalk",
+                    "target": { "kind": "allInputs" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 49,
+                      "keyLabel": "Space",
+                      "modifierRawValue": 9
+                    }
+                  },
+                  "hud": { "isEnabled": false }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(
+            actual,
+            .loaded(
+                MuteletPreferences(
+                    microphone: MicrophonePreferences(
+                        mode: .pushToTalk,
+                        target: .allInputs
+                    ),
+                    shortcuts: ShortcutPreferences(
+                        primary: GlobalHotKeyConfiguration(
+                            keyCode: 49,
+                            keyLabel: "Space",
+                            modifiers: [.command, .shift]
+                        )
+                    ),
+                    hud: HUDPreferences(isEnabled: false)
+                )
+            )
+        )
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            2
+        )
+        let reloaded = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+        XCTAssertEqual(reloaded, actual)
+    }
+
+    func testVersionOneMigrationReportsSaveFailure() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 1,
+                  "microphone": {
+                    "mode": "toggle",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    }
+                  },
+                  "hud": { "isEnabled": false }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+        let store = UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName,
+            dataWriter: { _ in throw StubPreferencesError.saveFailed }
+        )
+
+        let actual = await store.load()
+
+        XCTAssertEqual(
+            actual,
+            .recovered(
+                MuteletPreferences(hud: HUDPreferences(isEnabled: false)),
+                issues: [.migrationSaveFailed]
+            )
+        )
+        let unchangedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: unchangedData)
+                .schemaVersion,
+            1
+        )
+    }
+
+    func testHUDDefaultsMatchExistingPresentation() {
+        let hud = HUDPreferences()
+
+        XCTAssertTrue(hud.isEnabled)
+        XCTAssertEqual(hud.size, .standard)
+        XCTAssertEqual(hud.position, HUDPosition())
+        XCTAssertEqual(hud.displayTarget, .pointer)
+        XCTAssertEqual(hud.duration, .standard)
+    }
+
+    func testEachHUDSettingValueRoundTrips() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsMuteletPreferencesStore(suiteName: suiteName)
+        var values: [HUDPreferences] = []
+
+        values += HUDSize.allCases.map { HUDPreferences(size: $0) }
+        values += HUDDisplayTarget.allCases.map { HUDPreferences(displayTarget: $0) }
+        values += HUDDuration.allCases.map { HUDPreferences(duration: $0) }
+        for vertical in HUDVerticalPosition.allCases {
+            for horizontal in HUDHorizontalPosition.allCases {
+                values.append(
+                    HUDPreferences(
+                        position: HUDPosition(
+                            horizontal: horizontal,
+                            vertical: vertical
+                        )
+                    )
+                )
+            }
+        }
+
+        for hud in values {
+            let preferences = MuteletPreferences(hud: hud)
+            try await store.save(preferences)
+            let loaded = await store.load()
+            XCTAssertEqual(loaded, .loaded(preferences))
+        }
+    }
+
+    func testInvalidStoredHUDRecoversOnlyHUDGroup() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 2,
+                  "microphone": {
+                    "mode": "pushToTalk",
+                    "target": { "kind": "allInputs" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 49,
+                      "keyLabel": "Space",
+                      "modifierRawValue": 9
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": false,
+                    "size": "enormous",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(
+            actual,
+            .recovered(
+                MuteletPreferences(
+                    microphone: MicrophonePreferences(
+                        mode: .pushToTalk,
+                        target: .allInputs
+                    ),
+                    shortcuts: ShortcutPreferences(
+                        primary: GlobalHotKeyConfiguration(
+                            keyCode: 49,
+                            keyLabel: "Space",
+                            modifiers: [.command, .shift]
+                        )
+                    )
+                ),
+                issues: [.invalidHUD]
+            )
+        )
+    }
+
+    func testHUDLayoutCalculatesAllNinePositions() {
+        let visibleFrame = CGRect(x: 100, y: 200, width: 1_200, height: 800)
+        let panelSize = CGSize(width: 300, height: 168)
+        let expectedX: [HUDHorizontalPosition: CGFloat] = [
+            .leading: 132,
+            .center: 550,
+            .trailing: 968,
+        ]
+        let expectedY: [HUDVerticalPosition: CGFloat] = [
+            .top: 800,
+            .center: 516,
+            .bottom: 232,
+        ]
+
+        for vertical in HUDVerticalPosition.allCases {
+            for horizontal in HUDHorizontalPosition.allCases {
+                let frame = HUDLayout.frame(
+                    panelSize: panelSize,
+                    in: visibleFrame,
+                    position: HUDPosition(
+                        horizontal: horizontal,
+                        vertical: vertical
+                    )
+                )
+                XCTAssertEqual(frame.origin.x, expectedX[horizontal]!)
+                XCTAssertEqual(frame.origin.y, expectedY[vertical]!)
+                XCTAssertTrue(visibleFrame.contains(frame))
+            }
+        }
+    }
+
+    func testHUDLayoutClampsToSmallVisibleFrame() {
+        let visibleFrame = CGRect(x: -500, y: 40, width: 320, height: 200)
+        let frame = HUDLayout.frame(
+            panelSize: CGSize(width: 300, height: 168),
+            in: visibleFrame,
+            position: HUDPosition(horizontal: .trailing, vertical: .top)
+        )
+
+        XCTAssertEqual(frame, CGRect(x: -500, y: 40, width: 300, height: 168))
+        XCTAssertTrue(visibleFrame.contains(frame))
+    }
+
+    func testHUDLayoutScalesLargePanelToFitVisibleFrame() {
+        let visibleFrame = CGRect(x: 40, y: -100, width: 320, height: 200)
+        let frame = HUDLayout.frame(
+            panelSize: CGSize(width: 480, height: 288),
+            in: visibleFrame,
+            position: HUDPosition(horizontal: .center, vertical: .center)
+        )
+
+        XCTAssertEqual(frame, CGRect(x: 40, y: -96, width: 320, height: 192))
+        XCTAssertTrue(visibleFrame.contains(frame))
+    }
+
+    func testHUDScreenTargetResolution() {
+        let frames = [
+            CGRect(x: 0, y: 0, width: 1_000, height: 800),
+            CGRect(x: 1_000, y: -200, width: 1_200, height: 900),
+        ]
+
+        XCTAssertEqual(
+            HUDLayout.screenIndices(
+                for: .pointer,
+                screenFrames: frames,
+                mainScreenIndex: 0,
+                pointerLocation: CGPoint(x: 1_500, y: 100)
+            ),
+            [1]
+        )
+        XCTAssertEqual(
+            HUDLayout.screenIndices(
+                for: .pointer,
+                screenFrames: frames,
+                mainScreenIndex: 1,
+                pointerLocation: CGPoint(x: -100, y: -100)
+            ),
+            [1]
+        )
+        XCTAssertEqual(
+            HUDLayout.screenIndices(
+                for: .main,
+                screenFrames: frames,
+                mainScreenIndex: 1,
+                pointerLocation: .zero
+            ),
+            [1]
+        )
+        XCTAssertEqual(
+            HUDLayout.screenIndices(
+                for: .all,
+                screenFrames: frames,
+                mainScreenIndex: 0,
+                pointerLocation: .zero
+            ),
+            [0, 1]
+        )
     }
 
     func testMissingPreferencesReturnsDefaults() async {

@@ -4,20 +4,29 @@ import SwiftUI
 
 @MainActor
 final class MuteHUDController {
-    private var panel: NSPanel?
+    private var panels: [NSPanel] = []
     private var dismissalTask: Task<Void, Never>?
     private var presentationGeneration = 0
+    private let disablesAutomaticDismissal: Bool
 
-    func show(status: MuteStatus) {
+    init(disablesAutomaticDismissal: Bool = false) {
+        self.disablesAutomaticDismissal = disablesAutomaticDismissal
+    }
+
+    func show(status: MuteStatus, preferences: HUDPreferences) {
         show(
             title: status.interfaceTitle,
             detail: status.hudDetail,
             systemImageName: status.systemImageName,
-            color: status.interfaceColor
+            color: status.interfaceColor,
+            preferences: preferences
         )
     }
 
-    func showPushToTalkEnabled(shortcut: String) {
+    func showPushToTalkEnabled(
+        shortcut: String,
+        preferences: HUDPreferences
+    ) {
         show(
             title: NSLocalizedString(
                 "Push to Talk",
@@ -31,7 +40,8 @@ final class MuteHUDController {
                 shortcut
             ),
             systemImageName: "mic.badge.plus",
-            color: .accentColor
+            color: .accentColor,
+            preferences: preferences
         )
     }
 
@@ -39,56 +49,87 @@ final class MuteHUDController {
         title: String,
         detail: String?,
         systemImageName: String,
-        color: Color
+        color: Color,
+        preferences: HUDPreferences
     ) {
         presentationGeneration += 1
         let generation = presentationGeneration
         dismissalTask?.cancel()
 
-        let panel = panel ?? makePanel()
-        self.panel = panel
-        panel.contentView = NSHostingView(
-            rootView: MuteHUDView(
-                title: title,
-                detail: detail,
-                systemImageName: systemImageName,
-                color: color
-            )
+        let screens = NSScreen.screens
+        let mainScreenIndex = NSScreen.main.flatMap { mainScreen in
+            screens.firstIndex { $0 === mainScreen }
+        }
+        let screenIndices = HUDLayout.screenIndices(
+            for: preferences.displayTarget,
+            screenFrames: screens.map(\.frame),
+            mainScreenIndex: mainScreenIndex,
+            pointerLocation: NSEvent.mouseLocation
         )
-        position(panel)
+        guard !screenIndices.isEmpty else {
+            hide()
+            return
+        }
+
+        ensurePanelCount(screenIndices.count)
+        let activePanels = Array(panels.prefix(screenIndices.count))
+        for (panel, screenIndex) in zip(activePanels, screenIndices) {
+            let screen = screens[screenIndex]
+            let preferredPanelSize = preferences.size.panelSize
+            let panelFrame = HUDLayout.frame(
+                panelSize: preferredPanelSize,
+                in: screen.visibleFrame,
+                position: preferences.position
+            )
+            let displayScale = preferredPanelSize.width > 0
+                ? panelFrame.width / preferredPanelSize.width
+                : 1
+            panel.contentView = NSHostingView(
+                rootView: MuteHUDView(
+                    title: title,
+                    detail: preferences.size == .compact ? nil : detail,
+                    systemImageName: systemImageName,
+                    color: color,
+                    size: preferences.size,
+                    displayScale: displayScale
+                )
+            )
+            panel.setFrame(panelFrame, display: false)
+        }
+        for panel in panels.dropFirst(screenIndices.count) {
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        }
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0
-            panel.animator().alphaValue = 1
+            for panel in activePanels {
+                panel.animator().alphaValue = 1
+            }
         }
-        panel.orderFrontRegardless()
-        let announcement = [title, detail]
-            .compactMap { $0 }
-            .joined(separator: ", ")
-        NSAccessibility.post(
-            element: NSApplication.shared,
-            notification: .announcementRequested,
-            userInfo: [
-                NSAccessibility.NotificationUserInfoKey.announcement: announcement,
-                NSAccessibility.NotificationUserInfoKey.priority:
-                    NSAccessibilityPriorityLevel.high.rawValue,
-            ]
-        )
+        for panel in activePanels {
+            panel.orderFrontRegardless()
+        }
+        postAnnouncement(title: title, detail: detail)
+
+        guard !disablesAutomaticDismissal else { return }
 
         dismissalTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: preferences.duration.sleepDuration)
             guard !Task.isCancelled,
                   let self,
                   generation == self.presentationGeneration else { return }
             if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                self.hide()
+                self.finishHiding(generation: generation)
             } else {
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
-                    panel.animator().alphaValue = 0
+                    for panel in activePanels {
+                        panel.animator().alphaValue = 0
+                    }
                 } completionHandler: {
-                    Task { @MainActor in
-                        guard generation == self.presentationGeneration else { return }
-                        self.hide()
+                    Task { @MainActor [weak self] in
+                        self?.finishHiding(generation: generation)
                     }
                 }
             }
@@ -99,13 +140,31 @@ final class MuteHUDController {
         presentationGeneration += 1
         dismissalTask?.cancel()
         dismissalTask = nil
-        panel?.orderOut(nil)
-        panel?.alphaValue = 1
+        orderOutAllPanels()
+    }
+
+    private func finishHiding(generation: Int) {
+        guard generation == presentationGeneration else { return }
+        dismissalTask = nil
+        orderOutAllPanels()
+    }
+
+    private func orderOutAllPanels() {
+        for panel in panels {
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        }
+    }
+
+    private func ensurePanelCount(_ count: Int) {
+        while panels.count < count {
+            panels.append(makePanel())
+        }
     }
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 224),
+            contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -120,16 +179,18 @@ final class MuteHUDController {
         return panel
     }
 
-    private func position(_ panel: NSPanel) {
-        let pointer = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
-            ?? NSScreen.main
-        guard let visibleFrame = screen?.visibleFrame else { return }
-        panel.setFrameOrigin(
-            NSPoint(
-                x: visibleFrame.midX - panel.frame.width / 2,
-                y: visibleFrame.midY - panel.frame.height / 2
-            )
+    private func postAnnouncement(title: String, detail: String?) {
+        let announcement = [title, detail]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                NSAccessibility.NotificationUserInfoKey.announcement: announcement,
+                NSAccessibility.NotificationUserInfoKey.priority:
+                    NSAccessibilityPriorityLevel.high.rawValue,
+            ]
         )
     }
 }
@@ -139,41 +200,140 @@ private struct MuteHUDView: View {
     let detail: String?
     let systemImageName: String
     let color: Color
+    let size: HUDSize
+    let displayScale: CGFloat
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: size.contentSpacing) {
             Image(systemName: systemImageName)
-                .font(.system(size: 72, weight: .semibold))
+                .font(.system(size: size.iconSize, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
 
-            VStack(spacing: 5) {
+            VStack(spacing: size.textSpacing) {
                 Text(title)
-                    .font(.title3.weight(.semibold))
+                    .font(size.titleFont)
                     .lineLimit(1)
 
                 if let detail {
                     Text(detail)
-                        .font(.body)
+                        .font(size.detailFont)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .multilineTextAlignment(.center)
-            .frame(maxWidth: 324)
+            .frame(maxWidth: size.maximumTextWidth)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, size.horizontalPadding)
+        .padding(.vertical, size.verticalPadding)
+        .frame(width: size.panelSize.width, height: size.panelSize.height)
         .background {
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: size.cornerRadius)
                 .fill(.regularMaterial)
                 .opacity(0.5)
         }
+        .scaleEffect(displayScale)
+        .frame(
+            width: size.panelSize.width * displayScale,
+            height: size.panelSize.height * displayScale
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel([title, detail].compactMap { $0 }.joined(separator: ", "))
         .accessibilityIdentifier("mutelet-hud")
+    }
+}
+
+private extension HUDSize {
+    var panelSize: CGSize {
+        switch self {
+        case .compact: CGSize(width: 300, height: 168)
+        case .standard: CGSize(width: 380, height: 224)
+        case .large: CGSize(width: 480, height: 288)
+        }
+    }
+
+    var iconSize: CGFloat {
+        switch self {
+        case .compact: 56
+        case .standard: 72
+        case .large: 96
+        }
+    }
+
+    var titleFont: Font {
+        switch self {
+        case .compact: .headline.weight(.semibold)
+        case .standard: .title3.weight(.semibold)
+        case .large: .title2.weight(.semibold)
+        }
+    }
+
+    var detailFont: Font {
+        switch self {
+        case .compact: .body
+        case .standard: .body
+        case .large: .title3
+        }
+    }
+
+    var contentSpacing: CGFloat {
+        switch self {
+        case .compact: 10
+        case .standard: 14
+        case .large: 18
+        }
+    }
+
+    var textSpacing: CGFloat {
+        switch self {
+        case .compact: 4
+        case .standard: 5
+        case .large: 7
+        }
+    }
+
+    var maximumTextWidth: CGFloat {
+        switch self {
+        case .compact: 252
+        case .standard: 324
+        case .large: 408
+        }
+    }
+
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .compact: 24
+        case .standard: 28
+        case .large: 36
+        }
+    }
+
+    var verticalPadding: CGFloat {
+        switch self {
+        case .compact: 20
+        case .standard: 24
+        case .large: 32
+        }
+    }
+
+    var cornerRadius: CGFloat {
+        switch self {
+        case .compact: 20
+        case .standard: 24
+        case .large: 30
+        }
+    }
+}
+
+private extension HUDDuration {
+    var sleepDuration: Duration {
+        switch self {
+        case .short: .milliseconds(500)
+        case .standard: .seconds(1)
+        case .long: .seconds(2)
+        }
     }
 }
 

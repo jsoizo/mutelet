@@ -255,7 +255,7 @@
       }
     },
     "Compact" : {
-      "comment" : "Compact HUD size",
+      "comment" : "Compact HUD size\nPersistent status size",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -387,7 +387,7 @@
       }
     },
     "Large" : {
-      "comment" : "Large HUD size",
+      "comment" : "Large HUD size\nPersistent status size",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -431,7 +431,7 @@
       }
     },
     "Main screen" : {
-      "comment" : "HUD display target",
+      "comment" : "HUD display target\nStatus overlay display target",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -872,7 +872,7 @@
       }
     },
     "Standard" : {
-      "comment" : "Standard HUD size or duration",
+      "comment" : "Persistent status size\nStandard HUD size or duration",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

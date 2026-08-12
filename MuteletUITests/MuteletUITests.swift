@@ -83,9 +83,9 @@ final class MuteletUITests: XCTestCase {
 
         let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
         XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
-        let generalTab = settingsWindow.buttons["General"]
-        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
-        generalTab.click()
+        let displayTab = settingsWindow.buttons["Display"]
+        XCTAssertTrue(displayTab.waitForExistence(timeout: 2))
+        displayTab.click()
 
         let enabled = app.descendants(matching: .any)["settings-status-overlay-enabled"]
         XCTAssertTrue(enabled.waitForExistence(timeout: 5))
@@ -121,12 +121,21 @@ final class MuteletUITests: XCTestCase {
         let generalTab = settingsWindow.buttons["General"]
         XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
         generalTab.click()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-mode-picker"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["settings-input-picker"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["settings-show-hud"].exists)
+
+        let displayTab = settingsWindow.buttons["Display"]
+        XCTAssertTrue(displayTab.waitForExistence(timeout: 2))
+        displayTab.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["settings-show-hud"]
                 .waitForExistence(timeout: 5)
         )
-        XCTAssertTrue(app.descendants(matching: .any)["settings-mode-picker"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["settings-input-picker"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings-status-overlay-enabled"].exists
+        )
+        XCTAssertFalse(app.descendants(matching: .any)["settings-mode-picker"].exists)
 
         openStatusMenu(in: app)
         XCTAssertTrue(settingsLink.waitForExistence(timeout: 5))
@@ -166,6 +175,9 @@ final class MuteletUITests: XCTestCase {
         ]
         XCTAssertTrue(settingsWarning.waitForExistence(timeout: 5))
 
+        let displayTab = settingsWindow.buttons["Display"]
+        XCTAssertTrue(displayTab.waitForExistence(timeout: 2))
+        displayTab.click()
         let hudToggle = app.descendants(matching: .any)["settings-show-hud"]
         XCTAssertTrue(hudToggle.waitForExistence(timeout: 2))
         hudToggle.click()
@@ -203,9 +215,9 @@ final class MuteletUITests: XCTestCase {
             app.buttons["mutelet-primary-action"]
                 .waitForNonExistence(timeout: 2)
         )
-        let generalTab = settingsWindow.buttons["General"]
-        XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
-        generalTab.click()
+        let displayTab = settingsWindow.buttons["Display"]
+        XCTAssertTrue(displayTab.waitForExistence(timeout: 2))
+        displayTab.click()
         let hudToggle = app.descendants(matching: .any)["settings-show-hud"]
         XCTAssertTrue(hudToggle.waitForExistence(timeout: 5))
         assertValue("0", on: hudToggle)

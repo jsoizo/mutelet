@@ -26,6 +26,9 @@
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "未接続" } } }
     },
+    "Display" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "画面表示" } } }
+    },
     "Drag to move the persistent status." : {
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ドラッグして常駐ステータスを移動できます。" } } }
     },

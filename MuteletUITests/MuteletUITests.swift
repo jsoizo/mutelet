@@ -151,17 +151,21 @@ final class MuteletUITests: XCTestCase {
 
         let settingsWindow = app.windows["com_apple_SwiftUI_Settings_window"]
         XCTAssertTrue(settingsWindow.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.buttons["mutelet-primary-action"]
+                .waitForNonExistence(timeout: 2)
+        )
         let generalTab = settingsWindow.buttons["General"]
         XCTAssertTrue(generalTab.waitForExistence(timeout: 2))
         generalTab.click()
         let hudToggle = app.descendants(matching: .any)["settings-show-hud"]
         XCTAssertTrue(hudToggle.waitForExistence(timeout: 5))
-        XCTAssertEqual(hudToggle.value as? String, "0")
+        assertValue("0", on: hudToggle)
         let sizePicker = app.descendants(matching: .any)["settings-hud-size"]
         XCTAssertTrue(sizePicker.waitForExistence(timeout: 2))
         let compactSize = sizePicker.descendants(matching: .any)["Compact"]
         XCTAssertTrue(compactSize.waitForExistence(timeout: 2))
-        XCTAssertTrue(compactSize.isSelected)
+        assertValue("1", on: compactSize)
 
         let durationPicker = app.descendants(matching: .any)["settings-hud-duration"]
         XCTAssertTrue(durationPicker.waitForExistence(timeout: 2))
@@ -169,7 +173,7 @@ final class MuteletUITests: XCTestCase {
             "Long (2 seconds)"
         ]
         XCTAssertTrue(longDuration.waitForExistence(timeout: 2))
-        XCTAssertTrue(longDuration.isSelected)
+        assertValue("1", on: longDuration)
 
         let topLeading = app.descendants(matching: .any)[
             "settings-hud-position-top-leading"
@@ -187,14 +191,14 @@ final class MuteletUITests: XCTestCase {
 
         let hud = app.descendants(matching: .any)["mutelet-hud"]
         XCTAssertTrue(hud.waitForExistence(timeout: 2))
-        XCTAssertEqual(hud.label, "Microphone on")
+        assertValue("Microphone on", on: hud)
         XCTAssertGreaterThanOrEqual(hud.frame.width, 290)
         XCTAssertLessThanOrEqual(hud.frame.width, 310)
 
         let largeSize = sizePicker.descendants(matching: .any)["Large"]
         XCTAssertTrue(largeSize.waitForExistence(timeout: 2))
         largeSize.click()
-        XCTAssertTrue(largeSize.isSelected)
+        assertValue("1", on: largeSize)
 
         let bottomTrailing = app.descendants(matching: .any)[
             "settings-hud-position-bottom-trailing"
@@ -214,8 +218,8 @@ final class MuteletUITests: XCTestCase {
         ]
         XCTAssertTrue(shortDuration.waitForExistence(timeout: 2))
         shortDuration.click()
-        XCTAssertTrue(shortDuration.isSelected)
-        XCTAssertEqual(hudToggle.value as? String, "0")
+        assertValue("1", on: shortDuration)
+        assertValue("0", on: hudToggle)
     }
 
     @MainActor
@@ -335,9 +339,11 @@ final class MuteletUITests: XCTestCase {
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         let primaryAction = app.buttons["mutelet-primary-action"]
+        let settingsLink = app.buttons["mutelet-settings-link"]
         for _ in 0..<2 {
             statusItem.click()
-            if primaryAction.waitForExistence(timeout: 2) {
+            if primaryAction.waitForExistence(timeout: 2),
+               settingsLink.waitForExistence(timeout: 2) {
                 return
             }
         }
@@ -360,5 +366,20 @@ final class MuteletUITests: XCTestCase {
             object: element
         )
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
+    @MainActor
+    private func assertValue(
+        _ expected: String,
+        on element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(
+            element.value.map { String(describing: $0) },
+            expected,
+            file: file,
+            line: line
+        )
     }
 }

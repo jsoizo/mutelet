@@ -96,16 +96,6 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         let hud: StoredHUDPreferencesV2
         let statusOverlay: StoredStatusOverlayPreferencesV3
 
-        init(preferences: MuteletPreferences) {
-            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
-            microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
-            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
-            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
-            statusOverlay = StoredStatusOverlayPreferencesV3(
-                preferences: preferences.statusOverlay
-            )
-        }
-
         func decodePreferences() -> DecodedPreferences {
             var preferences = MuteletPreferences()
             var issues: [PreferencesRecoveryIssue] = []

@@ -405,6 +405,12 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     private func enqueueMaintenanceHUD(_ feedback: AutomaticMuteMaintenanceFeedback) {
+        guard preferences.hud.isEnabled else {
+            pendingMaintenanceFeedback = nil
+            maintenanceHUDTask?.cancel()
+            maintenanceHUDTask = nil
+            return
+        }
         pendingMaintenanceFeedback = feedback
         guard maintenanceHUDTask == nil else { return }
 
@@ -414,8 +420,13 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             if delay > 0 {
                 try? await Task.sleep(for: .seconds(delay))
             }
-            guard !Task.isCancelled, let self,
-                  let feedback = self.pendingMaintenanceFeedback else { return }
+            guard !Task.isCancelled, let self else { return }
+            guard self.preferences.hud.isEnabled,
+                  let feedback = self.pendingMaintenanceFeedback else {
+                self.pendingMaintenanceFeedback = nil
+                self.maintenanceHUDTask = nil
+                return
+            }
             self.pendingMaintenanceFeedback = nil
             let signature = self.maintenanceFeedbackSignature(feedback)
             let announces = signature != self.lastMaintenanceAnnouncementSignature

@@ -176,7 +176,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         }
         if let receipt {
             guard receipt.hasSameControls(as: original.values) else {
-                throw CoreAudioError.incompleteRestoration(uid: deviceUID)
+                throw CoreAudioError.restorationTopologyChanged(uid: deviceUID)
             }
         }
 
@@ -204,8 +204,16 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
     ) -> Bool {
         guard lhs.device.uid == rhs.device.uid,
               lhs.device.capabilities == rhs.device.capabilities else { return false }
-        let lhsValues = Dictionary(uniqueKeysWithValues: lhs.values.map { ($0.control, $0.value) })
-        let rhsValues = Dictionary(uniqueKeysWithValues: rhs.values.map { ($0.control, $0.value) })
+        let lhsValues = Dictionary(
+            lhs.values.map { ($0.control, $0.value) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let rhsValues = Dictionary(
+            rhs.values.map { ($0.control, $0.value) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard lhsValues.count == lhs.values.count,
+              rhsValues.count == rhs.values.count else { return false }
         guard lhsValues.keys == rhsValues.keys else { return false }
         return lhsValues.allSatisfy { control, value in
             guard let other = rhsValues[control] else { return false }
@@ -228,8 +236,8 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
                     actualUID: receipt.deviceUID
                 )
             }
-            guard receipt.hasSameControls(as: current.values) else {
-                throw CoreAudioError.incompleteRestoration(uid: deviceUID)
+            guard receipt.canRestore(from: current.values) else {
+                throw CoreAudioError.restorationTopologyChanged(uid: deviceUID)
             }
             try restoreValues(receipt.originalValues, on: current.device.objectID)
             return

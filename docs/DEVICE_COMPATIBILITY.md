@@ -19,7 +19,7 @@ Per-channel controls must cover every input channel, using native mute, writable
 - A selected device is persisted by UID. If disconnected, Mutelet waits for the same UID rather than silently controlling another input.
 - **All Inputs** aggregates every currently visible input. If a new input appears while the all-input mute latch is active, Mutelet attempts to mute it too.
 - With **Keep muted when input changes** enabled, a Toggle mute follows a new system default and reconnecting device UIDs for the rest of the running app session. Core Audio notification order is not assumed; Mutelet re-enumerates and verifies the final state.
-- If the controls exposed by a reconnecting UID no longer match its saved receipt, Mutelet keeps the receipt and reports an error instead of discarding the original values.
+- If saved controls disappear from a reconnecting UID, Mutelet reports the restoration failure and discards the stale receipt so future operations are not permanently blocked. Newly added controls do not prevent restoration of the saved controls.
 
 Aggregate devices, virtual inputs, USB interfaces, Bluetooth devices, and conferencing drivers may expose unusual or read-only controls. They should not crash Mutelet, but their ability to mute varies.
 

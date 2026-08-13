@@ -441,7 +441,9 @@ final class MuteCoordinatorTests: XCTestCase {
         await audio.disconnect(uid: "usb")
         await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
         await audio.connect(uid: "usb", state: .live)
-        await waitUntil { await audio.state(uid: "usb") == .muted }
+        await waitUntil {
+            coordinator.status == .muted(deviceName: "USB Mic")
+        }
 
         XCTAssertEqual(coordinator.status, .muted(deviceName: "USB Mic"))
     }
@@ -522,6 +524,58 @@ final class MuteCoordinatorTests: XCTestCase {
         }
 
         XCTAssertEqual(coordinator.status, .muted(deviceName: "All Inputs"))
+    }
+
+    func testAllInputsMutesNewDeviceWhileMaintenancePreferenceIsDisabled() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        coordinator.configure(
+            mode: .toggle,
+            target: .allInputs,
+            maintainsMuteOnInputChange: false
+        )
+        await coordinator.start()
+        await coordinator.toggle()
+
+        await audio.connect(uid: "usb", state: .live)
+        await waitUntil {
+            await audio.state(uid: "usb") == .muted
+                && coordinator.status == .muted(deviceName: "All Inputs")
+        }
+
+        let usbState = await audio.state(uid: "usb")
+        XCTAssertEqual(usbState, .muted)
+    }
+
+    func testAllInputsMuteLatchSurvivesPushToTalkRoundTrip() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.selectTarget(.allInputs)
+        await coordinator.toggle()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.setMode(.toggle)
+
+        await audio.connect(uid: "usb", state: .live)
+        await waitUntil {
+            await audio.state(uid: "usb") == .muted
+                && coordinator.status == .muted(deviceName: "All Inputs")
+        }
+
+        let usbState = await audio.state(uid: "usb")
+        XCTAssertEqual(usbState, .muted)
     }
 
     func testDefaultInputChangeMutesNewDefaultThenRestoresPreviousInput() async {
@@ -654,7 +708,51 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNotNil(oldReceipt)
     }
 
-    func testAutomaticHandoffDoesNotRestoreReceiptFromPreviousSession() async {
+    func testPushToTalkTargetChangeStopsWhenCurrentTargetIsUnsupported() async {
+        let audio = MultiDeviceAudioController(
+            states: ["unsupported": .unsupported, "usb": .live],
+            defaultUID: "unsupported",
+            names: ["usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        XCTAssertEqual(coordinator.target, .systemDefault)
+        let usbState = await audio.state(uid: "usb")
+        XCTAssertEqual(usbState, .live)
+    }
+
+    func testSelectingCurrentTargetDoesNotCancelInFlightTargetChange() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await audio.suspendNextInputDevices()
+        let selection = Task {
+            await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+        }
+        await waitUntil { await audio.isInputDevicesSuspended() }
+
+        await coordinator.selectTarget(.systemDefault)
+        await audio.resumeInputDevices()
+        await selection.value
+
+        XCTAssertEqual(coordinator.target, .device(uid: "usb", name: "USB Mic"))
+    }
+
+    func testExplicitTargetChangeRestoresReceiptFromPreviousSession() async {
         let audio = MultiDeviceAudioController(
             states: ["built-in": .muted, "usb": .live],
             defaultUID: "built-in",
@@ -684,15 +782,41 @@ final class MuteCoordinatorTests: XCTestCase {
         )
         let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
         await coordinator.start()
-        await coordinator.selectTarget(.allInputs)
-        await coordinator.toggle()
-
         await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
 
         let previousSessionState = await audio.state(uid: "built-in")
         let previousSessionReceipt = await store.receipt(deviceUID: "built-in")
-        XCTAssertEqual(previousSessionState, .muted)
-        XCTAssertNotNil(previousSessionReceipt)
+        XCTAssertEqual(previousSessionState, .live)
+        XCTAssertNil(previousSessionReceipt)
+    }
+
+    func testResumeRetriesPendingRestorationForDeviceReconnectedDuringSleep() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["built-in": "Built-in", "usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+        await coordinator.toggle()
+        await audio.setUnmuteFailures(uid: "built-in", count: 4)
+        await audio.changeDefault(to: "usb")
+        await waitUntil { !coordinator.restorationWarnings.isEmpty }
+        await audio.disconnect(uid: "built-in")
+        await coordinator.toggle()
+        XCTAssertFalse(coordinator.hasToggleMuteIntent)
+        await coordinator.suspend()
+        await audio.setUnmuteFailures(uid: "built-in", count: 0)
+        await audio.connect(uid: "built-in", state: .muted)
+
+        await coordinator.resume()
+        await waitUntil { await audio.state(uid: "built-in") == .live }
+
+        XCTAssertTrue(coordinator.restorationWarnings.isEmpty)
     }
 
     func testToggleIntentRemutesAfterExternalUnmute() async {
@@ -921,6 +1045,66 @@ final class MuteCoordinatorTests: XCTestCase {
         } else {
             XCTFail("Expected incomplete restoration error")
         }
+    }
+
+    func testChangedControlTopologyDiscardsStaleReceiptAndAllowsRecovery() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .muted],
+            defaultUID: "built-in",
+            names: ["built-in": "Built-in"]
+        )
+        let store = InMemoryReceiptStore()
+        await store.save(
+            AudioMutationReceipt(
+                deviceUID: "built-in",
+                originalValues: [
+                    AudioControlValue(
+                        control: AudioControl(
+                            kind: .mute,
+                            element: kAudioObjectPropertyElementMain
+                        ),
+                        value: 0
+                    ),
+                ]
+            )
+        )
+        await audio.setRestorationTopologyChanged(uid: "built-in", changed: true)
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let discardedReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertNil(discardedReceipt)
+        XCTAssertEqual(
+            coordinator.restorationWarnings,
+            [RestorationWarningItem(deviceUID: "built-in", deviceName: "Built-in")]
+        )
+
+        await audio.setRestorationTopologyChanged(uid: "built-in", changed: false)
+        await coordinator.refresh()
+        await coordinator.toggle()
+        let recoveredState = await audio.state(uid: "built-in")
+        XCTAssertEqual(recoveredState, .live)
+    }
+
+    func testDuplicateDeviceUIDsDoNotCrashDeferredRestoration() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in",
+            duplicateUIDs: ["built-in"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.selectTarget(.allInputs)
+        await coordinator.toggle()
+
+        await coordinator.toggle()
+
+        XCTAssertEqual(coordinator.status, .live(deviceName: "All Inputs"))
     }
 
     private func waitUntil(
@@ -1216,21 +1400,35 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
     private var muteAttempts: [String: Int] = [:]
     private var remainingMuteFailures: [String: Int] = [:]
     private var remainingUnmuteFailures: [String: Int] = [:]
+    private var restorationTopologyChangedUIDs: Set<String> = []
+    private let duplicateUIDs: Set<String>
+    private var shouldSuspendNextInputDevices = false
+    private var inputDevicesContinuation: CheckedContinuation<Void, Never>?
 
     init(
         states: [String: AudioDeviceMuteState],
         defaultUID: String,
         names: [String: String] = [:],
-        volumeOnlyUIDs: Set<String> = []
+        volumeOnlyUIDs: Set<String> = [],
+        duplicateUIDs: Set<String> = []
     ) {
         self.states = states
         self.defaultUID = defaultUID
         self.names = names
         self.volumeOnlyUIDs = volumeOnlyUIDs
+        self.duplicateUIDs = duplicateUIDs
     }
 
-    func inputDevices() -> [AudioDeviceDescriptor] {
-        states.keys.sorted().compactMap(descriptor(uid:))
+    func inputDevices() async -> [AudioDeviceDescriptor] {
+        if shouldSuspendNextInputDevices {
+            shouldSuspendNextInputDevices = false
+            await withCheckedContinuation { continuation in
+                inputDevicesContinuation = continuation
+            }
+        }
+        let devices = states.keys.sorted().compactMap(descriptor(uid:))
+        let duplicates = duplicateUIDs.compactMap(descriptor(uid:))
+        return devices + duplicates
     }
 
     func defaultInputDevice() -> AudioDeviceDescriptor? {
@@ -1313,6 +1511,9 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
             remainingUnmuteFailures[deviceUID, default: 0] -= 1
             throw MultiDeviceAudioError.missingDevice(deviceUID)
         }
+        if restorationTopologyChangedUIDs.contains(deviceUID), receipt != nil {
+            throw CoreAudioError.restorationTopologyChanged(uid: deviceUID)
+        }
         guard let state = states[deviceUID] else {
             throw MultiDeviceAudioError.missingDevice(deviceUID)
         }
@@ -1356,6 +1557,27 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
 
     func setUnmuteFailures(uid: String, count: Int) {
         remainingUnmuteFailures[uid] = count
+    }
+
+    func setRestorationTopologyChanged(uid: String, changed: Bool) {
+        if changed {
+            restorationTopologyChangedUIDs.insert(uid)
+        } else {
+            restorationTopologyChangedUIDs.remove(uid)
+        }
+    }
+
+    func suspendNextInputDevices() {
+        shouldSuspendNextInputDevices = true
+    }
+
+    func isInputDevicesSuspended() -> Bool {
+        inputDevicesContinuation != nil
+    }
+
+    func resumeInputDevices() {
+        inputDevicesContinuation?.resume()
+        inputDevicesContinuation = nil
     }
 
     func changeDefault(to uid: String) {

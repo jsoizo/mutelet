@@ -3,14 +3,7 @@ import CoreAudio
 import Foundation
 
 private func sleepForMuteMaintenance(_ duration: Duration) async throws {
-    let components = duration.components
-    let seconds = Double(components.seconds)
-        + (Double(components.attoseconds) / 1_000_000_000_000_000_000)
-    await withCheckedContinuation { continuation in
-        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
-            continuation.resume()
-        }
-    }
+    try await Task.sleep(for: duration)
 }
 
 @MainActor
@@ -45,8 +38,6 @@ public final class MuteCoordinator: ObservableObject {
     private var pendingRestoreNames: [String: String] = [:]
     private var lastKnownDeviceNames: [String: String] = [:]
     private var maintenanceFailureNames: [String: String] = [:]
-    private var lastMuteConfirmedUIDs: Set<String> = []
-    private var lastMuteFailures = 0
     private var maintenanceGeneration: UInt64 = 0
     private var maintenanceFeedbackSequence: UInt64 = 0
     private var targetSelectionGeneration: UInt64 = 0
@@ -58,6 +49,23 @@ public final class MuteCoordinator: ObservableObject {
     private var operationWaiters: [CheckedContinuation<Void, Never>] = []
     private var pendingInventoryRefresh = false
     private var pendingControlObjectIDs: Set<AudioObjectID> = []
+
+    private struct MaintenanceAttemptResult {
+        let needsRetry: Bool
+        let currentTargetFailures: Int
+    }
+
+    private struct MuteAttemptResult {
+        let succeeded: Bool
+        let confirmedUIDs: Set<String>
+        let failureCount: Int
+
+        static let cancelled = MuteAttemptResult(
+            succeeded: false,
+            confirmedUIDs: [],
+            failureCount: 0
+        )
+    }
 
     public var canToggle: Bool {
         mode == .toggle && (hasToggleMuteIntent || status.canToggle)
@@ -139,6 +147,8 @@ public final class MuteCoordinator: ObservableObject {
             if mode == .pushToTalk {
                 await muteIfNeeded(forceForSafety: true)
             } else if hasToggleMuteIntent, maintainsMuteOnInputChange {
+                await restartMaintenance(emitFeedback: true).value
+            } else if !pendingRestoreNames.isEmpty {
                 await restartMaintenance(emitFeedback: true).value
             } else {
                 activeTargetUIDs = Set(
@@ -239,7 +249,7 @@ public final class MuteCoordinator: ObservableObject {
             if newMode == .pushToTalk {
                 await self.enqueueInactiveManagedTargetsForRestoration()
             }
-            guard await self.muteIfNeeded(forceForSafety: true) else { return }
+            guard await self.muteIfNeeded(forceForSafety: true).succeeded else { return }
             if newMode == .pushToTalk, !self.pendingRestoreNames.isEmpty {
                 await self.restartMaintenance(emitFeedback: false).value
             }
@@ -247,9 +257,9 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     public func selectTarget(_ newTarget: AudioTargetSelection) async {
+        guard newTarget.id != target.id else { return }
         targetSelectionGeneration &+= 1
         let selectionGeneration = targetSelectionGeneration
-        guard newTarget.id != target.id else { return }
 
         let previousDevices = (try? await resolvedTargetDevices()) ?? []
         guard selectionGeneration == targetSelectionGeneration else { return }
@@ -257,7 +267,7 @@ public final class MuteCoordinator: ObservableObject {
             ? Set(previousDevices.map(\.uid))
             : activeTargetUIDs
         if mode == .pushToTalk {
-            guard await muteIfNeeded(forceForSafety: true) else { return }
+            guard await muteIfNeeded(forceForSafety: true).succeeded else { return }
             guard selectionGeneration == targetSelectionGeneration else { return }
             isHotKeyPressed = false
         } else if !hasToggleMuteIntent {
@@ -326,8 +336,8 @@ public final class MuteCoordinator: ObservableObject {
         } else if shouldUnmuteTargets {
             await unmuteIfNeeded()
         } else {
-            await muteIfNeeded()
-            if maintainsMuteOnInputChange, !lastMuteConfirmedUIDs.isEmpty {
+            let result = await muteIfNeeded()
+            if maintainsMuteOnInputChange, !result.confirmedUIDs.isEmpty {
                 hasToggleMuteIntent = true
                 activeTargetUIDs = Set(
                     ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
@@ -381,7 +391,7 @@ public final class MuteCoordinator: ObservableObject {
     public func cancelActiveHotKeyGesture() async -> Bool {
         guard isHotKeyPressed else { return true }
         if mode == .pushToTalk {
-            guard await muteIfNeeded(forceForSafety: true) else { return false }
+            guard await muteIfNeeded(forceForSafety: true).succeeded else { return false }
         }
         isHotKeyPressed = false
         return true
@@ -453,9 +463,17 @@ public final class MuteCoordinator: ObservableObject {
             if !pendingRestoreNames.isEmpty {
                 _ = restartMaintenance(emitFeedback: true)
             }
-        } else if (hasToggleMuteIntent && maintainsMuteOnInputChange)
-                    || !pendingRestoreNames.isEmpty {
-            _ = restartMaintenance(emitFeedback: true)
+        } else {
+            if target == .allInputs,
+               keepAllInputsMuted,
+               !shouldUnmuteTargets,
+               !(hasToggleMuteIntent && maintainsMuteOnInputChange) {
+                await muteIfNeeded()
+            }
+            if (hasToggleMuteIntent && maintainsMuteOnInputChange)
+                || !pendingRestoreNames.isEmpty {
+                _ = restartMaintenance(emitFeedback: true)
+            }
         }
 
         if clearAudioEventProcessing(id: id, generation: generation) {
@@ -500,29 +518,38 @@ public final class MuteCoordinator: ObservableObject {
     private func muteIfNeeded(
         forceForSafety: Bool = false,
         maintenanceGeneration expectedGeneration: UInt64? = nil
-    ) async -> Bool {
+    ) async -> MuteAttemptResult {
         await acquireOperation()
         defer { releaseOperation() }
-        lastMuteConfirmedUIDs.removeAll()
-        lastMuteFailures = 0
+        if let expectedGeneration,
+           expectedGeneration != maintenanceGeneration {
+            return .cancelled
+        }
         if !forceForSafety {
-            guard status.canToggle, !shouldUnmuteTargets else { return true }
+            guard status.canToggle, !shouldUnmuteTargets else {
+                return MuteAttemptResult(
+                    succeeded: true,
+                    confirmedUIDs: [],
+                    failureCount: 0
+                )
+            }
         }
 
         do {
             let devices = try await resolvedTargetDevices()
             guard !devices.isEmpty else {
                 await refreshStatus()
-                return false
+                return .cancelled
             }
 
             var failures = 0
             var firstError: Error?
+            var confirmedUIDs: Set<String> = []
             for device in devices {
                 do {
                     if let expectedGeneration,
                        expectedGeneration != maintenanceGeneration {
-                        return false
+                        return .cancelled
                     }
                     guard device.capabilities.isSupported else {
                         throw CoreAudioError.unsupportedDevice(uid: device.uid)
@@ -530,16 +557,16 @@ public final class MuteCoordinator: ObservableObject {
                     let snapshot = try await audioController.snapshot(deviceUID: device.uid)
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
-                        return false
+                        return .cancelled
                     }
                     if snapshot.muteState == .muted {
-                        lastMuteConfirmedUIDs.insert(device.uid)
+                        confirmedUIDs.insert(device.uid)
                         continue
                     }
                     var receipt = await receiptStore.receipt(deviceUID: device.uid)
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
-                        return false
+                        return .cancelled
                     }
                     var createdReceipt = false
                     if receipt == nil {
@@ -556,7 +583,7 @@ public final class MuteCoordinator: ObservableObject {
                         if createdReceipt {
                             try? await receiptStore.removeReceipt(deviceUID: device.uid)
                         }
-                        return false
+                        return .cancelled
                     }
                     do {
                         _ = try await audioController.mute(
@@ -568,14 +595,20 @@ public final class MuteCoordinator: ObservableObject {
                         guard confirmed.muteState == .muted else {
                             throw CoreAudioError.muteNotConfirmed(uid: device.uid)
                         }
-                        lastMuteConfirmedUIDs.insert(device.uid)
+                        confirmedUIDs.insert(device.uid)
                         sessionManagedUIDs.insert(device.uid)
+                        maintenanceFailureNames.removeValue(forKey: device.uid)
                     } catch {
                         if createdReceipt,
                            let current = try? await audioController.snapshot(deviceUID: device.uid),
                            current.values == snapshot.values {
                             try? await receiptStore.removeReceipt(deviceUID: device.uid)
                         }
+                        await discardReceiptIfTopologyChanged(
+                            error,
+                            deviceUID: device.uid,
+                            deviceName: device.name
+                        )
                         throw error
                     }
                 } catch {
@@ -592,18 +625,23 @@ public final class MuteCoordinator: ObservableObject {
             if target == .allInputs {
                 keepAllInputsMuted = true
             }
-            lastMuteFailures = failures
             await refreshStatus(additionalFailures: failures)
             if failures > 0, target != .allInputs, let firstError {
                 status = .error(message: userFacingErrorMessage(for: firstError))
             }
-            return failures == 0
+            return MuteAttemptResult(
+                succeeded: failures == 0
+                    && confirmedUIDs.count == Set(devices.map(\.uid)).count,
+                confirmedUIDs: confirmedUIDs,
+                failureCount: failures
+            )
         } catch {
-            if expectedGeneration != nil {
-                lastMuteFailures = 1
-            }
             status = .error(message: userFacingErrorMessage(for: error))
-            return false
+            return MuteAttemptResult(
+                succeeded: false,
+                confirmedUIDs: [],
+                failureCount: 1
+            )
         }
     }
 
@@ -623,10 +661,6 @@ public final class MuteCoordinator: ObservableObject {
             var firstError: Error?
             for device in devices {
                 do {
-                    if onlyWithReceipts,
-                       !sessionManagedUIDs.contains(device.uid) {
-                        continue
-                    }
                     let receipt = await receiptStore.receipt(deviceUID: device.uid)
                     if onlyWithReceipts, receipt == nil {
                         continue
@@ -642,8 +676,14 @@ public final class MuteCoordinator: ObservableObject {
                         }
                         try await receiptStore.removeReceipt(deviceUID: device.uid)
                         sessionManagedUIDs.remove(device.uid)
+                        maintenanceFailureNames.removeValue(forKey: device.uid)
                     }
                 } catch {
+                    await discardReceiptIfTopologyChanged(
+                        error,
+                        deviceUID: device.uid,
+                        deviceName: device.name
+                    )
                     failures += 1
                     firstError = firstError ?? error
                 }
@@ -743,20 +783,22 @@ public final class MuteCoordinator: ObservableObject {
         } else {
             devices = try await audioController.inputDevices()
         }
-        switch target {
+        let resolved: [AudioDeviceDescriptor] = switch target {
         case .systemDefault:
             if let device = devices.first(where: \.isDefaultInput) {
-                return [device]
+                [device]
+            } else if let device = try await audioController.defaultInputDevice() {
+                [device]
+            } else {
+                []
             }
-            if let device = try await audioController.defaultInputDevice() {
-                return [device]
-            }
-            return []
         case let .device(uid, _):
-            return devices.filter { $0.uid == uid }
+            devices.filter { $0.uid == uid }
         case .allInputs:
-            return devices
+            devices
         }
+        var seenUIDs: Set<String> = []
+        return resolved.filter { seenUIDs.insert($0.uid).inserted }
     }
 
     private func publishAggregateStatus(
@@ -793,7 +835,7 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     private func enqueueManagedActiveTargetsForRestoration() {
-        for uid in activeTargetUIDs where sessionManagedUIDs.contains(uid) {
+        for uid in activeTargetUIDs {
             pendingRestoreNames[uid] = lastKnownDeviceNames[uid] ?? uid
         }
         activeTargetUIDs.removeAll()
@@ -803,8 +845,7 @@ public final class MuteCoordinator: ObservableObject {
         let currentUIDs = Set(
             ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
         )
-        for uid in activeTargetUIDs.subtracting(currentUIDs)
-            where sessionManagedUIDs.contains(uid) {
+        for uid in activeTargetUIDs.subtracting(currentUIDs) {
             pendingRestoreNames[uid] = lastKnownDeviceNames[uid] ?? uid
         }
         activeTargetUIDs.formIntersection(currentUIDs)
@@ -843,7 +884,10 @@ public final class MuteCoordinator: ObservableObject {
         emitFeedback: Bool
     ) async {
         let delays: [Duration?] = [nil, .milliseconds(100), .milliseconds(300), .milliseconds(600)]
-        var needsRetry = false
+        var result = MaintenanceAttemptResult(
+            needsRetry: false,
+            currentTargetFailures: 0
+        )
 
         for delay in delays {
             guard !Task.isCancelled,
@@ -857,14 +901,16 @@ public final class MuteCoordinator: ObservableObject {
             }
             guard !Task.isCancelled,
                   generation == maintenanceGeneration else { return }
-            needsRetry = await reconcileMaintenanceOnce(generation: generation)
-            if !needsRetry { break }
+            result = await reconcileMaintenanceOnce(generation: generation)
+            if !result.needsRetry { break }
         }
 
         guard !Task.isCancelled,
               generation == maintenanceGeneration else { return }
-        await refreshStatus(additionalFailures: needsRetry ? lastMuteFailures : 0)
-        if needsRetry, target != .allInputs, hasToggleMuteIntent {
+        await refreshStatus(
+            additionalFailures: result.needsRetry ? result.currentTargetFailures : 0
+        )
+        if result.needsRetry, target != .allInputs, hasToggleMuteIntent {
             status = .error(
                 message: NSLocalizedString(
                     "The microphone could not be controlled.",
@@ -889,24 +935,37 @@ public final class MuteCoordinator: ObservableObject {
         }
     }
 
-    private func reconcileMaintenanceOnce(generation: UInt64) async -> Bool {
-        guard generation == maintenanceGeneration else { return false }
+    private func reconcileMaintenanceOnce(
+        generation: UInt64
+    ) async -> MaintenanceAttemptResult {
+        guard generation == maintenanceGeneration else {
+            return MaintenanceAttemptResult(
+                needsRetry: false,
+                currentTargetFailures: 0
+            )
+        }
         var needsRetry = false
+        var currentTargetFailures = 0
 
         if mode == .toggle, hasToggleMuteIntent, maintainsMuteOnInputChange {
             let oldUIDs = activeTargetUIDs
             let desiredDevices = (try? await resolvedTargetDevices()) ?? []
             let desiredUIDs = Set(desiredDevices.map(\.uid))
-            _ = await muteIfNeeded(
+            let muteResult = await muteIfNeeded(
                 forceForSafety: true,
                 maintenanceGeneration: generation
             )
-            guard generation == maintenanceGeneration else { return false }
-            needsRetry = lastMuteFailures > 0
+            guard generation == maintenanceGeneration else {
+                return MaintenanceAttemptResult(
+                    needsRetry: false,
+                    currentTargetFailures: 0
+                )
+            }
+            needsRetry = muteResult.failureCount > 0
+            currentTargetFailures = muteResult.failureCount
 
-            if !lastMuteConfirmedUIDs.isEmpty {
-                for uid in oldUIDs.subtracting(desiredUIDs)
-                    where sessionManagedUIDs.contains(uid) {
+            if !muteResult.confirmedUIDs.isEmpty {
+                for uid in oldUIDs.subtracting(desiredUIDs) {
                     pendingRestoreNames[uid] = lastKnownDeviceNames[uid] ?? uid
                 }
                 activeTargetUIDs = desiredUIDs
@@ -922,7 +981,10 @@ public final class MuteCoordinator: ObservableObject {
             excluding: desiredUIDs,
             generation: generation
         )
-        return needsRetry || restoreFailures > 0
+        return MaintenanceAttemptResult(
+            needsRetry: needsRetry || restoreFailures > 0,
+            currentTargetFailures: currentTargetFailures
+        )
     }
 
     private func restorePendingDevices(
@@ -930,18 +992,14 @@ public final class MuteCoordinator: ObservableObject {
         generation: UInt64
     ) async -> Int {
         let connectedByUID = Dictionary(
-            uniqueKeysWithValues: availableDevices.map { ($0.uid, $0) }
+            availableDevices.map { ($0.uid, $0) },
+            uniquingKeysWith: { first, _ in first }
         )
         var failures = 0
 
         for uid in pendingRestoreNames.keys.sorted() {
             guard generation == maintenanceGeneration else { break }
             guard !desiredUIDs.contains(uid) else {
-                maintenanceFailureNames.removeValue(forKey: uid)
-                continue
-            }
-            guard sessionManagedUIDs.contains(uid) else {
-                pendingRestoreNames.removeValue(forKey: uid)
                 maintenanceFailureNames.removeValue(forKey: uid)
                 continue
             }
@@ -952,7 +1010,6 @@ public final class MuteCoordinator: ObservableObject {
             guard let receipt = await receiptStore.receipt(deviceUID: uid) else {
                 pendingRestoreNames.removeValue(forKey: uid)
                 maintenanceFailureNames.removeValue(forKey: uid)
-                sessionManagedUIDs.remove(uid)
                 continue
             }
 
@@ -969,12 +1026,21 @@ public final class MuteCoordinator: ObservableObject {
                     throw CoreAudioError.incompleteRestoration(uid: uid)
                 }
                 try await receiptStore.removeReceipt(deviceUID: uid)
+                sessionManagedUIDs.remove(uid)
                 pendingRestoreNames.removeValue(forKey: uid)
                 maintenanceFailureNames.removeValue(forKey: uid)
-                sessionManagedUIDs.remove(uid)
             } catch {
                 failures += 1
-                maintenanceFailureNames[uid] = device.name
+                let discarded = await discardReceiptIfTopologyChanged(
+                    error,
+                    deviceUID: uid,
+                    deviceName: device.name
+                )
+                if discarded {
+                    pendingRestoreNames.removeValue(forKey: uid)
+                } else {
+                    maintenanceFailureNames[uid] = device.name
+                }
                 NSLog("Mutelet deferred restoration error: %@", String(describing: error))
             }
             releaseOperation()
@@ -1035,9 +1101,10 @@ public final class MuteCoordinator: ObservableObject {
         _ snapshot: AudioDeviceSnapshot,
         matches receipt: AudioMutationReceipt
     ) -> Bool {
-        guard receipt.hasSameControls(as: snapshot.values) else { return false }
+        guard receipt.canRestore(from: snapshot.values) else { return false }
         let currentValues = Dictionary(
-            uniqueKeysWithValues: snapshot.values.map { ($0.control, $0.value) }
+            snapshot.values.map { ($0.control, $0.value) },
+            uniquingKeysWith: { first, _ in first }
         )
         return receipt.originalValues.allSatisfy { saved in
             guard let current = currentValues[saved.control] else { return false }
@@ -1051,6 +1118,26 @@ public final class MuteCoordinator: ObservableObject {
             "The microphone could not be controlled.",
             comment: "Generic microphone control error"
         )
+    }
+
+    @discardableResult
+    private func discardReceiptIfTopologyChanged(
+        _ error: Error,
+        deviceUID: String,
+        deviceName: String
+    ) async -> Bool {
+        guard case CoreAudioError.restorationTopologyChanged = error else {
+            return false
+        }
+        do {
+            try await receiptStore.removeReceipt(deviceUID: deviceUID)
+            sessionManagedUIDs.remove(deviceUID)
+            maintenanceFailureNames[deviceUID] = deviceName
+            publishRestorationWarnings()
+            return true
+        } catch {
+            return false
+        }
     }
 
     @discardableResult
@@ -1080,6 +1167,14 @@ public final class MuteCoordinator: ObservableObject {
                 pendingRestoreNames.removeValue(forKey: device.uid)
                 maintenanceFailureNames.removeValue(forKey: device.uid)
             } catch {
+                let discarded = await discardReceiptIfTopologyChanged(
+                    error,
+                    deviceUID: device.uid,
+                    deviceName: device.name
+                )
+                if discarded {
+                    pendingRestoreNames.removeValue(forKey: device.uid)
+                }
                 firstError = firstError ?? error
             }
         }

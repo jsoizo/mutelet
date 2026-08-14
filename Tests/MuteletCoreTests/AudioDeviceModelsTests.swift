@@ -134,6 +134,34 @@ final class AudioDeviceModelsTests: XCTestCase {
         )
     }
 
+    func testReceiptIncludesOriginalValuesForNewControls() throws {
+        let mute = AudioControl(kind: .mute, element: kAudioObjectPropertyElementMain)
+        let volume = AudioControl(kind: .volume, element: kAudioObjectPropertyElementMain)
+        let channelVolume = AudioControl(kind: .volume, element: 1)
+        let receipt = AudioMutationReceipt(
+            deviceUID: "test-device",
+            originalValues: [
+                AudioControlValue(control: mute, value: 0),
+                AudioControlValue(control: volume, value: 0.7),
+            ]
+        )
+
+        let expanded = try XCTUnwrap(
+            receipt.includingNewControls(from: [
+                AudioControlValue(control: mute, value: 1),
+                AudioControlValue(control: volume, value: 0),
+                AudioControlValue(control: channelVolume, value: 0.4),
+            ])
+        )
+
+        XCTAssertEqual(
+            expanded.originalValues,
+            receipt.originalValues + [
+                AudioControlValue(control: channelVolume, value: 0.4),
+            ]
+        )
+    }
+
     private func makeSnapshot(
         muteValues: [Float],
         volumeValues: [Float]

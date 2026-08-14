@@ -326,23 +326,36 @@ public final class MuteCoordinator: ObservableObject {
 
     public func toggle() async {
         guard mode == .toggle else { return }
-        guard !isBusy, hasToggleMuteIntent || status.canToggle else { return }
+        await acquireOperation()
+        guard mode == .toggle,
+              hasToggleMuteIntent || status.canToggle else {
+            releaseOperation()
+            return
+        }
+        var shouldRestartMaintenance = false
         if hasToggleMuteIntent {
             hasToggleMuteIntent = false
             invalidateMaintenance()
             enqueueManagedActiveTargetsForRestoration()
-            await unmuteIfNeeded(onlyWithReceipts: true)
-            await restartMaintenance(emitFeedback: false).value
+            await unmuteIfNeeded(
+                onlyWithReceipts: true,
+                operationAlreadyAcquired: true
+            )
+            shouldRestartMaintenance = true
         } else if shouldUnmuteTargets {
-            await unmuteIfNeeded()
+            await unmuteIfNeeded(operationAlreadyAcquired: true)
         } else {
-            let result = await muteIfNeeded()
+            let result = await muteIfNeeded(operationAlreadyAcquired: true)
             if maintainsMuteOnInputChange, !result.confirmedUIDs.isEmpty {
                 hasToggleMuteIntent = true
                 activeTargetUIDs = Set(
                     ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
                 )
             }
+        }
+        releaseOperation()
+        if shouldRestartMaintenance {
+            await restartMaintenance(emitFeedback: false).value
         }
     }
 
@@ -517,10 +530,17 @@ public final class MuteCoordinator: ObservableObject {
     @discardableResult
     private func muteIfNeeded(
         forceForSafety: Bool = false,
-        maintenanceGeneration expectedGeneration: UInt64? = nil
+        maintenanceGeneration expectedGeneration: UInt64? = nil,
+        operationAlreadyAcquired: Bool = false
     ) async -> MuteAttemptResult {
-        await acquireOperation()
-        defer { releaseOperation() }
+        if !operationAlreadyAcquired {
+            await acquireOperation()
+        }
+        defer {
+            if !operationAlreadyAcquired {
+                releaseOperation()
+            }
+        }
         if let expectedGeneration,
            expectedGeneration != maintenanceGeneration {
             return .cancelled
@@ -577,6 +597,13 @@ public final class MuteCoordinator: ObservableObject {
                         try await receiptStore.save(preparedReceipt)
                         receipt = preparedReceipt
                         createdReceipt = true
+                    } else if let storedReceipt = receipt,
+                              let expandedReceipt = storedReceipt.includingNewControls(
+                                from: snapshot.values
+                              ),
+                              expandedReceipt != storedReceipt {
+                        try await receiptStore.save(expandedReceipt)
+                        receipt = expandedReceipt
                     }
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
@@ -646,9 +673,18 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     @discardableResult
-    private func unmuteIfNeeded(onlyWithReceipts: Bool = false) async -> Bool {
-        await acquireOperation()
-        defer { releaseOperation() }
+    private func unmuteIfNeeded(
+        onlyWithReceipts: Bool = false,
+        operationAlreadyAcquired: Bool = false
+    ) async -> Bool {
+        if !operationAlreadyAcquired {
+            await acquireOperation()
+        }
+        defer {
+            if !operationAlreadyAcquired {
+                releaseOperation()
+            }
+        }
         guard onlyWithReceipts || shouldUnmuteTargets else { return true }
 
         if target == .allInputs {

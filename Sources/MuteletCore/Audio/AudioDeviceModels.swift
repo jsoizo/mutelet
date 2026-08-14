@@ -144,6 +144,19 @@ public struct AudioMutationReceipt: Codable, Hashable, Sendable {
             && currentControls.count == values.count
             && savedControls.isSubset(of: currentControls)
     }
+
+    public func includingNewControls(
+        from values: [AudioControlValue]
+    ) -> AudioMutationReceipt? {
+        guard canRestore(from: values) else { return nil }
+        let savedControls = Set(originalValues.map(\.control))
+        return AudioMutationReceipt(
+            deviceUID: deviceUID,
+            originalValues: originalValues + values.filter {
+                !savedControls.contains($0.control)
+            }
+        )
+    }
 }
 
 public enum AudioHardwareEventKind: String, Sendable {

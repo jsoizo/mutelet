@@ -63,6 +63,32 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNil(storedReceipt)
     }
 
+    func testToggleWaitsForInFlightOperationInsteadOfDroppingInput() async {
+        let audio = FakeAudioController(state: .muted, suspendsUnmute: true)
+        let store = InMemoryReceiptStore()
+        await store.save(FakeAudioController.originalReceipt)
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        let unmuteTask = Task {
+            await coordinator.toggle()
+        }
+        await waitUntil { await audio.unmuteCallCount() == 1 }
+
+        let remuteTask = Task {
+            await coordinator.toggle()
+        }
+        await Task.yield()
+        await audio.resumeUnmute()
+        await unmuteTask.value
+        await remuteTask.value
+
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(muteCalls, 1)
+        XCTAssertTrue(coordinator.hasToggleMuteIntent)
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+    }
+
     func testToggleFromMixedChoosesMute() async {
         let audio = FakeAudioController(state: .mixed)
         let store = InMemoryReceiptStore()
@@ -882,10 +908,9 @@ final class MuteCoordinatorTests: XCTestCase {
         let disableTask = Task {
             await coordinator.setMaintainsMuteOnInputChange(false)
         }
-        await Task.yield()
+        await disableTask.value
         await audio.resumeSnapshot()
         await enableTask.value
-        await disableTask.value
 
         XCTAssertFalse(coordinator.hasToggleMuteIntent)
     }
@@ -1086,6 +1111,52 @@ final class MuteCoordinatorTests: XCTestCase {
         await coordinator.toggle()
         let recoveredState = await audio.state(uid: "built-in")
         XCTAssertEqual(recoveredState, .live)
+    }
+
+    func testMuteExpandsRestorableReceiptWhenTopologyAddsControls() async {
+        let mute = AudioControl(kind: .mute, element: kAudioObjectPropertyElementMain)
+        let volume = AudioControl(kind: .volume, element: kAudioObjectPropertyElementMain)
+        let channelVolume = AudioControl(kind: .volume, element: 1)
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in",
+            names: ["built-in": "Built-in"],
+            expandedTopologyUIDs: ["built-in"]
+        )
+        let store = InMemoryReceiptStore()
+        await store.save(
+            AudioMutationReceipt(
+                deviceUID: "built-in",
+                originalValues: [
+                    AudioControlValue(control: mute, value: 0),
+                    AudioControlValue(control: volume, value: 0.7),
+                ]
+            )
+        )
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let expandedReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertEqual(
+            expandedReceipt?.originalValues,
+            [
+                AudioControlValue(control: mute, value: 0),
+                AudioControlValue(control: volume, value: 0.7),
+                AudioControlValue(control: channelVolume, value: 0.4),
+            ]
+        )
+        let mutedState = await audio.state(uid: "built-in")
+        XCTAssertEqual(mutedState, .muted)
+        XCTAssertTrue(coordinator.restorationWarnings.isEmpty)
+
+        await coordinator.toggle()
+
+        let restoredState = await audio.state(uid: "built-in")
+        let removedReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertEqual(restoredState, .live)
+        XCTAssertNil(removedReceipt)
     }
 
     func testDuplicateDeviceUIDsDoNotCrashDeferredRestoration() async {
@@ -1390,6 +1461,7 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
         kind: .volume,
         element: kAudioObjectPropertyElementMain
     )
+    private static let channelVolumeControl = AudioControl(kind: .volume, element: 1)
 
     private var states: [String: AudioDeviceMuteState]
     private var defaultUID: String
@@ -1402,6 +1474,7 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
     private var remainingUnmuteFailures: [String: Int] = [:]
     private var restorationTopologyChangedUIDs: Set<String> = []
     private let duplicateUIDs: Set<String>
+    private let expandedTopologyUIDs: Set<String>
     private var shouldSuspendNextInputDevices = false
     private var inputDevicesContinuation: CheckedContinuation<Void, Never>?
 
@@ -1410,13 +1483,15 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
         defaultUID: String,
         names: [String: String] = [:],
         volumeOnlyUIDs: Set<String> = [],
-        duplicateUIDs: Set<String> = []
+        duplicateUIDs: Set<String> = [],
+        expandedTopologyUIDs: Set<String> = []
     ) {
         self.states = states
         self.defaultUID = defaultUID
         self.names = names
         self.volumeOnlyUIDs = volumeOnlyUIDs
         self.duplicateUIDs = duplicateUIDs
+        self.expandedTopologyUIDs = expandedTopologyUIDs
     }
 
     func inputDevices() async -> [AudioDeviceDescriptor] {
@@ -1439,7 +1514,7 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
         guard let state = states[deviceUID], let device = descriptor(uid: deviceUID) else {
             throw MultiDeviceAudioError.missingDevice(deviceUID)
         }
-        let values: [AudioControlValue] = switch state {
+        var values: [AudioControlValue] = switch state {
         case .live:
             [
                 AudioControlValue(control: Self.muteControl, value: 0),
@@ -1462,6 +1537,14 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
         case .unsupported:
             []
         }
+        if expandedTopologyUIDs.contains(deviceUID), state != .unsupported {
+            values.append(
+                AudioControlValue(
+                    control: Self.channelVolumeControl,
+                    value: state == .muted ? 0 : 0.4
+                )
+            )
+        }
         return AudioDeviceSnapshot(device: device, values: values)
     }
 
@@ -1479,6 +1562,12 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
         }
         guard state != .unsupported else {
             throw MultiDeviceAudioError.unsupportedDevice(deviceUID)
+        }
+        if expandedTopologyUIDs.contains(deviceUID), let receipt {
+            let current = try snapshot(deviceUID: deviceUID)
+            guard receipt.hasSameControls(as: current.values) else {
+                throw CoreAudioError.restorationTopologyChanged(uid: deviceUID)
+            }
         }
         muteCalls.insert(deviceUID)
         states[deviceUID] = .muted
@@ -1619,11 +1708,13 @@ private actor MultiDeviceAudioController: AudioDeviceControlling {
             controls = AudioDeviceCapabilities(
                 nativeMuteControls: [],
                 volumeControls: [Self.volumeControl]
+                    + (expandedTopologyUIDs.contains(uid) ? [Self.channelVolumeControl] : [])
             )
         } else {
             controls = AudioDeviceCapabilities(
                 nativeMuteControls: [Self.muteControl],
                 volumeControls: [Self.volumeControl]
+                    + (expandedTopologyUIDs.contains(uid) ? [Self.channelVolumeControl] : [])
             )
         }
         return AudioDeviceDescriptor(

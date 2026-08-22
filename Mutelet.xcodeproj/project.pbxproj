@@ -39,6 +39,8 @@
 		F10000000000000000000003 /* StatusOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* StatusOverlayController.swift */; };
 		F10000000000000000000004 /* StatusOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* StatusOverlayController.swift */; };
 		F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* StatusOverlayControllerTests.swift */; };
+		H10000000000000000000001 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
+		H10000000000000000000002 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +84,7 @@
 		F20000000000000000000002 /* HUDLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/HUDLayout.swift; sourceTree = "<group>"; };
 		F20000000000000000000003 /* StatusOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/StatusOverlayController.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* StatusOverlayControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOverlayControllerTests.swift; sourceTree = "<group>"; };
+		H20000000000000000000001 /* ApplicationPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/ApplicationPresentationState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +121,7 @@
 			children = (
 				A20000000000000000000001 /* MuteletApp.swift */,
 				A20000000000000000000002 /* MuteletApplicationModel.swift */,
+				H20000000000000000000001 /* ApplicationPresentationState.swift */,
 				A20000000000000000000003 /* MuteletMenuView.swift */,
 				A20000000000000000000020 /* MuteletSettingsView.swift */,
 				A20000000000000000000021 /* MuteHUDController.swift */,
@@ -294,6 +298,7 @@
 			files = (
 				A10000000000000000000001 /* MuteletApp.swift in Sources */,
 				A10000000000000000000002 /* MuteletApplicationModel.swift in Sources */,
+				H10000000000000000000001 /* ApplicationPresentationState.swift in Sources */,
 				A10000000000000000000003 /* MuteletMenuView.swift in Sources */,
 				A10000000000000000000019 /* MuteletSettingsView.swift in Sources */,
 				A10000000000000000000020 /* MuteHUDController.swift in Sources */,
@@ -313,6 +318,7 @@
 				D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */,
 				F10000000000000000000004 /* StatusOverlayController.swift in Sources */,
 				F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */,
+				H10000000000000000000002 /* ApplicationPresentationState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

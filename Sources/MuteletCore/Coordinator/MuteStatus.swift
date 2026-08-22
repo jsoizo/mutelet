@@ -146,3 +146,32 @@ public enum MuteStatus: Equatable, Sendable {
         }
     }
 }
+
+public struct RestorationWarningItem: Identifiable, Equatable, Sendable {
+    public let deviceUID: String
+    public let deviceName: String
+
+    public var id: String { deviceUID }
+
+    public init(deviceUID: String, deviceName: String) {
+        self.deviceUID = deviceUID
+        self.deviceName = deviceName
+    }
+}
+
+public enum AutomaticMuteMaintenanceFeedback: Equatable, Sendable {
+    case maintained(sequence: UInt64, status: MuteStatus)
+    case restorationFailed(
+        sequence: UInt64,
+        currentStatus: MuteStatus,
+        devices: [RestorationWarningItem]
+    )
+
+    public var sequence: UInt64 {
+        switch self {
+        case let .maintained(sequence, _),
+             let .restorationFailed(sequence, _, _):
+            sequence
+        }
+    }
+}

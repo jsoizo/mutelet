@@ -1,6 +1,14 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%d previous inputs could not be restored" : {
+      "comment" : "Deferred input restoration HUD detail",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力%d台を復元できませんでした" } } }
+    },
+    "%d previous inputs could not be restored." : {
+      "comment" : "Deferred input restoration warning count",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力%d台を復元できませんでした。" } } }
+    },
     "%@ (Disconnected)" : {
       "comment" : "Disconnected status overlay display",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@（未接続）" } } }
@@ -50,9 +58,19 @@
     "In Toggle mode, click the persistent status to toggle mute." : {
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "トグルモードではクリックでミュートを切り替えます。" } } }
     },
+    "In Toggle mode, newly selected or reconnected inputs are kept muted." : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "トグルモードでは、新しく選択または再接続された入力もミュート状態に保ちます。" } } }
+    },
+    "Input restoration failed" : {
+      "comment" : "Deferred input restoration HUD title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力を復元できませんでした" } } }
+    },
     "Live" : {
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライブ" } } }
+    },
+    "Keep muted when input changes" : {
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力が変わってもミュートを維持" } } }
     },
     "Mixed" : {
       "comment" : "Persistent status short title",
@@ -926,6 +944,10 @@
           }
         }
       }
+    },
+    "The previous input “%@” could not be restored." : {
+      "comment" : "Deferred input restoration warning",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力「%@」を復元できませんでした。" } } }
     },
     "The microphone could not be remuted, so the shortcut was not changed." : {
       "comment" : "Shortcut safety error",

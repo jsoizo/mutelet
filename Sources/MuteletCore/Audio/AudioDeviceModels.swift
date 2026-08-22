@@ -96,24 +96,26 @@ public struct AudioDeviceSnapshot: Hashable, Sendable {
     }
 
     public var muteState: AudioDeviceMuteState {
-        guard device.capabilities.isSupported else { return .unsupported }
+        guard device.capabilities.isSupported,
+              device.inputChannelCount > 0 else { return .unsupported }
 
-        let muteValues = values
-            .filter { $0.control.kind == .mute }
-            .map(\.value)
-        let volumeValues = values
-            .filter { $0.control.kind == .volume }
-            .map(\.value)
-
-        let allNativeMuted = !muteValues.isEmpty && muteValues.allSatisfy { $0 >= 0.5 }
-        let mixedNativeMute = muteValues.contains { $0 >= 0.5 } && muteValues.contains { $0 < 0.5 }
-        let allVolumeZero = !volumeValues.isEmpty && volumeValues.allSatisfy { $0 <= 0.0001 }
-        let mixedVolume = volumeValues.contains { $0 <= 0.0001 } && volumeValues.contains { $0 > 0.0001 }
-
-        if allNativeMuted || allVolumeZero {
+        let channelSilence = (1...device.inputChannelCount).map { channel in
+            values.contains { value in
+                let appliesToChannel = value.control.isMain
+                    || value.control.element == channel
+                guard appliesToChannel else { return false }
+                return switch value.control.kind {
+                case .mute:
+                    value.value >= 0.5
+                case .volume:
+                    value.value <= 0.0001
+                }
+            }
+        }
+        if channelSilence.allSatisfy({ $0 }) {
             return .muted
         }
-        if mixedNativeMute || mixedVolume {
+        if channelSilence.contains(true) {
             return .mixed
         }
         return .live
@@ -128,6 +130,35 @@ public struct AudioMutationReceipt: Codable, Hashable, Sendable {
         self.deviceUID = deviceUID
         self.originalValues = originalValues
     }
+
+    public func hasSameControls(as values: [AudioControlValue]) -> Bool {
+        let savedControls = Set(originalValues.map(\.control))
+        let currentControls = Set(values.map(\.control))
+        return savedControls.count == originalValues.count
+            && currentControls.count == values.count
+            && savedControls == currentControls
+    }
+
+    public func canRestore(from values: [AudioControlValue]) -> Bool {
+        let savedControls = Set(originalValues.map(\.control))
+        let currentControls = Set(values.map(\.control))
+        return savedControls.count == originalValues.count
+            && currentControls.count == values.count
+            && savedControls.isSubset(of: currentControls)
+    }
+
+    public func includingNewControls(
+        from values: [AudioControlValue]
+    ) -> AudioMutationReceipt? {
+        guard canRestore(from: values) else { return nil }
+        let savedControls = Set(originalValues.map(\.control))
+        return AudioMutationReceipt(
+            deviceUID: deviceUID,
+            originalValues: originalValues + values.filter {
+                !savedControls.contains($0.control)
+            }
+        )
+    }
 }
 
 public enum AudioHardwareEventKind: String, Sendable {
@@ -139,17 +170,20 @@ public enum AudioHardwareEventKind: String, Sendable {
 public struct AudioHardwareEvent: Sendable {
     public let kind: AudioHardwareEventKind
     public let objectID: AudioObjectID
+    public let deviceUID: String?
     public let selector: AudioObjectPropertySelector
     public let element: AudioObjectPropertyElement
 
     public init(
         kind: AudioHardwareEventKind,
         objectID: AudioObjectID,
+        deviceUID: String? = nil,
         selector: AudioObjectPropertySelector,
         element: AudioObjectPropertyElement
     ) {
         self.kind = kind
         self.objectID = objectID
+        self.deviceUID = deviceUID
         self.selector = selector
         self.element = element
     }

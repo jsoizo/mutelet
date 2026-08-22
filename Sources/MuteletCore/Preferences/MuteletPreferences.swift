@@ -22,13 +22,16 @@ public struct MuteletPreferences: Equatable, Sendable {
 public struct MicrophonePreferences: Equatable, Sendable {
     public var mode: MuteMode
     public var target: AudioTargetSelection
+    public var maintainsMuteOnInputChange: Bool
 
     public init(
         mode: MuteMode = .toggle,
-        target: AudioTargetSelection = .systemDefault
+        target: AudioTargetSelection = .systemDefault,
+        maintainsMuteOnInputChange: Bool = true
     ) {
         self.mode = mode
         self.target = target
+        self.maintainsMuteOnInputChange = maintainsMuteOnInputChange
     }
 }
 

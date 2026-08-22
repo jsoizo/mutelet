@@ -30,9 +30,15 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var websiteHUDCaptureTask: Task<Void, Never>?
     private var preferencesSaveTask: Task<Void, Never>?
     private var statusOverlayObservation: AnyCancellable?
+    private var maintenanceFeedbackObservation: AnyCancellable?
+    private var maintenanceHUDTask: Task<Void, Never>?
+    private var pendingMaintenanceFeedback: AutomaticMuteMaintenanceFeedback?
+    private var lastMaintenanceHUDTime: TimeInterval = -.infinity
+    private var maintenanceAnnouncementGate = MaintenanceAnnouncementGate()
     private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
+    private var maintenancePreferenceGeneration = 0
     private var started = false
     private var observesWorkspace = false
 
@@ -42,6 +48,32 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             "Some settings were invalid and have been reset to defaults.",
             comment: "Settings recovery warning"
         )
+    }
+
+    var restorationWarning: String? {
+        let warnings = coordinator.restorationWarnings
+        guard !warnings.isEmpty else { return nil }
+        if warnings.count == 1, let warning = warnings.first {
+            return String(
+                format: NSLocalizedString(
+                    "The previous input “%@” could not be restored.",
+                    comment: "Deferred input restoration warning"
+                ),
+                warning.deviceName
+            )
+        }
+        return String(
+            format: NSLocalizedString(
+                "%d previous inputs could not be restored.",
+                comment: "Deferred input restoration warning count"
+            ),
+            warnings.count
+        )
+    }
+
+    var restorationWarningHelp: String? {
+        guard !coordinator.restorationWarnings.isEmpty else { return nil }
+        return coordinator.restorationWarnings.map(\.deviceName).joined(separator: ", ")
     }
 
     init(
@@ -84,13 +116,15 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         }
         coordinator.configure(
             mode: preferences.microphone.mode,
-            target: preferences.microphone.target
+            target: preferences.microphone.target,
+            maintainsMuteOnInputChange: preferences.microphone.maintainsMuteOnInputChange
         )
         installWorkspaceObservers()
         if enablesSystemIntegrations {
             refreshLoginItemStatus()
         }
         await coordinator.start()
+        installMaintenanceFeedbackObservation()
         installStatusOverlayObservation()
         updateStatusOverlay()
 
@@ -151,6 +185,21 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     func setShowsHUD(_ showsHUD: Bool) {
         updateHUDPreferences { $0.isEnabled = showsHUD }
+    }
+
+    func setMaintainsMuteOnInputChange(_ enabled: Bool) {
+        maintenancePreferenceGeneration += 1
+        let generation = maintenancePreferenceGeneration
+        var updated = preferences
+        updated.microphone.maintainsMuteOnInputChange = enabled
+        preferences = updated
+        Task { [weak self] in
+            guard let self else { return }
+            guard generation == self.maintenancePreferenceGeneration else { return }
+            await self.coordinator.setMaintainsMuteOnInputChange(enabled)
+            guard generation == self.maintenancePreferenceGeneration else { return }
+            await self.savePreferences()
+        }
     }
 
     func setHUDSize(_ size: HUDSize) {
@@ -272,8 +321,12 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         hudController.hide()
         statusOverlayObservation?.cancel()
         statusOverlayObservation = nil
+        maintenanceFeedbackObservation?.cancel()
+        maintenanceFeedbackObservation = nil
+        maintenanceHUDTask?.cancel()
+        maintenanceHUDTask = nil
         statusOverlayController.stop()
-        await coordinator.stop()
+        await coordinator.shutdown()
         started = false
     }
 
@@ -342,6 +395,69 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         hudController.show(status: coordinator.status, preferences: preferences.hud)
     }
 
+    private func installMaintenanceFeedbackObservation() {
+        maintenanceFeedbackObservation?.cancel()
+        maintenanceFeedbackObservation = coordinator.$maintenanceFeedback
+            .compactMap { $0 }
+            .sink { [weak self] feedback in
+                self?.enqueueMaintenanceHUD(feedback)
+            }
+    }
+
+    private func enqueueMaintenanceHUD(_ feedback: AutomaticMuteMaintenanceFeedback) {
+        guard preferences.hud.isEnabled else {
+            pendingMaintenanceFeedback = nil
+            maintenanceHUDTask?.cancel()
+            maintenanceHUDTask = nil
+            return
+        }
+        pendingMaintenanceFeedback = feedback
+        guard maintenanceHUDTask == nil else { return }
+
+        let elapsed = Date.timeIntervalSinceReferenceDate - lastMaintenanceHUDTime
+        let delay = max(0, 2 - elapsed)
+        maintenanceHUDTask = Task { [weak self] in
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+            }
+            guard !Task.isCancelled, let self else { return }
+            guard self.preferences.hud.isEnabled,
+                  let feedback = self.pendingMaintenanceFeedback else {
+                self.pendingMaintenanceFeedback = nil
+                self.maintenanceHUDTask = nil
+                return
+            }
+            self.pendingMaintenanceFeedback = nil
+            let signature = self.maintenanceFeedbackSignature(feedback)
+            let now = Date.timeIntervalSinceReferenceDate
+            let announces = self.maintenanceAnnouncementGate.shouldAnnounce(
+                signature: signature,
+                at: now
+            )
+            self.hudController.showMaintenanceFeedback(
+                feedback,
+                preferences: self.preferences.hud,
+                announces: announces
+            )
+            self.lastMaintenanceHUDTime = Date.timeIntervalSinceReferenceDate
+            self.maintenanceHUDTask = nil
+            if let next = self.pendingMaintenanceFeedback {
+                self.enqueueMaintenanceHUD(next)
+            }
+        }
+    }
+
+    private func maintenanceFeedbackSignature(
+        _ feedback: AutomaticMuteMaintenanceFeedback
+    ) -> String {
+        switch feedback {
+        case let .maintained(_, status):
+            return "maintained:\(status.title)"
+        case let .restorationFailed(_, status, devices):
+            return "restoration:\(status.title):\(devices.map(\.deviceUID).joined(separator: ","))"
+        }
+    }
+
     private func updateHUDPreferences(
         _ update: (inout HUDPreferences) -> Void
     ) {
@@ -379,21 +495,25 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     private func installStatusOverlayObservation() {
         statusOverlayObservation?.cancel()
-        statusOverlayObservation = Publishers.CombineLatest3(
-            coordinator.$status,
-            coordinator.$mode,
-            coordinator.$isBusy
-        )
-        .sink { [weak self] _, _, _ in
-            self?.updateStatusOverlay()
+        statusOverlayObservation = StatusOverlayCoordinatorObservation.observe(
+            coordinator
+        ) { [weak self] state in
+            self?.updateStatusOverlay(state)
         }
     }
 
-    private func updateStatusOverlay() {
-        statusOverlayController.update(
+    private func updateStatusOverlay(_ state: StatusOverlayCoordinatorState? = nil) {
+        let state = state ?? StatusOverlayCoordinatorState(
             status: coordinator.status,
             mode: coordinator.mode,
             isBusy: coordinator.isBusy,
+            hasToggleMuteIntent: coordinator.hasToggleMuteIntent
+        )
+        statusOverlayController.update(
+            status: state.status,
+            mode: state.mode,
+            isBusy: state.isBusy,
+            hasToggleMuteIntent: state.hasToggleMuteIntent,
             preferences: preferences.statusOverlay,
             transientHUDEnabled: preferences.hud.isEnabled
         )
@@ -402,7 +522,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private func toggleFromStatusOverlay() async -> MuteStatus? {
         guard coordinator.mode == .toggle,
               !coordinator.isBusy,
-              coordinator.status.canToggle else { return nil }
+              coordinator.canToggle else { return nil }
         await coordinator.toggle()
         showHUDIfEnabled()
         return coordinator.status
@@ -507,12 +627,12 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             await previous?.value
             guard let self else { return }
             if shouldRun {
-                await self.coordinator.start()
+                await self.coordinator.resume()
                 self.statusOverlayController.resume()
                 self.updateStatusOverlay()
             } else {
                 self.statusOverlayController.suspend()
-                await self.coordinator.stop()
+                await self.coordinator.suspend()
             }
         }
     }

@@ -56,6 +56,18 @@ actor UITestingAudioController: AudioDeviceControlling {
         )
     }
 
+    func mute(
+        deviceUID: String,
+        preserving receipt: AudioMutationReceipt?,
+        expected snapshot: AudioDeviceSnapshot
+    ) throws -> AudioMutationReceipt {
+        guard snapshot.device.uid == deviceUID,
+              snapshot.muteState == state else {
+            throw CoreAudioError.staleSnapshot(uid: deviceUID)
+        }
+        return mute(deviceUID: deviceUID, preserving: receipt)
+    }
+
     func unmute(
         deviceUID: String,
         restoring receipt: AudioMutationReceipt?
@@ -127,7 +139,8 @@ actor UITestingPreferencesStore: MuteletPreferencesStoring {
             ?? .center
         let preferences = MuteletPreferences(
             microphone: MicrophonePreferences(
-                mode: arguments.contains("--ui-push-to-talk") ? .pushToTalk : .toggle
+                mode: arguments.contains("--ui-push-to-talk") ? .pushToTalk : .toggle,
+                maintainsMuteOnInputChange: !arguments.contains("--ui-maintenance-disabled")
             ),
             hud: HUDPreferences(
                 isEnabled: !arguments.contains("--ui-hud-disabled"),

@@ -37,7 +37,8 @@ final class MuteletPreferencesTests: XCTestCase {
         let expected = MuteletPreferences(
             microphone: MicrophonePreferences(
                 mode: .pushToTalk,
-                target: .device(uid: "usb-mic", name: "USB Mic")
+                target: .device(uid: "usb-mic", name: "USB Mic"),
+                maintainsMuteOnInputChange: false
             ),
             shortcuts: ShortcutPreferences(
                 primary: GlobalHotKeyConfiguration(
@@ -66,8 +67,9 @@ final class MuteletPreferencesTests: XCTestCase {
         let fixture = Data(
             #"""
             {
-              "schemaVersion": 3,
+              "schemaVersion": 4,
               "microphone": {
+                "maintainsMuteOnInputChange": false,
                 "mode": "pushToTalk",
                 "target": {
                   "kind": "device",
@@ -117,7 +119,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, .loaded(expected))
         let data = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
         let header = try JSONDecoder().decode(StoredPreferencesHeader.self, from: data)
-        XCTAssertEqual(header.schemaVersion, 3)
+        XCTAssertEqual(header.schemaVersion, 4)
         XCTAssertEqual(
             try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? NSDictionary),
             try XCTUnwrap(JSONSerialization.jsonObject(with: fixture) as? NSDictionary)
@@ -179,7 +181,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            3
+            4
         )
         let reloaded = await UserDefaultsMuteletPreferencesStore(
             suiteName: suiteName
@@ -290,7 +292,63 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            3
+            4
+        )
+    }
+
+    func testVersionThreePreferencesMigrateToVersionFourWithMaintenanceEnabled() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 3,
+                  "microphone": {
+                    "mode": "toggle",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(actual, .loaded(MuteletPreferences()))
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            4
         )
     }
 
@@ -302,6 +360,10 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(hud.position, HUDPosition())
         XCTAssertEqual(hud.displayTarget, .pointer)
         XCTAssertEqual(hud.duration, .standard)
+    }
+
+    func testMuteMaintenanceDefaultsEnabled() {
+        XCTAssertTrue(MicrophonePreferences().maintainsMuteOnInputChange)
     }
 
     func testStatusOverlayDefaults() {

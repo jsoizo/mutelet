@@ -59,6 +59,14 @@ Selecting Push to Talk immediately requests mute. Key down restores the prior st
 
 Core Audio device-list and default-input events trigger inventory refreshes. Bursts of control-value events are coalesced and filtered to the current target before state is read back. Push to Talk remutes promptly when that read-back finds an externally unmuted target, without rewriting controls that are already confirmed muted.
 
+## Toggle mute maintenance
+
+When enabled, a successful Toggle mute creates a process-local mute intent. Device-list, default-input, topology, readiness, and relevant control events are treated as invalidation signals rather than an ordered event log. A generation-scoped reconciliation worker resolves the latest semantic target to device UIDs, re-resolves each temporary AudioObjectID, reads the current controls, and only writes when the target is not already muted.
+
+New targets are read back as muted before former targets are restored from receipts. Disconnected former targets remain pending until the same UID reconnects. Persisted receipts are restoration records rather than mute intent, so explicit unmute and target-change operations may restore a receipt from an earlier app session. If saved controls disappeared, the stale receipt is discarded with a warning so it cannot permanently block future control; newly added controls do not prevent the saved controls from being restored. Reconciliation retries after 100, 300, and 600 milliseconds, then waits for another Core Audio event.
+
+Sleep suspends listeners and workers while retaining the process-local intent; wake resumes from a fresh inventory. Shutdown discards the intent. Persisted receipts protect restoration after failures, but are never interpreted as a mute intent on the next launch.
+
 The HUD intentionally appears once when entering Push to Talk, not on every press and release. Toggle mode continues to show state feedback for each action.
 
 The persistent status can optionally invoke the same toggle command, but only in Toggle mode while the coordinator is actionable and idle. Passive status refreshes do not announce through VoiceOver. A click result is announced by either the transient HUD or the persistent status, never both.

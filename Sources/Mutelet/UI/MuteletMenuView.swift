@@ -94,7 +94,7 @@ struct MuteletMenuView: View {
         .controlSize(.large)
         .disabled(
             coordinator.mode != .toggle
-                || !coordinator.status.canToggle
+                || !coordinator.canToggle
                 || coordinator.isBusy
         )
         .accessibilityIdentifier("mutelet-primary-action")
@@ -116,6 +116,15 @@ struct MuteletMenuView: View {
                 systemImage: "exclamationmark.triangle.fill",
                 color: .orange
             )
+        }
+        if let restorationWarning = applicationModel.restorationWarning {
+            notice(
+                restorationWarning,
+                systemImage: "exclamationmark.triangle.fill",
+                color: .orange
+            )
+            .help(applicationModel.restorationWarningHelp ?? restorationWarning)
+            .accessibilityIdentifier("mutelet-input-restoration-warning")
         }
         if let recoveryWarning = applicationModel.preferencesRecoveryWarning {
             notice(
@@ -233,13 +242,13 @@ struct MuteletMenuView: View {
     }
 
     private var toggleTitle: String {
-        coordinator.status.isMuted
+        coordinator.toggleActionIsUnmute
             ? NSLocalizedString("Unmute", comment: "Unmute action")
             : NSLocalizedString("Mute", comment: "Mute action")
     }
 
     private var toggleSymbolName: String {
-        coordinator.status.isMuted ? "mic.fill" : "mic.slash.fill"
+        coordinator.toggleActionIsUnmute ? "mic.fill" : "mic.slash.fill"
     }
 
     private var shortcutHelp: String {

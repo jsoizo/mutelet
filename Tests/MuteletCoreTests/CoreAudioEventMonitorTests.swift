@@ -31,9 +31,9 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         let initial = monitor.synchronizeDeviceListeners(devices: devices)
         let repeated = monitor.synchronizeDeviceListeners(devices: devices)
 
-        XCTAssertEqual(initial, .init(added: 6, removed: 0, failed: 0))
+        XCTAssertEqual(initial, .init(added: 7, removed: 0, failed: 0))
         XCTAssertEqual(repeated, .init(added: 0, removed: 0, failed: 0))
-        XCTAssertEqual(propertyListener.events.map(\.kind), Array(repeating: .add, count: 6))
+        XCTAssertEqual(propertyListener.events.map(\.kind), Array(repeating: .add, count: 7))
     }
 
     func testSynchronizationAddsReplacementBeforeRemovingObsoleteListener() {
@@ -92,7 +92,7 @@ final class CoreAudioEventMonitorTests: XCTestCase {
             devices: [descriptor(uid: "new-device", controls: [.mute])]
         )
 
-        XCTAssertEqual(result, .init(added: 5, removed: 5, failed: 0))
+        XCTAssertEqual(result, .init(added: 6, removed: 6, failed: 0))
         XCTAssertEqual(
             propertyListener.events.filter { $0.selector == kAudioDevicePropertyMute }.map(\.kind),
             [.add, .add, .remove]
@@ -159,7 +159,7 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         )
         propertyListener.allowAdding(selector: kAudioDevicePropertyMute)
 
-        XCTAssertEqual(failed, .init(added: 4, removed: 0, failed: 1))
+        XCTAssertEqual(failed, .init(added: 5, removed: 0, failed: 1))
         await waitUntil {
             propertyListener.events.filter {
                 $0.kind == .add && $0.selector == kAudioDevicePropertyMute
@@ -233,8 +233,11 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         propertyListener.emit(objectID: 42, selector: kAudioObjectPropertyName)
         XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 6)
 
+        propertyListener.emit(objectID: 42, selector: kAudioDevicePropertyDeviceIsAlive)
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 7)
+
         propertyListener.emit(objectID: 42, selector: kAudioDevicePropertyMute)
-        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 6)
+        XCTAssertEqual(monitor.currentInventoryRevision(), initialRevision + 7)
     }
 
     func testDegradedInventoryIsReenumeratedUntilACompleteResultCanBeCached() async throws {
@@ -291,6 +294,11 @@ final class CoreAudioEventMonitorTests: XCTestCase {
         _ = try await controller.inputDevices()
 
         XCTAssertEqual(inventoryProvider.callCount, 3)
+
+        propertyListener.emit(objectID: 42, selector: kAudioDevicePropertyDeviceIsAlive)
+        _ = try await controller.inputDevices()
+
+        XCTAssertEqual(inventoryProvider.callCount, 4)
     }
 
     private func descriptor(

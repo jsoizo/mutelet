@@ -191,6 +191,7 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 ),
                 CoreAudioPropertyAccess.address(selector: kAudioObjectPropertyControlList),
                 CoreAudioPropertyAccess.address(selector: kAudioDevicePropertyDeviceHasChanged),
+                CoreAudioPropertyAccess.address(selector: kAudioDevicePropertyDeviceIsAlive),
                 CoreAudioPropertyAccess.address(selector: kAudioObjectPropertyName),
             ].filter {
                 propertyListener.hasProperty(objectID: device.objectID, address: $0)
@@ -342,6 +343,7 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                 } else if changedAddress.mSelector == kAudioDevicePropertyStreamConfiguration
                     || changedAddress.mSelector == kAudioObjectPropertyControlList
                     || changedAddress.mSelector == kAudioDevicePropertyDeviceHasChanged
+                    || changedAddress.mSelector == kAudioDevicePropertyDeviceIsAlive
                     || changedAddress.mSelector == kAudioObjectPropertyName {
                     eventKind = .deviceListChanged
                 } else {
@@ -354,6 +356,7 @@ final class CoreAudioEventMonitor: @unchecked Sendable {
                     AudioHardwareEvent(
                         kind: eventKind,
                         objectID: objectID,
+                        deviceUID: deviceUID,
                         selector: changedAddress.mSelector,
                         element: changedAddress.mElement
                     )

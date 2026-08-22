@@ -145,7 +145,7 @@ public final class MuteCoordinator: ObservableObject {
                 return
             }
             if mode == .pushToTalk {
-                await muteIfNeeded(forceForSafety: true)
+                await restartMaintenance(emitFeedback: false).value
             } else if hasToggleMuteIntent, maintainsMuteOnInputChange {
                 await restartMaintenance(emitFeedback: true).value
             } else if !pendingRestoreNames.isEmpty {
@@ -248,18 +248,17 @@ public final class MuteCoordinator: ObservableObject {
             guard let self else { return }
             if newMode == .pushToTalk {
                 await self.enqueueInactiveManagedTargetsForRestoration()
-            }
-            guard await self.muteIfNeeded(forceForSafety: true).succeeded else { return }
-            if newMode == .pushToTalk, !self.pendingRestoreNames.isEmpty {
                 await self.restartMaintenance(emitFeedback: false).value
+                return
             }
+            await self.muteIfNeeded(forceForSafety: true)
         }
     }
 
     public func selectTarget(_ newTarget: AudioTargetSelection) async {
-        guard newTarget.id != target.id else { return }
         targetSelectionGeneration &+= 1
         let selectionGeneration = targetSelectionGeneration
+        guard newTarget.id != target.id else { return }
 
         let previousDevices = (try? await resolvedTargetDevices()) ?? []
         guard selectionGeneration == targetSelectionGeneration else { return }
@@ -284,7 +283,9 @@ public final class MuteCoordinator: ObservableObject {
         guard selectionGeneration == targetSelectionGeneration else { return }
 
         if mode == .pushToTalk {
-            await muteIfNeeded(forceForSafety: true)
+            let result = await muteIfNeeded(forceForSafety: true)
+            guard result.succeeded else { return }
+            transitionActiveTargets(to: result.confirmedUIDs)
             let currentUIDs = Set(
                 ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
             )
@@ -319,7 +320,7 @@ public final class MuteCoordinator: ObservableObject {
             guard isHotKeyPressed else { return }
             isHotKeyPressed = false
             if mode == .pushToTalk {
-                await muteIfNeeded(forceForSafety: true)
+                await restartMaintenance(emitFeedback: false).value
             }
         }
     }
@@ -347,6 +348,7 @@ public final class MuteCoordinator: ObservableObject {
         } else {
             let result = await muteIfNeeded(operationAlreadyAcquired: true)
             if maintainsMuteOnInputChange, !result.confirmedUIDs.isEmpty {
+                invalidateMaintenance()
                 hasToggleMuteIntent = true
                 activeTargetUIDs = Set(
                     ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
@@ -404,9 +406,14 @@ public final class MuteCoordinator: ObservableObject {
     public func cancelActiveHotKeyGesture() async -> Bool {
         guard isHotKeyPressed else { return true }
         if mode == .pushToTalk {
-            guard await muteIfNeeded(forceForSafety: true).succeeded else { return false }
+            let result = await muteIfNeeded(forceForSafety: true)
+            guard result.succeeded else { return false }
+            transitionActiveTargets(to: result.confirmedUIDs)
         }
         isHotKeyPressed = false
+        if !pendingRestoreNames.isEmpty {
+            await restartMaintenance(emitFeedback: false).value
+        }
         return true
     }
 
@@ -470,10 +477,7 @@ public final class MuteCoordinator: ObservableObject {
         }
 
         if mode == .pushToTalk {
-            if !isHotKeyPressed, !shouldUnmuteTargets {
-                await muteIfNeeded(forceForSafety: true)
-            }
-            if !pendingRestoreNames.isEmpty {
+            if !isHotKeyPressed || !pendingRestoreNames.isEmpty {
                 _ = restartMaintenance(emitFeedback: true)
             }
         } else {
@@ -569,6 +573,7 @@ public final class MuteCoordinator: ObservableObject {
                 do {
                     if let expectedGeneration,
                        expectedGeneration != maintenanceGeneration {
+                        enqueueForRestoration(confirmedUIDs)
                         return .cancelled
                     }
                     guard device.capabilities.isSupported else {
@@ -577,6 +582,7 @@ public final class MuteCoordinator: ObservableObject {
                     let snapshot = try await audioController.snapshot(deviceUID: device.uid)
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
+                        enqueueForRestoration(confirmedUIDs)
                         return .cancelled
                     }
                     if snapshot.muteState == .muted {
@@ -584,11 +590,13 @@ public final class MuteCoordinator: ObservableObject {
                         continue
                     }
                     var receipt = await receiptStore.receipt(deviceUID: device.uid)
+                    let previousReceipt = receipt
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
+                        enqueueForRestoration(confirmedUIDs)
                         return .cancelled
                     }
-                    var createdReceipt = false
+                    var preparedReceiptChanged = false
                     if receipt == nil {
                         let preparedReceipt = AudioMutationReceipt(
                             deviceUID: device.uid,
@@ -596,7 +604,7 @@ public final class MuteCoordinator: ObservableObject {
                         )
                         try await receiptStore.save(preparedReceipt)
                         receipt = preparedReceipt
-                        createdReceipt = true
+                        preparedReceiptChanged = true
                     } else if let storedReceipt = receipt,
                               let expandedReceipt = storedReceipt.includingNewControls(
                                 from: snapshot.values
@@ -604,12 +612,17 @@ public final class MuteCoordinator: ObservableObject {
                               expandedReceipt != storedReceipt {
                         try await receiptStore.save(expandedReceipt)
                         receipt = expandedReceipt
+                        preparedReceiptChanged = true
                     }
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
-                        if createdReceipt {
-                            try? await receiptStore.removeReceipt(deviceUID: device.uid)
+                        if preparedReceiptChanged {
+                            try await rollbackPreparedReceipt(
+                                previousReceipt,
+                                deviceUID: device.uid
+                            )
                         }
+                        enqueueForRestoration(confirmedUIDs)
                         return .cancelled
                     }
                     do {
@@ -625,18 +638,32 @@ public final class MuteCoordinator: ObservableObject {
                         confirmedUIDs.insert(device.uid)
                         sessionManagedUIDs.insert(device.uid)
                         maintenanceFailureNames.removeValue(forKey: device.uid)
+                        if let expectedGeneration,
+                           expectedGeneration != maintenanceGeneration {
+                            enqueueForRestoration(confirmedUIDs)
+                            return .cancelled
+                        }
                     } catch {
-                        if createdReceipt,
-                           let current = try? await audioController.snapshot(deviceUID: device.uid),
-                           current.values == snapshot.values {
-                            try? await receiptStore.removeReceipt(deviceUID: device.uid)
+                        let mutationError = error
+                        let current = try? await audioController.snapshot(deviceUID: device.uid)
+                        let mutationDidNotUsePreparedReceipt = {
+                            if case CoreAudioError.staleSnapshot = mutationError {
+                                return true
+                            }
+                            return current?.values == snapshot.values
+                        }()
+                        if preparedReceiptChanged, mutationDidNotUsePreparedReceipt {
+                            try await rollbackPreparedReceipt(
+                                previousReceipt,
+                                deviceUID: device.uid
+                            )
                         }
                         await discardReceiptIfTopologyChanged(
-                            error,
+                            mutationError,
                             deviceUID: device.uid,
                             deviceName: device.name
                         )
-                        throw error
+                        throw mutationError
                     }
                 } catch {
                     if case CoreAudioError.unsupportedDevice = error {
@@ -877,6 +904,22 @@ public final class MuteCoordinator: ObservableObject {
         activeTargetUIDs.removeAll()
     }
 
+    private func transitionActiveTargets(to confirmedUIDs: Set<String>) {
+        enqueueForRestoration(activeTargetUIDs.subtracting(confirmedUIDs))
+        activeTargetUIDs = confirmedUIDs
+    }
+
+    private func enqueueForRestoration(_ deviceUIDs: Set<String>) {
+        for uid in deviceUIDs {
+            pendingRestoreNames[uid] = lastKnownDeviceNames[uid] ?? uid
+        }
+    }
+
+    private var requiresCurrentTargetMuted: Bool {
+        (mode == .pushToTalk && !isHotKeyPressed)
+            || (mode == .toggle && hasToggleMuteIntent && maintainsMuteOnInputChange)
+    }
+
     private func enqueueInactiveManagedTargetsForRestoration() async {
         let currentUIDs = Set(
             ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
@@ -946,7 +989,7 @@ public final class MuteCoordinator: ObservableObject {
         await refreshStatus(
             additionalFailures: result.needsRetry ? result.currentTargetFailures : 0
         )
-        if result.needsRetry, target != .allInputs, hasToggleMuteIntent {
+        if result.needsRetry, target != .allInputs, requiresCurrentTargetMuted {
             status = .error(
                 message: NSLocalizedString(
                     "The microphone could not be controlled.",
@@ -983,10 +1026,7 @@ public final class MuteCoordinator: ObservableObject {
         var needsRetry = false
         var currentTargetFailures = 0
 
-        if mode == .toggle, hasToggleMuteIntent, maintainsMuteOnInputChange {
-            let oldUIDs = activeTargetUIDs
-            let desiredDevices = (try? await resolvedTargetDevices()) ?? []
-            let desiredUIDs = Set(desiredDevices.map(\.uid))
+        if requiresCurrentTargetMuted {
             let muteResult = await muteIfNeeded(
                 forceForSafety: true,
                 maintenanceGeneration: generation
@@ -997,15 +1037,19 @@ public final class MuteCoordinator: ObservableObject {
                     currentTargetFailures: 0
                 )
             }
-            needsRetry = muteResult.failureCount > 0
+            needsRetry = !muteResult.succeeded
             currentTargetFailures = muteResult.failureCount
 
-            if !muteResult.confirmedUIDs.isEmpty {
-                for uid in oldUIDs.subtracting(desiredUIDs) {
-                    pendingRestoreNames[uid] = lastKnownDeviceNames[uid] ?? uid
-                }
-                activeTargetUIDs = desiredUIDs
+            if muteResult.succeeded {
+                transitionActiveTargets(to: muteResult.confirmedUIDs)
             }
+        }
+
+        if requiresCurrentTargetMuted, needsRetry {
+            return MaintenanceAttemptResult(
+                needsRetry: true,
+                currentTargetFailures: currentTargetFailures
+            )
         }
 
         let shouldProtectCurrentTarget = mode == .pushToTalk
@@ -1060,6 +1104,24 @@ public final class MuteCoordinator: ObservableObject {
                 let restored = try await audioController.snapshot(deviceUID: uid)
                 guard Self.snapshot(restored, matches: receipt) else {
                     throw CoreAudioError.incompleteRestoration(uid: uid)
+                }
+                if generation != maintenanceGeneration, requiresCurrentTargetMuted {
+                    let latestUIDs = try? await resolvedTargetDevices().map(\.uid)
+                    if latestUIDs.map({ Set($0).contains(uid) }) ?? true {
+                        _ = try await audioController.mute(
+                            deviceUID: uid,
+                            preserving: receipt,
+                            expected: restored
+                        )
+                        let remuted = try await audioController.snapshot(deviceUID: uid)
+                        guard remuted.muteState == .muted else {
+                            throw CoreAudioError.muteNotConfirmed(uid: uid)
+                        }
+                        sessionManagedUIDs.insert(uid)
+                        maintenanceFailureNames.removeValue(forKey: uid)
+                        releaseOperation()
+                        continue
+                    }
                 }
                 try await receiptStore.removeReceipt(deviceUID: uid)
                 sessionManagedUIDs.remove(uid)
@@ -1154,6 +1216,17 @@ public final class MuteCoordinator: ObservableObject {
             "The microphone could not be controlled.",
             comment: "Generic microphone control error"
         )
+    }
+
+    private func rollbackPreparedReceipt(
+        _ previousReceipt: AudioMutationReceipt?,
+        deviceUID: String
+    ) async throws {
+        if let previousReceipt {
+            try await receiptStore.save(previousReceipt)
+        } else {
+            try await receiptStore.removeReceipt(deviceUID: deviceUID)
+        }
     }
 
     @discardableResult

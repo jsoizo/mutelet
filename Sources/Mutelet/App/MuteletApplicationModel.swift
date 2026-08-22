@@ -34,7 +34,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var maintenanceHUDTask: Task<Void, Never>?
     private var pendingMaintenanceFeedback: AutomaticMuteMaintenanceFeedback?
     private var lastMaintenanceHUDTime: TimeInterval = -.infinity
-    private var lastMaintenanceAnnouncementSignature: String?
+    private var maintenanceAnnouncementGate = MaintenanceAnnouncementGate()
     private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
@@ -429,16 +429,17 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             }
             self.pendingMaintenanceFeedback = nil
             let signature = self.maintenanceFeedbackSignature(feedback)
-            let announces = signature != self.lastMaintenanceAnnouncementSignature
+            let now = Date.timeIntervalSinceReferenceDate
+            let announces = self.maintenanceAnnouncementGate.shouldAnnounce(
+                signature: signature,
+                at: now
+            )
             self.hudController.showMaintenanceFeedback(
                 feedback,
                 preferences: self.preferences.hud,
                 announces: announces
             )
             self.lastMaintenanceHUDTime = Date.timeIntervalSinceReferenceDate
-            if announces {
-                self.lastMaintenanceAnnouncementSignature = signature
-            }
             self.maintenanceHUDTask = nil
             if let next = self.pendingMaintenanceFeedback {
                 self.enqueueMaintenanceHUD(next)
@@ -494,23 +495,25 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     private func installStatusOverlayObservation() {
         statusOverlayObservation?.cancel()
-        statusOverlayObservation = Publishers.CombineLatest4(
-            coordinator.$status,
-            coordinator.$mode,
-            coordinator.$isBusy,
-            coordinator.$hasToggleMuteIntent
-        )
-        .sink { [weak self] _, _, _, _ in
-            self?.updateStatusOverlay()
+        statusOverlayObservation = StatusOverlayCoordinatorObservation.observe(
+            coordinator
+        ) { [weak self] state in
+            self?.updateStatusOverlay(state)
         }
     }
 
-    private func updateStatusOverlay() {
-        statusOverlayController.update(
+    private func updateStatusOverlay(_ state: StatusOverlayCoordinatorState? = nil) {
+        let state = state ?? StatusOverlayCoordinatorState(
             status: coordinator.status,
             mode: coordinator.mode,
             isBusy: coordinator.isBusy,
-            hasToggleMuteIntent: coordinator.hasToggleMuteIntent,
+            hasToggleMuteIntent: coordinator.hasToggleMuteIntent
+        )
+        statusOverlayController.update(
+            status: state.status,
+            mode: state.mode,
+            isBusy: state.isBusy,
+            hasToggleMuteIntent: state.hasToggleMuteIntent,
             preferences: preferences.statusOverlay,
             transientHUDEnabled: preferences.hud.isEnabled
         )

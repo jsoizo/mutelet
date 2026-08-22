@@ -19,3 +19,13 @@ public protocol AudioDeviceControlling: Sendable {
     ) async throws
     func events() async throws -> AsyncStream<AudioHardwareEvent>
 }
+
+public extension AudioDeviceControlling {
+    func mute(
+        deviceUID: String,
+        preserving receipt: AudioMutationReceipt?,
+        expected snapshot: AudioDeviceSnapshot
+    ) async throws -> AudioMutationReceipt {
+        try await mute(deviceUID: deviceUID, preserving: receipt)
+    }
+}

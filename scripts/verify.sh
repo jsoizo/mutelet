@@ -52,6 +52,15 @@ for forbidden_entitlement in \
     fi
 done
 
+xcodebuild -quiet "${common_arguments[@]}" \
+    -derivedDataPath "$test_derived_data" \
+    -configuration Debug \
+    CODE_SIGNING_ALLOWED=YES \
+    CODE_SIGNING_REQUIRED=YES \
+    CODE_SIGN_IDENTITY=- \
+    -only-testing:MuteletTests \
+    test-without-building
+
 if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
     if pgrep -f '/Mutelet.app/Contents/MacOS/Mutelet' >/dev/null 2>&1; then
         echo "error: quit the running Mutelet app before executing UI tests" >&2
@@ -111,9 +120,9 @@ if [[ "$deployment_target" != "14.0" ]]; then
 fi
 
 if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
-    ui_test_result="unit and UI tests"
+    ui_test_result="Swift package, app unit, and UI tests"
 else
-    ui_test_result="unit tests and UI test build (set RUN_UI_TESTS=1 to run UI tests)"
+    ui_test_result="Swift package and app unit tests, plus UI test build (set RUN_UI_TESTS=1 to run UI tests)"
 fi
 
 echo "Verification passed: localization, $ui_test_result, Debug/Release builds, analyze, App Sandbox, arm64, macOS 14, and LSUIElement."

@@ -145,6 +145,59 @@ final class StatusOverlayControllerTests: XCTestCase {
         XCTAssertFalse(state.canCompleteHide(generation: hideGeneration))
     }
 
+    @MainActor
+    func testCoordinatorObservationUsesPublishedBusyValues() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+
+        var observedStates: [StatusOverlayCoordinatorState] = []
+        let observation = StatusOverlayCoordinatorObservation.observe(coordinator) {
+            observedStates.append($0)
+        }
+        await audio.suspendNextMute(uid: "built-in")
+
+        let transition = coordinator.selectMode(.pushToTalk)
+        for _ in 0..<200 {
+            if await audio.isMuteSuspended() { break }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+
+        let muteSuspended = await audio.isMuteSuspended()
+        XCTAssertTrue(muteSuspended)
+        XCTAssertEqual(observedStates.last?.isBusy, true)
+
+        await audio.resumeMute()
+        await transition?.value
+
+        XCTAssertEqual(observedStates.last?.isBusy, false)
+        withExtendedLifetime(observation) {}
+        await coordinator.stop()
+    }
+
+    func testMaintenanceAnnouncementsAreSuppressedOnlyWithinCoalescingWindow() {
+        var gate = MaintenanceAnnouncementGate(coalescingInterval: 2)
+
+        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 10))
+        XCTAssertFalse(gate.shouldAnnounce(signature: "maintained:Muted", at: 11.999))
+        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 12))
+    }
+
+    func testDifferentMaintenanceAnnouncementBypassesCoalescingWindow() {
+        var gate = MaintenanceAnnouncementGate(coalescingInterval: 2)
+
+        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 10))
+        XCTAssertTrue(gate.shouldAnnounce(signature: "restoration:Error:usb", at: 10.1))
+        XCTAssertFalse(gate.shouldAnnounce(signature: "restoration:Error:usb", at: 11))
+    }
+
     func testDisplayTargetReconcilesLastKnownNameByUUID() {
         XCTAssertEqual(
             StatusOverlayDisplayTargetReconciler.reconcile(

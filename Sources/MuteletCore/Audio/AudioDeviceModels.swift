@@ -96,24 +96,26 @@ public struct AudioDeviceSnapshot: Hashable, Sendable {
     }
 
     public var muteState: AudioDeviceMuteState {
-        guard device.capabilities.isSupported else { return .unsupported }
+        guard device.capabilities.isSupported,
+              device.inputChannelCount > 0 else { return .unsupported }
 
-        let muteValues = values
-            .filter { $0.control.kind == .mute }
-            .map(\.value)
-        let volumeValues = values
-            .filter { $0.control.kind == .volume }
-            .map(\.value)
-
-        let allNativeMuted = !muteValues.isEmpty && muteValues.allSatisfy { $0 >= 0.5 }
-        let mixedNativeMute = muteValues.contains { $0 >= 0.5 } && muteValues.contains { $0 < 0.5 }
-        let allVolumeZero = !volumeValues.isEmpty && volumeValues.allSatisfy { $0 <= 0.0001 }
-        let mixedVolume = volumeValues.contains { $0 <= 0.0001 } && volumeValues.contains { $0 > 0.0001 }
-
-        if allNativeMuted || allVolumeZero {
+        let channelSilence = (1...device.inputChannelCount).map { channel in
+            values.contains { value in
+                let appliesToChannel = value.control.isMain
+                    || value.control.element == channel
+                guard appliesToChannel else { return false }
+                return switch value.control.kind {
+                case .mute:
+                    value.value >= 0.5
+                case .volume:
+                    value.value <= 0.0001
+                }
+            }
+        }
+        if channelSilence.allSatisfy({ $0 }) {
             return .muted
         }
-        if mixedNativeMute || mixedVolume {
+        if channelSilence.contains(true) {
             return .mixed
         }
         return .live

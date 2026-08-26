@@ -44,6 +44,10 @@
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "エラー" } } }
     },
+    "Glow the screen edge while talking" : {
+      "comment" : "Screen edge indicator toggle",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "発話中に画面の縁を光らせる" } } }
+    },
     "Icon and status" : {
       "comment" : "Persistent status content",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイコン＋状態" } } }
@@ -84,12 +88,24 @@
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力なし" } } }
     },
+    "Outline the screen edge while muted" : {
+      "comment" : "Screen edge idle outline toggle",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ミュート中も画面の縁に線を表示する" } } }
+    },
     "Partial" : {
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "一部のみ" } } }
     },
     "Persistent status" : {
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常駐ステータス" } } }
+    },
+    "Push to Talk mode only. The edge replaces the status shown after actions, and some screen recordings may still capture it." : {
+      "comment" : "Screen edge indicator help",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talkモードでのみ表示されます。操作後のステータス表示の代わりになり、画面収録に映る場合があります。" } } }
+    },
+    "Push to Talk screen edge" : {
+      "comment" : "Settings section for the screen edge indicator",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talk時の画面の縁" } } }
     },
     "Reset Position" : {
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "位置をリセット" } } }

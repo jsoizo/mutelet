@@ -10,6 +10,7 @@ Mutelet is an open-source, Apple Silicon-native microphone mute utility for the 
 
 - Toggle the system default input, one selected input, or all inputs.
 - Hold a global shortcut to talk with Push to Talk.
+- Glow the screen edges while Push to Talk can carry sound, instead of showing the transient HUD.
 - Set writable native mute and input-volume controls together; use volume-only fallback when native mute is unavailable.
 - Follow default-device changes, reconnect selected devices by UID, and report partial failures.
 - Configure the shortcut, HUD, target, mode, and launch-at-login behavior without editing files.

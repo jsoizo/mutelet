@@ -26,10 +26,47 @@ enum StatusOverlayCoordinatorObservation {
     }
 }
 
+enum HotKeyFeedback: Equatable {
+    case none
+    case hud
+    // The screen edge reports this gesture. Nothing is reported here, because a release
+    // returns before the remute settles and would report the state it just left.
+    case screenEdge
+}
+
 enum HotKeyHUDPresentation {
-    static func presents(event: GlobalHotKeyEvent, mode: MuteMode) -> Bool {
+    static func feedback(
+        event: GlobalHotKeyEvent,
+        mode: MuteMode,
+        status: MuteStatus,
+        screenEdge: ScreenEdgeIndicatorPreferences
+    ) -> HotKeyFeedback {
         // Toggle mode does not change state on release, so it has nothing to report.
-        event == .pressed || mode == .pushToTalk
+        guard event == .pressed || mode == .pushToTalk else { return .none }
+        guard ScreenEdgeIndicatorPresentation.suppressesHotKeyHUD(
+            mode: mode,
+            preferences: screenEdge
+        ), ScreenEdgeIndicatorPresentation.expressesGestureResult(status) else { return .hud }
+        return .screenEdge
+    }
+}
+
+// While the screen edge reports Push to Talk, VoiceOver follows the status the edge is
+// showing rather than the gesture, so both describe the same confirmed state.
+struct ScreenEdgeAnnouncementGate {
+    private var announcedStatus: MuteStatus?
+
+    mutating func announces(status: MuteStatus, isScreenEdgeActive: Bool) -> Bool {
+        guard isScreenEdgeActive else {
+            announcedStatus = nil
+            return false
+        }
+        let previous = announcedStatus
+        announcedStatus = status
+        // The first status after the edge becomes active is the state it starts from,
+        // not a change to announce.
+        guard let previous else { return false }
+        return previous != status
     }
 }
 

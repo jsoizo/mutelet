@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Configurable HUD size, position, display target, duration, and manual preview.
 - Optional session mute maintenance across default-input changes, device reconnection, external unmute attempts, and sleep/wake.
+- Optional screen edge indicator that glows the display borders while Push to Talk can carry sound, replacing the transient HUD for those gestures.
 
 ### Changed
 

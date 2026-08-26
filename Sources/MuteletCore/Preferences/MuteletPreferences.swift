@@ -5,17 +5,20 @@ public struct MuteletPreferences: Equatable, Sendable {
     public var shortcuts: ShortcutPreferences
     public var hud: HUDPreferences
     public var statusOverlay: StatusOverlayPreferences
+    public var screenEdge: ScreenEdgeIndicatorPreferences
 
     public init(
         microphone: MicrophonePreferences = MicrophonePreferences(),
         shortcuts: ShortcutPreferences = ShortcutPreferences(),
         hud: HUDPreferences = HUDPreferences(),
-        statusOverlay: StatusOverlayPreferences = StatusOverlayPreferences()
+        statusOverlay: StatusOverlayPreferences = StatusOverlayPreferences(),
+        screenEdge: ScreenEdgeIndicatorPreferences = ScreenEdgeIndicatorPreferences()
     ) {
         self.microphone = microphone
         self.shortcuts = shortcuts
         self.hud = hud
         self.statusOverlay = statusOverlay
+        self.screenEdge = screenEdge
     }
 }
 
@@ -181,6 +184,19 @@ public struct StatusOverlayPreferences: Equatable, Sendable {
     }
 }
 
+public struct ScreenEdgeIndicatorPreferences: Equatable, Sendable {
+    public var isEnabled: Bool
+    public var showsIdleOutline: Bool
+
+    public init(
+        isEnabled: Bool = false,
+        showsIdleOutline: Bool = false
+    ) {
+        self.isEnabled = isEnabled
+        self.showsIdleOutline = showsIdleOutline
+    }
+}
+
 public enum PreferencesLoadResult: Equatable, Sendable {
     case loaded(MuteletPreferences)
     case defaults
@@ -194,6 +210,7 @@ public enum PreferencesRecoveryIssue: Equatable, Sendable {
     case invalidShortcut
     case invalidHUD
     case invalidStatusOverlay
+    case invalidScreenEdgeIndicator
     case migrationSaveFailed
 }
 

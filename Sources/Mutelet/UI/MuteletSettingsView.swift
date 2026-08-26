@@ -223,6 +223,10 @@ private struct DisplaySettingsView: View {
                     controller: applicationModel.statusOverlayController
                 )
             }
+
+            Section("Push to Talk screen edge") {
+                ScreenEdgeIndicatorSettingsView(applicationModel: applicationModel)
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -268,6 +272,39 @@ private struct DisplaySettingsView: View {
                     applicationModel.setHUDDuration(duration)
                 }
             }
+        )
+    }
+}
+
+private struct ScreenEdgeIndicatorSettingsView: View {
+    @ObservedObject var applicationModel: MuteletApplicationModel
+
+    var body: some View {
+        Toggle("Glow the screen edge while talking", isOn: enabledSelection)
+            .accessibilityIdentifier("settings-screen-edge-enabled")
+
+        Toggle("Outline the screen edge while muted", isOn: idleOutlineSelection)
+            .disabled(!applicationModel.preferences.screenEdge.isEnabled)
+            .accessibilityIdentifier("settings-screen-edge-idle-outline")
+
+        Text(
+            "Push to Talk mode only. The edge replaces the status shown after actions, and some screen recordings may still capture it."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private var enabledSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.screenEdge.isEnabled },
+            set: { applicationModel.setScreenEdgeIndicatorEnabled($0) }
+        )
+    }
+
+    private var idleOutlineSelection: Binding<Bool> {
+        Binding(
+            get: { applicationModel.preferences.screenEdge.showsIdleOutline },
+            set: { applicationModel.setScreenEdgeShowsIdleOutline($0) }
         )
     }
 }

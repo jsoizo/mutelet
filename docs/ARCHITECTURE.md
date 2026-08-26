@@ -3,7 +3,7 @@
 Mutelet separates operating-system I/O from its mute state machine so safety behavior can be tested without changing a real microphone.
 
 ```text
-MenuBarExtra / Settings / HUD / persistent status
+MenuBarExtra / Settings / HUD / persistent status / screen edge
               |
               v
   MuteletApplicationModel
@@ -25,6 +25,7 @@ AudioDeviceControlling
 - `CarbonHotKeyMonitor` registers a system hot key and publishes press/release events without an event tap.
 - `MuteletApplicationModel` joins app lifecycle, persisted settings, UI commands, HUD, login item, and global hot-key handling on the main actor.
 - `StatusOverlayController` owns one non-activating floating panel, resolves physical displays by Core Graphics UUID, and converts its draggable position to normalized coordinates. It subscribes to coordinator state through the application model but does not share the transient HUD's window or lifetime.
+- `ScreenEdgeIndicatorController` owns one click-through panel per screen and glows the display borders while Push to Talk can carry sound. Its panels are built when the mode is selected rather than when a gesture starts, and it asks the window server to keep them out of screen captures.
 - `AudioMutationReceiptStoring` persists the exact values to restore before Core Audio is mutated. Restoration receipts are removed only after a read-back verifies every saved control.
 
 ## Identity and concurrency
@@ -67,7 +68,7 @@ New targets are read back as muted before former targets are restored from recei
 
 Sleep suspends listeners and workers while retaining the process-local intent; wake resumes from a fresh inventory. Shutdown discards the intent. Persisted receipts protect restoration after failures, but are never interpreted as a mute intent on the next launch.
 
-The HUD reports state for every hot-key press, and in Push to Talk also on release because release changes state. Entering Push to Talk announces the shortcut once. Automatic maintenance results are matched by content against the last HUD presentation and dropped when they repeat it within two seconds, so a remute confirming what a press already showed never appears, while a result for another device or a new restoration failure does.
+The HUD reports state for every hot-key press, and in Push to Talk also on release because release changes state. When the screen edge indicator is enabled, Push to Talk gestures show the edge instead of the HUD. Those gestures report nothing themselves, because a release returns before the remute settles; the VoiceOver announcement and the record that stops an automatic remute from repeating it both follow the status the edge is showing. Warnings such as a failed restoration keep using the HUD, which the edge cannot express. Entering Push to Talk announces the shortcut once. Automatic maintenance results are matched by content against the last HUD presentation and dropped when they repeat it within two seconds, so a remute confirming what a press already showed never appears, while a result for another device or a new restoration failure does.
 
 The persistent status can optionally invoke the same toggle command, but only in Toggle mode while the coordinator is actionable and idle. Passive status refreshes do not announce through VoiceOver. A click result is announced by either the transient HUD or the persistent status, never both.
 

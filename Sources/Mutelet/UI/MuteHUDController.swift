@@ -23,6 +23,11 @@ final class MuteHUDController {
         )
     }
 
+    // Used when the screen edge replaces the HUD: the edge is a visual channel only.
+    func announce(status: MuteStatus) {
+        postAnnouncement(title: status.interfaceTitle, detail: status.hudDetail)
+    }
+
     func showPushToTalkEnabled(
         shortcut: String,
         preferences: HUDPreferences

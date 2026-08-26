@@ -31,10 +31,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var preferencesSaveTask: Task<Void, Never>?
     private var statusOverlayObservation: AnyCancellable?
     private var maintenanceFeedbackObservation: AnyCancellable?
-    private var maintenanceHUDTask: Task<Void, Never>?
-    private var pendingMaintenanceFeedback: AutomaticMuteMaintenanceFeedback?
-    private var lastMaintenanceHUDTime: TimeInterval = -.infinity
-    private var maintenanceAnnouncementGate = MaintenanceAnnouncementGate()
+    private var hudGate = HUDPresentationGate()
     private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
@@ -161,6 +158,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
                     shortcut: self.preferences.shortcuts.primary.displayName,
                     preferences: self.preferences.hud
                 )
+                // The instruction stands in for the confirmation of the mute that entering
+                // the mode just performed, so an automatic remute must not overwrite it.
+                self.recordHUDPresentation(
+                    signature: HUDContentSignature.signature(for: self.coordinator.status)
+                )
             }
             await self.savePreferences()
         }
@@ -219,7 +221,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func previewHUD() {
-        hudController.show(status: coordinator.status, preferences: preferences.hud)
+        presentStatusHUD()
     }
 
     func setStatusOverlayEnabled(_ isEnabled: Bool) {
@@ -323,8 +325,6 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         statusOverlayObservation = nil
         maintenanceFeedbackObservation?.cancel()
         maintenanceFeedbackObservation = nil
-        maintenanceHUDTask?.cancel()
-        maintenanceHUDTask = nil
         statusOverlayController.stop()
         await coordinator.shutdown()
         started = false
@@ -362,9 +362,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private func handleHotKey(_ event: GlobalHotKeyEvent) async {
         let mode = coordinator.mode
         await coordinator.handleHotKey(event)
-        if mode == .toggle, event == .pressed {
-            showHUDIfEnabled()
-        }
+        guard HotKeyHUDPresentation.presents(event: event, mode: mode) else { return }
+        showHUDIfEnabled()
     }
 
 #if DEBUG
@@ -392,7 +391,20 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     private func showHUDIfEnabled() {
         guard preferences.hud.isEnabled else { return }
-        hudController.show(status: coordinator.status, preferences: preferences.hud)
+        presentStatusHUD()
+    }
+
+    private func presentStatusHUD() {
+        let status = coordinator.status
+        hudController.show(status: status, preferences: preferences.hud)
+        recordHUDPresentation(signature: HUDContentSignature.signature(for: status))
+    }
+
+    private func recordHUDPresentation(signature: String) {
+        hudGate.recordPresentation(
+            signature: signature,
+            at: Date.timeIntervalSinceReferenceDate
+        )
     }
 
     private func installMaintenanceFeedbackObservation() {
@@ -400,62 +412,17 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         maintenanceFeedbackObservation = coordinator.$maintenanceFeedback
             .compactMap { $0 }
             .sink { [weak self] feedback in
-                self?.enqueueMaintenanceHUD(feedback)
+                self?.presentMaintenanceHUD(feedback)
             }
     }
 
-    private func enqueueMaintenanceHUD(_ feedback: AutomaticMuteMaintenanceFeedback) {
-        guard preferences.hud.isEnabled else {
-            pendingMaintenanceFeedback = nil
-            maintenanceHUDTask?.cancel()
-            maintenanceHUDTask = nil
-            return
-        }
-        pendingMaintenanceFeedback = feedback
-        guard maintenanceHUDTask == nil else { return }
-
-        let elapsed = Date.timeIntervalSinceReferenceDate - lastMaintenanceHUDTime
-        let delay = max(0, 2 - elapsed)
-        maintenanceHUDTask = Task { [weak self] in
-            if delay > 0 {
-                try? await Task.sleep(for: .seconds(delay))
-            }
-            guard !Task.isCancelled, let self else { return }
-            guard self.preferences.hud.isEnabled,
-                  let feedback = self.pendingMaintenanceFeedback else {
-                self.pendingMaintenanceFeedback = nil
-                self.maintenanceHUDTask = nil
-                return
-            }
-            self.pendingMaintenanceFeedback = nil
-            let signature = self.maintenanceFeedbackSignature(feedback)
-            let now = Date.timeIntervalSinceReferenceDate
-            let announces = self.maintenanceAnnouncementGate.shouldAnnounce(
-                signature: signature,
-                at: now
-            )
-            self.hudController.showMaintenanceFeedback(
-                feedback,
-                preferences: self.preferences.hud,
-                announces: announces
-            )
-            self.lastMaintenanceHUDTime = Date.timeIntervalSinceReferenceDate
-            self.maintenanceHUDTask = nil
-            if let next = self.pendingMaintenanceFeedback {
-                self.enqueueMaintenanceHUD(next)
-            }
-        }
-    }
-
-    private func maintenanceFeedbackSignature(
-        _ feedback: AutomaticMuteMaintenanceFeedback
-    ) -> String {
-        switch feedback {
-        case let .maintained(_, status):
-            return "maintained:\(status.title)"
-        case let .restorationFailed(_, status, devices):
-            return "restoration:\(status.title):\(devices.map(\.deviceUID).joined(separator: ","))"
-        }
+    private func presentMaintenanceHUD(_ feedback: AutomaticMuteMaintenanceFeedback) {
+        guard preferences.hud.isEnabled else { return }
+        let signature = HUDContentSignature.signature(for: feedback)
+        let now = Date.timeIntervalSinceReferenceDate
+        guard hudGate.allowsPresentation(signature: signature, at: now) else { return }
+        hudController.showMaintenanceFeedback(feedback, preferences: preferences.hud)
+        hudGate.recordPresentation(signature: signature, at: now)
     }
 
     private func updateHUDPreferences(

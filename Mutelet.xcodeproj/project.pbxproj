@@ -41,6 +41,8 @@
 		F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* StatusOverlayControllerTests.swift */; };
 		H10000000000000000000001 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
 		H10000000000000000000002 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
+		J10000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift */; };
+		J10000000000000000000003 /* ScreenEdgeIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000003 /* ScreenEdgeIndicatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +87,8 @@
 		F20000000000000000000003 /* StatusOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/StatusOverlayController.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* StatusOverlayControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOverlayControllerTests.swift; sourceTree = "<group>"; };
 		H20000000000000000000001 /* ApplicationPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/ApplicationPresentationState.swift; sourceTree = "<group>"; };
+		J20000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/ScreenEdgeIndicatorPresentation.swift; sourceTree = "<group>"; };
+		J20000000000000000000003 /* ScreenEdgeIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenEdgeIndicatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +146,7 @@
 				A20000000000000000000023 /* MuteletPreferencesTests.swift */,
 				D20000000000000000000002 /* CoreAudioEventMonitorTests.swift */,
 				F20000000000000000000004 /* StatusOverlayControllerTests.swift */,
+				J20000000000000000000003 /* ScreenEdgeIndicatorTests.swift */,
 			);
 			path = Tests/MuteletCoreTests;
 			sourceTree = "<group>";
@@ -173,6 +178,7 @@
 				A20000000000000000000022 /* MuteletPreferences.swift */,
 				F20000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift */,
 				F20000000000000000000002 /* HUDLayout.swift */,
+				J20000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift */,
 				D20000000000000000000001 /* CoreAudioDiagnostics.swift */,
 			);
 			path = Sources/MuteletCore;
@@ -318,6 +324,7 @@
 				D10000000000000000000002 /* CoreAudioEventMonitorTests.swift in Sources */,
 				F10000000000000000000004 /* StatusOverlayController.swift in Sources */,
 				F10000000000000000000005 /* StatusOverlayControllerTests.swift in Sources */,
+				J10000000000000000000003 /* ScreenEdgeIndicatorTests.swift in Sources */,
 				H10000000000000000000002 /* ApplicationPresentationState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -339,6 +346,7 @@
 				A10000000000000000000021 /* MuteletPreferences.swift in Sources */,
 				F10000000000000000000001 /* UserDefaultsMuteletPreferencesStore.swift in Sources */,
 				F10000000000000000000002 /* HUDLayout.swift in Sources */,
+				J10000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift in Sources */,
 				D10000000000000000000001 /* CoreAudioDiagnostics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

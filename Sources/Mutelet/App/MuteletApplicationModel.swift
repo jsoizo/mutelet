@@ -540,6 +540,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             "invalid HUD preferences"
         case .invalidStatusOverlay:
             "invalid status overlay preferences"
+        case .invalidScreenEdgeIndicator:
+            "invalid screen edge indicator preferences"
         case .migrationSaveFailed:
             "saving migrated preferences failed"
         }

@@ -2,7 +2,7 @@ import Foundation
 
 public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     private static let storageKey = "muteletPreferences"
-    private static let currentSchemaVersion = 4
+    private static let currentSchemaVersion = 5
 
     private struct StoredPreferencesHeader: Decodable {
         let schemaVersion: Int
@@ -139,16 +139,6 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         let hud: StoredHUDPreferencesV2
         let statusOverlay: StoredStatusOverlayPreferencesV3
 
-        init(preferences: MuteletPreferences) {
-            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
-            microphone = StoredMicrophonePreferencesV4(preferences: preferences.microphone)
-            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
-            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
-            statusOverlay = StoredStatusOverlayPreferencesV3(
-                preferences: preferences.statusOverlay
-            )
-        }
-
         func decodePreferences() -> DecodedPreferences {
             var preferences = MuteletPreferences()
             var issues: [PreferencesRecoveryIssue] = []
@@ -176,7 +166,82 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             return DecodedPreferences(
                 preferences: preferences,
                 issues: issues,
+                requiresSave: true
+            )
+        }
+    }
+
+    private struct StoredPreferencesV5: Codable {
+        let schemaVersion: Int
+        let microphone: StoredMicrophonePreferencesV4
+        let shortcuts: StoredShortcutPreferencesV1
+        let hud: StoredHUDPreferencesV2
+        let statusOverlay: StoredStatusOverlayPreferencesV3
+        let screenEdge: StoredScreenEdgeIndicatorPreferencesV5?
+
+        init(preferences: MuteletPreferences) {
+            schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
+            microphone = StoredMicrophonePreferencesV4(preferences: preferences.microphone)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
+            statusOverlay = StoredStatusOverlayPreferencesV3(
+                preferences: preferences.statusOverlay
+            )
+            screenEdge = StoredScreenEdgeIndicatorPreferencesV5(
+                preferences: preferences.screenEdge
+            )
+        }
+
+        func decodePreferences() -> DecodedPreferences {
+            var preferences = MuteletPreferences()
+            var issues: [PreferencesRecoveryIssue] = []
+
+            if let microphonePreferences = microphone.decodePreferences() {
+                preferences.microphone = microphonePreferences
+            } else {
+                issues.append(.invalidMicrophone)
+            }
+            if let shortcutPreferences = shortcuts.decodePreferences() {
+                preferences.shortcuts = shortcutPreferences
+            } else {
+                issues.append(.invalidShortcut)
+            }
+            if let hudPreferences = hud.decodePreferences() {
+                preferences.hud = hudPreferences
+            } else {
+                issues.append(.invalidHUD)
+            }
+            if let overlayPreferences = statusOverlay.decodePreferences() {
+                preferences.statusOverlay = overlayPreferences
+            } else {
+                issues.append(.invalidStatusOverlay)
+            }
+            if let screenEdgePreferences = screenEdge?.decodePreferences() {
+                preferences.screenEdge = screenEdgePreferences
+            } else {
+                issues.append(.invalidScreenEdgeIndicator)
+            }
+            return DecodedPreferences(
+                preferences: preferences,
+                issues: issues,
                 requiresSave: false
+            )
+        }
+    }
+
+    private struct StoredScreenEdgeIndicatorPreferencesV5: Codable {
+        let isEnabled: Bool
+        let showsIdleOutline: Bool
+
+        init(preferences: ScreenEdgeIndicatorPreferences) {
+            isEnabled = preferences.isEnabled
+            showsIdleOutline = preferences.showsIdleOutline
+        }
+
+        func decodePreferences() -> ScreenEdgeIndicatorPreferences {
+            ScreenEdgeIndicatorPreferences(
+                isEnabled: isEnabled,
+                showsIdleOutline: showsIdleOutline
             )
         }
     }
@@ -558,7 +623,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     public func save(_ preferences: MuteletPreferences) throws {
-        let data = try encoder.encode(StoredPreferencesV4(preferences: preferences))
+        let data = try encoder.encode(StoredPreferencesV5(preferences: preferences))
         if let dataWriter {
             try dataWriter(data)
         } else {
@@ -583,9 +648,13 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             return try decoder
                 .decode(StoredPreferencesV3.self, from: data)
                 .decodePreferences()
-        case Self.currentSchemaVersion:
+        case 4:
             return try decoder
                 .decode(StoredPreferencesV4.self, from: data)
+                .decodePreferences()
+        case Self.currentSchemaVersion:
+            return try decoder
+                .decode(StoredPreferencesV5.self, from: data)
                 .decodePreferences()
         default:
             throw StoredPreferencesError.unsupportedSchemaVersion(schemaVersion)

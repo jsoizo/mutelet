@@ -42,6 +42,7 @@
 		H10000000000000000000001 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
 		H10000000000000000000002 /* ApplicationPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* ApplicationPresentationState.swift */; };
 		J10000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift */; };
+		J10000000000000000000002 /* ScreenEdgeIndicatorController.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000002 /* ScreenEdgeIndicatorController.swift */; };
 		J10000000000000000000003 /* ScreenEdgeIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000003 /* ScreenEdgeIndicatorTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -88,6 +89,7 @@
 		F20000000000000000000004 /* StatusOverlayControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOverlayControllerTests.swift; sourceTree = "<group>"; };
 		H20000000000000000000001 /* ApplicationPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/ApplicationPresentationState.swift; sourceTree = "<group>"; };
 		J20000000000000000000001 /* ScreenEdgeIndicatorPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences/ScreenEdgeIndicatorPresentation.swift; sourceTree = "<group>"; };
+		J20000000000000000000002 /* ScreenEdgeIndicatorController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/ScreenEdgeIndicatorController.swift; sourceTree = "<group>"; };
 		J20000000000000000000003 /* ScreenEdgeIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenEdgeIndicatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -130,6 +132,7 @@
 				A20000000000000000000020 /* MuteletSettingsView.swift */,
 				A20000000000000000000021 /* MuteHUDController.swift */,
 				F20000000000000000000003 /* StatusOverlayController.swift */,
+				J20000000000000000000002 /* ScreenEdgeIndicatorController.swift */,
 				A20000000000000000000024 /* UITestingDependencies.swift */,
 				A20000000000000000000025 /* Localizable.xcstrings */,
 				A20000000000000000000028 /* Assets.xcassets */,
@@ -309,6 +312,7 @@
 				A10000000000000000000019 /* MuteletSettingsView.swift in Sources */,
 				A10000000000000000000020 /* MuteHUDController.swift in Sources */,
 				F10000000000000000000003 /* StatusOverlayController.swift in Sources */,
+				J10000000000000000000002 /* ScreenEdgeIndicatorController.swift in Sources */,
 				A10000000000000000000023 /* UITestingDependencies.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

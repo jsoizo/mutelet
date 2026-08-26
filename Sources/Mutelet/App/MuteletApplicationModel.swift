@@ -20,6 +20,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     let coordinator: MuteCoordinator
     let statusOverlayController: StatusOverlayController
+    let screenEdgeIndicatorController: ScreenEdgeIndicatorController
 
     private let hotKeyMonitor: CarbonHotKeyMonitor
     private let preferencesStore: any MuteletPreferencesStoring
@@ -32,6 +33,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var statusOverlayObservation: AnyCancellable?
     private var maintenanceFeedbackObservation: AnyCancellable?
     private var hudGate = HUDPresentationGate()
+    private var screenEdgeAnnouncementGate = ScreenEdgeAnnouncementGate()
     private var preferencesSaveGeneration = 0
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
@@ -79,6 +81,8 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         preferencesStore: any MuteletPreferencesStoring = UserDefaultsMuteletPreferencesStore(),
         hudController: MuteHUDController = MuteHUDController(),
         statusOverlayController: StatusOverlayController = StatusOverlayController(),
+        screenEdgeIndicatorController: ScreenEdgeIndicatorController =
+            ScreenEdgeIndicatorController(),
         enablesSystemIntegrations: Bool = true
     ) {
         self.coordinator = coordinator
@@ -86,6 +90,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         self.preferencesStore = preferencesStore
         self.hudController = hudController
         self.statusOverlayController = statusOverlayController
+        self.screenEdgeIndicatorController = screenEdgeIndicatorController
         self.enablesSystemIntegrations = enablesSystemIntegrations
         super.init()
         statusOverlayController.onPreferencesChange = { [weak self] overlayPreferences in
@@ -123,7 +128,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         await coordinator.start()
         installMaintenanceFeedbackObservation()
         installStatusOverlayObservation()
-        updateStatusOverlay()
+        updatePresentation()
 
         if enablesSystemIntegrations {
             do {
@@ -248,6 +253,14 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         updateStatusOverlayPreferences { $0.togglesMuteOnClick = togglesMuteOnClick }
     }
 
+    func setScreenEdgeIndicatorEnabled(_ isEnabled: Bool) {
+        updateScreenEdgePreferences { $0.isEnabled = isEnabled }
+    }
+
+    func setScreenEdgeShowsIdleOutline(_ showsIdleOutline: Bool) {
+        updateScreenEdgePreferences { $0.showsIdleOutline = showsIdleOutline }
+    }
+
     func resetStatusOverlayPosition() {
         statusOverlayController.resetPosition()
     }
@@ -326,6 +339,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         maintenanceFeedbackObservation?.cancel()
         maintenanceFeedbackObservation = nil
         statusOverlayController.stop()
+        screenEdgeIndicatorController.stop()
         await coordinator.shutdown()
         started = false
     }
@@ -362,8 +376,14 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private func handleHotKey(_ event: GlobalHotKeyEvent) async {
         let mode = coordinator.mode
         await coordinator.handleHotKey(event)
-        guard HotKeyHUDPresentation.presents(event: event, mode: mode) else { return }
-        showHUDIfEnabled()
+        presentHotKeyFeedback(
+            HotKeyHUDPresentation.feedback(
+                event: event,
+                mode: mode,
+                status: coordinator.status,
+                screenEdge: preferences.screenEdge
+            )
+        )
     }
 
 #if DEBUG
@@ -392,6 +412,24 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private func showHUDIfEnabled() {
         guard preferences.hud.isEnabled else { return }
         presentStatusHUD()
+    }
+
+    // The HUD branch leaves through the same recording call that the screen edge path uses in
+    // announceForScreenEdge. Recording matters as much as the presentation itself: without it
+    // the self-write echo returning as .maintained would show the HUD that was just replaced.
+    private func presentHotKeyFeedback(_ feedback: HotKeyFeedback) {
+        guard preferences.hud.isEnabled else { return }
+        let status = coordinator.status
+        switch feedback {
+        case .none:
+            return
+        case .hud:
+            hudController.show(status: status, preferences: preferences.hud)
+        case .screenEdge:
+            // Reported from the status stream instead, where the state is settled.
+            return
+        }
+        recordHUDPresentation(signature: HUDContentSignature.signature(for: status))
     }
 
     private func presentStatusHUD() {
@@ -431,7 +469,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         var updated = preferences
         update(&updated.hud)
         preferences = updated
-        updateStatusOverlay()
+        updatePresentation()
         Task { [weak self] in
             await self?.savePreferences()
         }
@@ -443,7 +481,19 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         var updated = preferences
         update(&updated.statusOverlay)
         preferences = updated
-        updateStatusOverlay()
+        updatePresentation()
+        Task { [weak self] in
+            await self?.savePreferences()
+        }
+    }
+
+    private func updateScreenEdgePreferences(
+        _ update: (inout ScreenEdgeIndicatorPreferences) -> Void
+    ) {
+        var updated = preferences
+        update(&updated.screenEdge)
+        preferences = updated
+        updatePresentation()
         Task { [weak self] in
             await self?.savePreferences()
         }
@@ -454,7 +504,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         var updated = preferences
         updated.statusOverlay = overlayPreferences
         preferences = updated
-        updateStatusOverlay()
+        updatePresentation()
         Task { [weak self] in
             await self?.savePreferences()
         }
@@ -465,11 +515,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         statusOverlayObservation = StatusOverlayCoordinatorObservation.observe(
             coordinator
         ) { [weak self] state in
-            self?.updateStatusOverlay(state)
+            self?.updatePresentation(state)
         }
     }
 
-    private func updateStatusOverlay(_ state: StatusOverlayCoordinatorState? = nil) {
+    private func updatePresentation(_ state: StatusOverlayCoordinatorState? = nil) {
         let state = state ?? StatusOverlayCoordinatorState(
             status: coordinator.status,
             mode: coordinator.mode,
@@ -484,6 +534,28 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             preferences: preferences.statusOverlay,
             transientHUDEnabled: preferences.hud.isEnabled
         )
+        screenEdgeIndicatorController.update(
+            status: state.status,
+            mode: state.mode,
+            preferences: preferences.screenEdge
+        )
+        announceForScreenEdge(state)
+    }
+
+    // A Push to Talk release returns before the remute settles, so announcing and recording
+    // from the gesture would speak the state it just left and let the settled result through
+    // as a maintenance HUD. Both follow the status the edge is showing instead.
+    private func announceForScreenEdge(_ state: StatusOverlayCoordinatorState) {
+        let isActive = ScreenEdgeIndicatorPresentation.suppressesHotKeyHUD(
+            mode: state.mode,
+            preferences: preferences.screenEdge
+        )
+        guard screenEdgeAnnouncementGate.announces(
+            status: state.status,
+            isScreenEdgeActive: isActive
+        ), preferences.hud.isEnabled else { return }
+        hudController.announce(status: state.status)
+        recordHUDPresentation(signature: HUDContentSignature.signature(for: state.status))
     }
 
     private func toggleFromStatusOverlay() async -> MuteStatus? {
@@ -598,9 +670,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             if shouldRun {
                 await self.coordinator.resume()
                 self.statusOverlayController.resume()
-                self.updateStatusOverlay()
+                self.screenEdgeIndicatorController.resume()
+                self.updatePresentation()
             } else {
                 self.statusOverlayController.suspend()
+                self.screenEdgeIndicatorController.suspend()
                 await self.coordinator.suspend()
             }
         }

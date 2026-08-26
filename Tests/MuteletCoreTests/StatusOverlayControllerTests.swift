@@ -183,10 +183,145 @@ final class StatusOverlayControllerTests: XCTestCase {
     }
 
     func testHotKeyHUDIsPresentedForEveryPressAndForPushToTalkReleasesOnly() {
-        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .pressed, mode: .toggle))
-        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .pressed, mode: .pushToTalk))
-        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .released, mode: .pushToTalk))
-        XCTAssertFalse(HotKeyHUDPresentation.presents(event: .released, mode: .toggle))
+        let edgeDisabled = ScreenEdgeIndicatorPreferences()
+        let live = MuteStatus.live(deviceName: "Mic")
+        let muted = MuteStatus.muted(deviceName: "Mic")
+
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .pressed, mode: .toggle, status: muted, screenEdge: edgeDisabled
+            ),
+            .hud
+        )
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .pressed, mode: .pushToTalk, status: live, screenEdge: edgeDisabled
+            ),
+            .hud
+        )
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .released, mode: .pushToTalk, status: muted, screenEdge: edgeDisabled
+            ),
+            .hud
+        )
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .released, mode: .toggle, status: muted, screenEdge: edgeDisabled
+            ),
+            .none
+        )
+    }
+
+    func testScreenEdgeReplacesTheHotKeyHUDInPushToTalkOnly() {
+        let edgeEnabled = ScreenEdgeIndicatorPreferences(isEnabled: true)
+        let live = MuteStatus.live(deviceName: "Mic")
+        let muted = MuteStatus.muted(deviceName: "Mic")
+
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .pressed, mode: .pushToTalk, status: live, screenEdge: edgeEnabled
+            ),
+            .screenEdge
+        )
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .released, mode: .pushToTalk, status: muted, screenEdge: edgeEnabled
+            ),
+            .screenEdge
+        )
+        XCTAssertEqual(
+            HotKeyHUDPresentation.feedback(
+                event: .pressed, mode: .toggle, status: muted, screenEdge: edgeEnabled
+            ),
+            .hud
+        )
+    }
+
+    func testHUDStillReportsResultsTheScreenEdgeCannotExpress() {
+        let edgeEnabled = ScreenEdgeIndicatorPreferences(
+            isEnabled: true,
+            showsIdleOutline: true
+        )
+
+        for status in [
+            MuteStatus.unavailable,
+            .disconnected(deviceName: "Mic"),
+            .loading,
+        ] {
+            XCTAssertEqual(
+                HotKeyHUDPresentation.feedback(
+                    event: .pressed,
+                    mode: .pushToTalk,
+                    status: status,
+                    screenEdge: edgeEnabled
+                ),
+                .hud
+            )
+        }
+    }
+
+    func testScreenEdgeAnnouncementsFollowStatusChangesAndNotTheFirstStatus() {
+        var gate = ScreenEdgeAnnouncementGate()
+        let muted = MuteStatus.muted(deviceName: "Mic")
+        let live = MuteStatus.live(deviceName: "Mic")
+
+        XCTAssertFalse(gate.announces(status: muted, isScreenEdgeActive: true))
+        XCTAssertTrue(gate.announces(status: live, isScreenEdgeActive: true))
+        XCTAssertFalse(gate.announces(status: live, isScreenEdgeActive: true))
+        XCTAssertTrue(gate.announces(status: muted, isScreenEdgeActive: true))
+    }
+
+    func testScreenEdgeAnnouncementsRestartAfterTheEdgeStopsReporting() {
+        var gate = ScreenEdgeAnnouncementGate()
+        let muted = MuteStatus.muted(deviceName: "Mic")
+        let live = MuteStatus.live(deviceName: "Mic")
+
+        XCTAssertFalse(gate.announces(status: muted, isScreenEdgeActive: true))
+        XCTAssertFalse(gate.announces(status: live, isScreenEdgeActive: false))
+        // Re-entering Push to Talk starts from a fresh baseline instead of announcing the
+        // state the edge is simply showing.
+        XCTAssertFalse(gate.announces(status: live, isScreenEdgeActive: true))
+        XCTAssertTrue(gate.announces(status: muted, isScreenEdgeActive: true))
+    }
+
+    func testTheGateDropsAMaintenanceEchoThatRepeatsARecordedStatus() {
+        // This is the contract the screen edge leans on: announcing a settled status also
+        // records it, so the app's own Core Audio write coming back as .maintained cannot
+        // show a HUD for what the edge already shows.
+        let status = MuteStatus.live(deviceName: "Mic")
+        let echo = AutomaticMuteMaintenanceFeedback.maintained(sequence: 1, status: status)
+        var gate = HUDPresentationGate()
+
+        gate.recordPresentation(
+            signature: HUDContentSignature.signature(for: status),
+            at: 100
+        )
+
+        XCTAssertFalse(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(for: echo),
+                at: 100.05
+            )
+        )
+        XCTAssertTrue(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(for: echo),
+                at: 102
+            )
+        )
+        XCTAssertTrue(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(
+                    for: .restorationFailed(
+                        sequence: 2,
+                        currentStatus: status,
+                        devices: [RestorationWarningItem(deviceUID: "usb", deviceName: "USB")]
+                    )
+                ),
+                at: 100.05
+            )
+        )
     }
 
     func testMaintainedFeedbackSharesTheSignatureOfItsStatus() {

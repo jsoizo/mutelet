@@ -123,7 +123,7 @@ public enum StatusOverlayVisibility: String, Codable, CaseIterable, Hashable, Se
             switch status {
             case .muted, .unavailable, .disconnected:
                 false
-            case .loading, .live, .mixed, .unsupported, .partial, .error:
+            case .loading, .live, .mixed, .unsupported, .externallySilenced, .partial, .error:
                 true
             }
         }

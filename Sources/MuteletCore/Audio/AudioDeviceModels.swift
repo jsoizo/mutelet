@@ -120,6 +120,18 @@ public struct AudioDeviceSnapshot: Hashable, Sendable {
         }
         return .live
     }
+
+    // A zero volume silences an input in a way clearing native mute cannot undo, so only a
+    // saved receipt leads back to the value the user chose. Silence that clearing native mute
+    // partially lifts does not count: the user gets their voice back on the released channels.
+    public var silenceSurvivesNativeMuteRelease: Bool {
+        let released = values.map { value in
+            value.control.kind == .mute
+                ? AudioControlValue(control: value.control, value: 0)
+                : value
+        }
+        return AudioDeviceSnapshot(device: device, values: released).muteState == .muted
+    }
 }
 
 public struct AudioMutationReceipt: Codable, Hashable, Sendable {

@@ -60,6 +60,7 @@ public enum MuteStatus: Equatable, Sendable {
     case unavailable
     case disconnected(deviceName: String)
     case unsupported(deviceName: String)
+    case externallySilenced(deviceName: String)
     case partial(deviceName: String, muted: Int, live: Int, mixed: Int, unsupported: Int, failed: Int)
     case error(message: String)
 
@@ -74,7 +75,7 @@ public enum MuteStatus: Equatable, Sendable {
             true
         case let .partial(_, muted, live, mixed, _, _):
             muted + live + mixed > 0
-        case .loading, .unavailable, .disconnected, .unsupported, .error:
+        case .loading, .unavailable, .disconnected, .unsupported, .externallySilenced, .error:
             false
         }
     }
@@ -110,6 +111,14 @@ public enum MuteStatus: Equatable, Sendable {
                 format: NSLocalizedString("Unsupported input — %@", comment: "Unsupported input"),
                 deviceName
             )
+        case let .externallySilenced(deviceName):
+            String(
+                format: NSLocalizedString(
+                    "Silenced outside Mutelet — %@",
+                    comment: "Input silenced outside Mutelet"
+                ),
+                deviceName
+            )
         case let .partial(deviceName, muted, live, mixed, unsupported, failed):
             String(
                 format: NSLocalizedString(
@@ -139,7 +148,7 @@ public enum MuteStatus: Equatable, Sendable {
             "mic.slash.fill"
         case .loading:
             "mic"
-        case .unavailable, .disconnected, .unsupported:
+        case .unavailable, .disconnected, .unsupported, .externallySilenced:
             "mic.slash"
         case .mixed, .partial, .error:
             "exclamationmark.triangle.fill"

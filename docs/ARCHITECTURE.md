@@ -49,10 +49,11 @@ The visible states are:
 - `mixed`: controls within one target or states across several targets disagree;
 - `unavailable` / `disconnected`: no current target can be resolved;
 - `unsupported`: no writable mute strategy exists;
+- `externallySilenced`: the target is silent for a reason Mutelet did not cause, typically a zero input volume, and no receipt exists to undo it;
 - `partial`: an all-input state includes unsupported devices or operation/read failures;
 - `error`: an operation could not produce a trustworthy state.
 
-Mixed state toggles toward mute. Unsupported and failed targets are never folded into a confirmed muted state.
+Mixed state toggles toward mute. Unsupported, externally silenced, and failed targets are never folded into a confirmed muted state. A restoration without a receipt is read back, so an input that stays silent after the write is reported as a failure rather than a success.
 
 ## Push to Talk safety
 

@@ -106,6 +106,40 @@ final class AudioDeviceModelsTests: XCTestCase {
         )
     }
 
+    func testSilenceFromNativeMuteAloneIsReleasable() {
+        XCTAssertFalse(
+            makeSnapshot(muteValues: [1], volumeValues: [0.7])
+                .silenceSurvivesNativeMuteRelease
+        )
+    }
+
+    func testSilenceFromZeroVolumeSurvivesNativeMuteRelease() {
+        XCTAssertTrue(
+            makeSnapshot(muteValues: [0], volumeValues: [0])
+                .silenceSurvivesNativeMuteRelease
+        )
+        XCTAssertTrue(
+            makeSnapshot(muteValues: [1], volumeValues: [0])
+                .silenceSurvivesNativeMuteRelease
+        )
+    }
+
+    func testPartiallyReleasableSilenceDoesNotSurvive() {
+        // Releasing native mute makes channel one audible, so the user gets a voice back even
+        // though channel two stays silent at zero volume.
+        XCTAssertFalse(
+            makeHeterogeneousSnapshot(channelOneMute: 1, channelTwoVolume: 0)
+                .silenceSurvivesNativeMuteRelease
+        )
+    }
+
+    func testAudibleSnapshotHasNoSurvivingSilence() {
+        XCTAssertFalse(
+            makeSnapshot(muteValues: [0], volumeValues: [0.7])
+                .silenceSurvivesNativeMuteRelease
+        )
+    }
+
     func testReceiptRequiresAnExactNonDuplicatedControlTopology() {
         let mute = AudioControl(kind: .mute, element: kAudioObjectPropertyElementMain)
         let volume = AudioControl(kind: .volume, element: kAudioObjectPropertyElementMain)

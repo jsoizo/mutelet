@@ -46,6 +46,7 @@ final class ScreenEdgeIndicatorTests: XCTestCase {
     func testStatesThatMayStillCarrySoundWarn() {
         XCTAssertEqual(appearance(.mixed(deviceName: "Mic")), .warning)
         XCTAssertEqual(appearance(.unsupported(deviceName: "Mic")), .warning)
+        XCTAssertEqual(appearance(.externallySilenced(deviceName: "Mic")), .warning)
         XCTAssertEqual(appearance(.error(message: "failed")), .warning)
         XCTAssertEqual(
             appearance(
@@ -97,6 +98,10 @@ final class ScreenEdgeIndicatorTests: XCTestCase {
         XCTAssertTrue(
             ScreenEdgeIndicatorPresentation
                 .expressesGestureResult(.unsupported(deviceName: "Mic"))
+        )
+        XCTAssertTrue(
+            ScreenEdgeIndicatorPresentation
+                .expressesGestureResult(.externallySilenced(deviceName: "Mic"))
         )
         XCTAssertFalse(ScreenEdgeIndicatorPresentation.expressesGestureResult(.unavailable))
         XCTAssertFalse(

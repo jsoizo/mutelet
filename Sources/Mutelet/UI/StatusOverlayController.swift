@@ -775,7 +775,7 @@ extension MuteStatus {
             .red
         case .mixed, .partial, .error:
             .orange
-        case .loading, .unavailable, .disconnected, .unsupported:
+        case .loading, .unavailable, .disconnected, .unsupported, .externallySilenced:
             .secondary
         }
     }
@@ -796,6 +796,8 @@ extension MuteStatus {
             NSLocalizedString("Disconnected", comment: "Persistent status short title")
         case .unsupported:
             NSLocalizedString("Unsupported", comment: "Persistent status short title")
+        case .externallySilenced:
+            NSLocalizedString("No control", comment: "Persistent status short title")
         case .partial:
             NSLocalizedString("Partial", comment: "Persistent status short title")
         case .error:

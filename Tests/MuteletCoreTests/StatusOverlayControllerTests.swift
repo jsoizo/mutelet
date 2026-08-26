@@ -502,6 +502,15 @@ final class StatusOverlayControllerTests: XCTestCase {
             StatusOverlayInteraction.isActionable(
                 preferences: enabled,
                 mode: .toggle,
+                status: .externallySilenced(deviceName: "Mic"),
+                isBusy: false,
+                isClickInFlight: false
+            )
+        )
+        XCTAssertFalse(
+            StatusOverlayInteraction.isActionable(
+                preferences: enabled,
+                mode: .toggle,
                 status: live,
                 isBusy: false,
                 isClickInFlight: true
@@ -518,6 +527,7 @@ final class StatusOverlayControllerTests: XCTestCase {
             (.unavailable, "No input"),
             (.disconnected(deviceName: "Mic"), "Disconnected"),
             (.unsupported(deviceName: "Mic"), "Unsupported"),
+            (.externallySilenced(deviceName: "Mic"), "No control"),
             (.partial(deviceName: "All", muted: 0, live: 0, mixed: 0, unsupported: 1, failed: 0), "Partial"),
             (.error(message: "Failed"), "Error"),
         ]

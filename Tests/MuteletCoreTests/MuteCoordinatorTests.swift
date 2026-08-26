@@ -1188,6 +1188,182 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNotNil(usbReceipt)
     }
 
+    func testVolumeSilencedInputWithoutReceiptIsNotReportedAsMuted() async {
+        let audio = FakeAudioController(state: .muted, volumeSilenced: true)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+
+        await coordinator.start()
+
+        XCTAssertEqual(coordinator.status, .externallySilenced(deviceName: "Test Input"))
+        XCTAssertFalse(coordinator.status.canToggle)
+        XCTAssertFalse(coordinator.status.isMuted)
+    }
+
+    func testASavedValueKeepsAMuteletMuteReportedAsMuted() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let firstSession = MuteCoordinator(audioController: audio, receiptStore: store)
+        await firstSession.start()
+        await firstSession.toggle()
+        await firstSession.shutdown()
+
+        let secondSession = MuteCoordinator(audioController: audio, receiptStore: store)
+        await secondSession.start()
+
+        XCTAssertEqual(secondSession.status, .muted(deviceName: "Test Input"))
+        XCTAssertTrue(secondSession.status.canToggle)
+    }
+
+    func testAMuteletMuteWithoutItsSavedValueIsReportedAsSilencedOutside() async {
+        let audio = FakeAudioController(state: .live)
+        let store = InMemoryReceiptStore()
+        let firstSession = MuteCoordinator(audioController: audio, receiptStore: store)
+        await firstSession.start()
+        await firstSession.toggle()
+        await firstSession.shutdown()
+        await store.removeReceipt(deviceUID: FakeAudioController.uid)
+
+        let secondSession = MuteCoordinator(audioController: audio, receiptStore: store)
+        await secondSession.start()
+
+        XCTAssertEqual(
+            secondSession.status,
+            .externallySilenced(deviceName: "Test Input")
+        )
+    }
+
+    func testTogglingAVolumeSilencedInputChangesNothing() async {
+        let audio = FakeAudioController(state: .muted, volumeSilenced: true)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let unmuteCalls = await audio.unmuteCallCount()
+        let muteCalls = await audio.muteCallCount()
+        XCTAssertEqual(unmuteCalls, 0)
+        XCTAssertEqual(muteCalls, 0)
+        XCTAssertEqual(coordinator.status, .externallySilenced(deviceName: "Test Input"))
+    }
+
+    func testPushToTalkOnAVolumeSilencedInputReportsItInsteadOfAnError() async {
+        let audio = FakeAudioController(state: .muted, volumeSilenced: true)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.handleHotKey(.pressed)
+
+        XCTAssertEqual(coordinator.status, .externallySilenced(deviceName: "Test Input"))
+    }
+
+    func testExternalNativeMuteIsStillRestoredWithoutAReceipt() async {
+        let audio = FakeAudioController(state: .muted)
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "Test Input"))
+
+        await coordinator.toggle()
+
+        let unmuteCalls = await audio.unmuteCallCount()
+        XCTAssertEqual(unmuteCalls, 1)
+        XCTAssertEqual(coordinator.status, .live(deviceName: "Test Input"))
+    }
+
+    func testUnmuteThatLeavesTheInputSilentIsReportedAsAFailure() async {
+        let audio = FakeAudioController(state: .muted, ignoresUnmute: true)
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.toggle()
+
+        let unmuteCalls = await audio.unmuteCallCount()
+        XCTAssertEqual(unmuteCalls, 1)
+        if case let .error(message) = coordinator.status {
+            XCTAssertEqual(message, "The microphone could not be controlled.")
+        } else {
+            XCTFail("Expected an unconfirmed unmute to fail")
+        }
+    }
+
+    func testAllInputsRestoresReceiptsWhileSkippingAVolumeSilencedInput() async {
+        let audio = MultiDeviceAudioController(
+            states: ["airpods": .muted, "built-in": .live],
+            defaultUID: "built-in",
+            volumeSilencedUIDs: ["airpods"]
+        )
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(audioController: audio, receiptStore: store)
+        await coordinator.start()
+        await coordinator.selectTarget(.allInputs)
+        await coordinator.toggle()
+
+        await coordinator.toggle()
+
+        let builtInState = await audio.state(uid: "built-in")
+        let airPodsState = await audio.state(uid: "airpods")
+        let builtInReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertEqual(builtInState, .live)
+        XCTAssertEqual(airPodsState, .muted)
+        XCTAssertNil(builtInReceipt)
+        XCTAssertEqual(
+            coordinator.status,
+            .partial(
+                deviceName: "All Inputs",
+                muted: 0,
+                live: 1,
+                mixed: 0,
+                unsupported: 1,
+                failed: 0
+            )
+        )
+    }
+
+    func testAllInputsUnmutesWhatItCanAndLeavesTheVolumeSilencedInputAlone() async {
+        let audio = MultiDeviceAudioController(
+            states: ["airpods": .muted, "built-in": .muted],
+            defaultUID: "built-in",
+            volumeSilencedUIDs: ["airpods"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+        await coordinator.selectTarget(.allInputs)
+
+        await coordinator.toggle()
+
+        let builtInState = await audio.state(uid: "built-in")
+        let airPodsState = await audio.state(uid: "airpods")
+        XCTAssertEqual(builtInState, .live)
+        XCTAssertEqual(airPodsState, .muted)
+        XCTAssertEqual(
+            coordinator.status,
+            .partial(
+                deviceName: "All Inputs",
+                muted: 0,
+                live: 1,
+                mixed: 0,
+                unsupported: 1,
+                failed: 0
+            )
+        )
+    }
+
     func testAllInputsReportsUnsupportedDeviceAsPartial() async {
         let audio = MultiDeviceAudioController(
             states: ["built-in": .muted, "virtual": .unsupported],
@@ -1437,6 +1613,9 @@ private actor FakeAudioController: AudioDeviceControlling {
     private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
     private var remainingSuspendedUnmutes: Int
     private let restoresIncorrectly: Bool
+    private let isVolumeSilenced: Bool
+    private let ignoresUnmute: Bool
+    private var muteWroteZeroVolume = false
     private var unmuteContinuation: CheckedContinuation<Void, Never>?
     private var shouldSuspendNextSnapshot = false
     private var snapshotContinuation: CheckedContinuation<Void, Never>?
@@ -1447,12 +1626,16 @@ private actor FakeAudioController: AudioDeviceControlling {
         state: AudioDeviceMuteState,
         hasDefaultInput: Bool = true,
         suspendsUnmute: Bool = false,
-        restoresIncorrectly: Bool = false
+        restoresIncorrectly: Bool = false,
+        volumeSilenced: Bool = false,
+        ignoresUnmute: Bool = false
     ) {
         self.state = state
         self.hasDefaultInput = hasDefaultInput
         self.remainingSuspendedUnmutes = suspendsUnmute ? 1 : 0
         self.restoresIncorrectly = restoresIncorrectly
+        self.isVolumeSilenced = volumeSilenced
+        self.ignoresUnmute = ignoresUnmute
     }
 
     func inputDevices() -> [AudioDeviceDescriptor] {
@@ -1478,10 +1661,18 @@ private actor FakeAudioController: AudioDeviceControlling {
                 AudioControlValue(control: Self.volumeControl, value: 0.7),
             ]
         case .muted:
-            [
-                AudioControlValue(control: Self.muteControl, value: 1),
-                AudioControlValue(control: Self.volumeControl, value: 0),
-            ]
+            isVolumeSilenced
+                ? [
+                    AudioControlValue(control: Self.muteControl, value: 0),
+                    AudioControlValue(control: Self.volumeControl, value: 0),
+                ]
+                : [
+                    AudioControlValue(control: Self.muteControl, value: 1),
+                    AudioControlValue(
+                        control: Self.volumeControl,
+                        value: muteWroteZeroVolume ? 0 : 0.7
+                    ),
+                ]
         case .mixed:
             [
                 AudioControlValue(control: Self.muteControl, value: 0),
@@ -1501,6 +1692,8 @@ private actor FakeAudioController: AudioDeviceControlling {
     ) -> AudioMutationReceipt {
         muteCalls += 1
         state = .muted
+        // The real controller writes both controls, so a Mutelet mute leaves volume at zero.
+        muteWroteZeroVolume = true
         return receipt ?? Self.originalReceipt
     }
 
@@ -1527,6 +1720,9 @@ private actor FakeAudioController: AudioDeviceControlling {
                 unmuteContinuation = continuation
             }
         }
+        // Clearing native mute cannot wake an input that a zero volume silenced.
+        guard !isVolumeSilenced, !ignoresUnmute else { return }
+        muteWroteZeroVolume = false
         state = restoresIncorrectly ? .mixed : .live
     }
 
@@ -1720,6 +1916,8 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
     private var defaultUID: String
     private var names: [String: String]
     private let volumeOnlyUIDs: Set<String>
+    private let volumeSilencedUIDs: Set<String>
+    private var muteWroteZeroVolumeUIDs: Set<String> = []
     private var eventContinuation: AsyncStream<AudioHardwareEvent>.Continuation?
     private var muteCalls: Set<String> = []
     private var muteAttempts: [String: Int] = [:]
@@ -1743,6 +1941,7 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
         defaultUID: String,
         names: [String: String] = [:],
         volumeOnlyUIDs: Set<String> = [],
+        volumeSilencedUIDs: Set<String> = [],
         duplicateUIDs: Set<String> = [],
         expandedTopologyUIDs: Set<String> = [],
         operationRecorder: OperationRecorder? = nil
@@ -1751,6 +1950,7 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
         self.defaultUID = defaultUID
         self.names = names
         self.volumeOnlyUIDs = volumeOnlyUIDs
+        self.volumeSilencedUIDs = volumeSilencedUIDs
         self.duplicateUIDs = duplicateUIDs
         self.expandedTopologyUIDs = expandedTopologyUIDs
         self.operationRecorder = operationRecorder
@@ -1789,17 +1989,25 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
                 AudioControlValue(control: Self.volumeControl, value: 0.7),
             ]
         case .muted:
-            [
-                AudioControlValue(control: Self.muteControl, value: 1),
-                AudioControlValue(control: Self.volumeControl, value: 0),
-            ]
+            volumeSilencedUIDs.contains(deviceUID)
+                ? [
+                    AudioControlValue(control: Self.muteControl, value: 0),
+                    AudioControlValue(control: Self.volumeControl, value: 0),
+                ]
+                : [
+                    AudioControlValue(control: Self.muteControl, value: 1),
+                    AudioControlValue(
+                        control: Self.volumeControl,
+                        value: muteWroteZeroVolumeUIDs.contains(deviceUID) ? 0 : 0.7
+                    ),
+                ]
         case .mixed:
             [
                 AudioControlValue(control: Self.muteControl, value: 0),
-                AudioControlValue(control: Self.volumeControl, value: 0),
+                AudioControlValue(control: Self.volumeControl, value: 0.7),
                 AudioControlValue(
                     control: AudioControl(kind: .volume, element: 1),
-                    value: 0.7
+                    value: 0
                 ),
             ]
         case .unsupported:
@@ -1840,11 +2048,22 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
         muteCalls.insert(deviceUID)
         states[deviceUID] = .muted
         await operationRecorder?.record("audio.mute:\(deviceUID)")
+        let wasVolumeSilenced = volumeSilencedUIDs.contains(deviceUID)
+        let wasZeroVolume = wasVolumeSilenced
+            || (state == .muted && muteWroteZeroVolumeUIDs.contains(deviceUID))
+        // The real controller writes both controls, so a Mutelet mute leaves volume at zero.
+        muteWroteZeroVolumeUIDs.insert(deviceUID)
         return receipt ?? AudioMutationReceipt(
             deviceUID: deviceUID,
             originalValues: [
-                AudioControlValue(control: Self.muteControl, value: state == .muted ? 1 : 0),
-                AudioControlValue(control: Self.volumeControl, value: state == .muted ? 0 : 0.7),
+                AudioControlValue(
+                    control: Self.muteControl,
+                    value: state == .muted && !wasVolumeSilenced ? 1 : 0
+                ),
+                AudioControlValue(
+                    control: Self.volumeControl,
+                    value: wasZeroVolume ? 0 : 0.7
+                ),
             ]
         )
     }
@@ -1894,7 +2113,11 @@ actor MultiDeviceAudioController: AudioDeviceControlling {
         guard state != .unsupported else {
             throw MultiDeviceAudioError.unsupportedDevice(deviceUID)
         }
-        states[deviceUID] = .live
+        // Clearing native mute cannot wake an input that a zero volume silenced.
+        if !volumeSilencedUIDs.contains(deviceUID) {
+            muteWroteZeroVolumeUIDs.remove(deviceUID)
+            states[deviceUID] = .live
+        }
         await operationRecorder?.record("audio.unmute:\(deviceUID)")
     }
 

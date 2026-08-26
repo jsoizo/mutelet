@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Configurable HUD size, position, display target, duration, and manual preview.
 - Optional session mute maintenance across default-input changes, device reconnection, external unmute attempts, and sleep/wake.
 
+### Changed
+
+- Push to Talk shows HUD feedback on every press and release instead of only when the mode is selected.
+- Automatic mute maintenance reports its result immediately instead of delaying the HUD, and repeats of what the HUD already shows are dropped.
+
 ## [0.1.0] - 2026-08-11
 
 ### Added

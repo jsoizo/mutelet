@@ -182,20 +182,108 @@ final class StatusOverlayControllerTests: XCTestCase {
         await coordinator.stop()
     }
 
-    func testMaintenanceAnnouncementsAreSuppressedOnlyWithinCoalescingWindow() {
-        var gate = MaintenanceAnnouncementGate(coalescingInterval: 2)
-
-        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 10))
-        XCTAssertFalse(gate.shouldAnnounce(signature: "maintained:Muted", at: 11.999))
-        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 12))
+    func testHotKeyHUDIsPresentedForEveryPressAndForPushToTalkReleasesOnly() {
+        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .pressed, mode: .toggle))
+        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .pressed, mode: .pushToTalk))
+        XCTAssertTrue(HotKeyHUDPresentation.presents(event: .released, mode: .pushToTalk))
+        XCTAssertFalse(HotKeyHUDPresentation.presents(event: .released, mode: .toggle))
     }
 
-    func testDifferentMaintenanceAnnouncementBypassesCoalescingWindow() {
-        var gate = MaintenanceAnnouncementGate(coalescingInterval: 2)
+    func testMaintainedFeedbackSharesTheSignatureOfItsStatus() {
+        let status = MuteStatus.muted(deviceName: "Built-in Microphone")
 
-        XCTAssertTrue(gate.shouldAnnounce(signature: "maintained:Muted", at: 10))
-        XCTAssertTrue(gate.shouldAnnounce(signature: "restoration:Error:usb", at: 10.1))
-        XCTAssertFalse(gate.shouldAnnounce(signature: "restoration:Error:usb", at: 11))
+        XCTAssertEqual(
+            HUDContentSignature.signature(for: .maintained(sequence: 1, status: status)),
+            HUDContentSignature.signature(for: status)
+        )
+    }
+
+    func testRestorationFailureSignatureIgnoresDeviceOrder() {
+        func signature(_ deviceUIDs: [String]) -> String {
+            HUDContentSignature.signature(
+                for: .restorationFailed(
+                    sequence: 1,
+                    currentStatus: .muted(deviceName: "Built-in Microphone"),
+                    devices: deviceUIDs.map {
+                        RestorationWarningItem(deviceUID: $0, deviceName: $0)
+                    }
+                )
+            )
+        }
+
+        XCTAssertEqual(signature(["usb", "built-in"]), signature(["built-in", "usb"]))
+        XCTAssertNotEqual(signature(["usb"]), signature(["built-in"]))
+    }
+
+    func testRepeatedHUDContentIsDroppedOnlyWithinCoalescingWindow() {
+        var gate = HUDPresentationGate(coalescingInterval: 2)
+        let signature = HUDContentSignature.signature(
+            for: .muted(deviceName: "Built-in Microphone")
+        )
+
+        XCTAssertTrue(gate.allowsPresentation(signature: signature, at: 10))
+        gate.recordPresentation(signature: signature, at: 10)
+        XCTAssertFalse(gate.allowsPresentation(signature: signature, at: 11.999))
+        XCTAssertTrue(gate.allowsPresentation(signature: signature, at: 12))
+    }
+
+    func testMaintainedFeedbackForAnotherDeviceIsPresentedWithinCoalescingWindow() {
+        var gate = HUDPresentationGate(coalescingInterval: 2)
+        gate.recordPresentation(
+            signature: HUDContentSignature.signature(
+                for: .muted(deviceName: "Built-in Microphone")
+            ),
+            at: 10
+        )
+
+        XCTAssertFalse(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(
+                    for: .maintained(
+                        sequence: 1,
+                        status: .muted(deviceName: "Built-in Microphone")
+                    )
+                ),
+                at: 10.3
+            )
+        )
+        XCTAssertTrue(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(
+                    for: .maintained(sequence: 2, status: .muted(deviceName: "Headset"))
+                ),
+                at: 10.3
+            )
+        )
+    }
+
+    func testRepeatedRestorationFailureIsDroppedWithinCoalescingWindow() {
+        var gate = HUDPresentationGate(coalescingInterval: 2)
+        let failure = AutomaticMuteMaintenanceFeedback.restorationFailed(
+            sequence: 1,
+            currentStatus: .muted(deviceName: "Built-in Microphone"),
+            devices: [RestorationWarningItem(deviceUID: "usb", deviceName: "USB Microphone")]
+        )
+        let signature = HUDContentSignature.signature(for: failure)
+
+        XCTAssertTrue(gate.allowsPresentation(signature: signature, at: 10))
+        gate.recordPresentation(signature: signature, at: 10)
+        XCTAssertFalse(gate.allowsPresentation(signature: signature, at: 10.1))
+        XCTAssertTrue(
+            gate.allowsPresentation(
+                signature: HUDContentSignature.signature(
+                    for: .restorationFailed(
+                        sequence: 2,
+                        currentStatus: .muted(deviceName: "Built-in Microphone"),
+                        devices: [
+                            RestorationWarningItem(deviceUID: "usb", deviceName: "USB Microphone"),
+                            RestorationWarningItem(deviceUID: "hdmi", deviceName: "HDMI Input"),
+                        ]
+                    )
+                ),
+                at: 10.1
+            )
+        )
     }
 
     func testDisplayTargetReconcilesLastKnownNameByUUID() {

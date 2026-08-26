@@ -67,7 +67,7 @@ New targets are read back as muted before former targets are restored from recei
 
 Sleep suspends listeners and workers while retaining the process-local intent; wake resumes from a fresh inventory. Shutdown discards the intent. Persisted receipts protect restoration after failures, but are never interpreted as a mute intent on the next launch.
 
-The HUD intentionally appears once when entering Push to Talk, not on every press and release. Toggle mode continues to show state feedback for each action.
+The HUD reports state for every hot-key press, and in Push to Talk also on release because release changes state. Entering Push to Talk announces the shortcut once. Automatic maintenance results are matched by content against the last HUD presentation and dropped when they repeat it within two seconds, so a remute confirming what a press already showed never appears, while a result for another device or a new restoration failure does.
 
 The persistent status can optionally invoke the same toggle command, but only in Toggle mode while the coordinator is actionable and idle. Passive status refreshes do not announce through VoiceOver. A click result is announced by either the transient HUD or the persistent status, never both.
 

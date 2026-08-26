@@ -26,25 +26,48 @@ enum StatusOverlayCoordinatorObservation {
     }
 }
 
-struct MaintenanceAnnouncementGate {
+enum HotKeyHUDPresentation {
+    static func presents(event: GlobalHotKeyEvent, mode: MuteMode) -> Bool {
+        // Toggle mode does not change state on release, so it has nothing to report.
+        event == .pressed || mode == .pushToTalk
+    }
+}
+
+enum HUDContentSignature {
+    static func signature(for status: MuteStatus) -> String {
+        "status:\(status.title)"
+    }
+
+    static func signature(for feedback: AutomaticMuteMaintenanceFeedback) -> String {
+        switch feedback {
+        case let .maintained(_, status):
+            // Shares the plain status signature so an automatic remute cannot repeat
+            // what a hot key or a mode change already showed.
+            return signature(for: status)
+        case let .restorationFailed(_, status, devices):
+            let deviceUIDs = devices.map(\.deviceUID).sorted().joined(separator: ",")
+            return "restoration:\(status.title):\(deviceUIDs)"
+        }
+    }
+}
+
+struct HUDPresentationGate {
     private let coalescingInterval: TimeInterval
     private var lastSignature: String?
-    private var lastAnnouncementTime: TimeInterval = -.infinity
+    private var lastPresentationTime: TimeInterval = -.infinity
 
     init(coalescingInterval: TimeInterval = 2) {
         self.coalescingInterval = coalescingInterval
     }
 
-    mutating func shouldAnnounce(
-        signature: String,
-        at time: TimeInterval
-    ) -> Bool {
-        guard signature != lastSignature
-                || time - lastAnnouncementTime >= coalescingInterval else {
-            return false
-        }
+    // Repeats of what the HUD already shows are dropped rather than delayed; delaying them
+    // used to surface a state that had changed in the meantime.
+    func allowsPresentation(signature: String, at time: TimeInterval) -> Bool {
+        signature != lastSignature || time - lastPresentationTime >= coalescingInterval
+    }
+
+    mutating func recordPresentation(signature: String, at time: TimeInterval) {
         lastSignature = signature
-        lastAnnouncementTime = time
-        return true
+        lastPresentationTime = time
     }
 }

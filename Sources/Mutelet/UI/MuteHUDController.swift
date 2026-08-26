@@ -47,8 +47,7 @@ final class MuteHUDController {
 
     func showMaintenanceFeedback(
         _ feedback: AutomaticMuteMaintenanceFeedback,
-        preferences: HUDPreferences,
-        announces: Bool
+        preferences: HUDPreferences
     ) {
         switch feedback {
         case let .maintained(_, status):
@@ -57,8 +56,7 @@ final class MuteHUDController {
                 detail: status.hudDetail,
                 systemImageName: status.systemImageName,
                 color: status.interfaceColor,
-                preferences: preferences,
-                announces: announces
+                preferences: preferences
             )
         case let .restorationFailed(_, _, devices):
             let detail: String
@@ -81,8 +79,7 @@ final class MuteHUDController {
                 detail: detail,
                 systemImageName: "exclamationmark.triangle.fill",
                 color: .orange,
-                preferences: preferences,
-                announces: announces
+                preferences: preferences
             )
         }
     }
@@ -92,8 +89,7 @@ final class MuteHUDController {
         detail: String?,
         systemImageName: String,
         color: Color,
-        preferences: HUDPreferences,
-        announces: Bool = true
+        preferences: HUDPreferences
     ) {
         presentationGeneration += 1
         let generation = presentationGeneration
@@ -153,9 +149,7 @@ final class MuteHUDController {
         for panel in activePanels {
             panel.orderFrontRegardless()
         }
-        if announces {
-            postAnnouncement(title: title, detail: detail)
-        }
+        postAnnouncement(title: title, detail: detail)
 
         guard !disablesAutomaticDismissal else { return }
 

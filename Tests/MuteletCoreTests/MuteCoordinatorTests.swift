@@ -1188,6 +1188,136 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNotNil(usbReceipt)
     }
 
+    func testPushToTalkSwitchesAwayFromADisconnectedTarget() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        await audio.disconnect(uid: "usb")
+        await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
+        await coordinator.selectTarget(.device(uid: "built-in", name: "built-in"))
+
+        let builtInState = await audio.state(uid: "built-in")
+        XCTAssertEqual(coordinator.target, .device(uid: "built-in", name: "built-in"))
+        XCTAssertEqual(coordinator.status, .muted(deviceName: "built-in"))
+        XCTAssertEqual(builtInState, .muted)
+    }
+
+    func testTargetLeftWhileDisconnectedIsRestoredWhenItReconnects() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: store,
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        await audio.disconnect(uid: "usb")
+        await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
+        await coordinator.selectTarget(.device(uid: "built-in", name: "built-in"))
+        await audio.connect(uid: "usb", state: .muted)
+
+        await waitUntil {
+            let usbState = await audio.state(uid: "usb")
+            let usbReceipt = await store.receipt(deviceUID: "usb")
+            return usbState == .live && usbReceipt == nil
+        }
+
+        let builtInState = await audio.state(uid: "built-in")
+        XCTAssertEqual(builtInState, .muted)
+        XCTAssertTrue(coordinator.restorationWarnings.isEmpty)
+    }
+
+    func testPushToTalkTargetChangeToADisconnectedInputRestoresTheOldTarget() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let store = InMemoryReceiptStore()
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: store,
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        let builtInState = await audio.state(uid: "built-in")
+        let builtInReceipt = await store.receipt(deviceUID: "built-in")
+        XCTAssertEqual(coordinator.target, .device(uid: "usb", name: "USB Mic"))
+        XCTAssertEqual(coordinator.status, .disconnected(deviceName: "USB Mic"))
+        XCTAssertEqual(builtInState, .live)
+        XCTAssertNil(builtInReceipt)
+    }
+
+    func testDisconnectedPushToTalkTargetIsNotRetriedOrReportedAsUncontrollable() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let sleeps = DurationRecorder()
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { duration in await sleeps.record(duration) }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        await audio.disconnect(uid: "usb")
+        await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
+        try? await Task.sleep(for: .milliseconds(100))
+
+        let recordedSleeps = await sleeps.values()
+        XCTAssertEqual(recordedSleeps, [])
+        XCTAssertEqual(coordinator.status, .disconnected(deviceName: "USB Mic"))
+    }
+
+    func testCancellingAGestureSucceedsWhileTheTargetIsDisconnected() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live, "usb": .live],
+            defaultUID: "built-in",
+            names: ["usb": "USB Mic"]
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { _ in }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+        await coordinator.handleHotKey(.pressed)
+
+        await audio.disconnect(uid: "usb")
+        await waitUntil { coordinator.status == .disconnected(deviceName: "USB Mic") }
+        let cancelledSafely = await coordinator.cancelActiveHotKeyGesture()
+
+        XCTAssertTrue(cancelledSafely)
+        XCTAssertEqual(coordinator.status, .disconnected(deviceName: "USB Mic"))
+    }
+
     func testVolumeSilencedInputWithoutReceiptIsNotReportedAsMuted() async {
         let audio = FakeAudioController(state: .muted, volumeSilenced: true)
         let coordinator = MuteCoordinator(

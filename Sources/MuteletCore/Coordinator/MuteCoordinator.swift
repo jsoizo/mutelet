@@ -56,15 +56,36 @@ public final class MuteCoordinator: ObservableObject {
     }
 
     private struct MuteAttemptResult {
-        let succeeded: Bool
+        enum Outcome {
+            case completed
+            // An unsupported input is not counted as a failure, so this can carry none at all.
+            case incomplete
+            case noTargetResolved
+            case superseded
+        }
+
+        let outcome: Outcome
         let confirmedUIDs: Set<String>
         let failureCount: Int
 
-        static let cancelled = MuteAttemptResult(
-            succeeded: false,
+        static let superseded = MuteAttemptResult(
+            outcome: .superseded,
             confirmedUIDs: [],
             failureCount: 0
         )
+
+        static let noTargetResolved = MuteAttemptResult(
+            outcome: .noTargetResolved,
+            confirmedUIDs: [],
+            failureCount: 0
+        )
+
+        var succeeded: Bool { outcome == .completed }
+
+        // A target that resolves to no device cannot carry sound, so muting protects nothing.
+        var targetCannotCarrySound: Bool {
+            outcome == .completed || outcome == .noTargetResolved
+        }
     }
 
     public var canToggle: Bool {
@@ -266,7 +287,7 @@ public final class MuteCoordinator: ObservableObject {
             ? Set(previousDevices.map(\.uid))
             : activeTargetUIDs
         if mode == .pushToTalk {
-            guard await muteIfNeeded(forceForSafety: true).succeeded else { return }
+            guard await muteIfNeeded(forceForSafety: true).targetCannotCarrySound else { return }
             guard selectionGeneration == targetSelectionGeneration else { return }
             isHotKeyPressed = false
         } else if !hasToggleMuteIntent {
@@ -284,7 +305,7 @@ public final class MuteCoordinator: ObservableObject {
 
         if mode == .pushToTalk {
             let result = await muteIfNeeded(forceForSafety: true)
-            guard result.succeeded else { return }
+            guard result.targetCannotCarrySound else { return }
             transitionActiveTargets(to: result.confirmedUIDs)
             let currentUIDs = Set(
                 ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
@@ -407,7 +428,7 @@ public final class MuteCoordinator: ObservableObject {
         guard isHotKeyPressed else { return true }
         if mode == .pushToTalk {
             let result = await muteIfNeeded(forceForSafety: true)
-            guard result.succeeded else { return false }
+            guard result.targetCannotCarrySound else { return false }
             transitionActiveTargets(to: result.confirmedUIDs)
         }
         isHotKeyPressed = false
@@ -547,12 +568,14 @@ public final class MuteCoordinator: ObservableObject {
         }
         if let expectedGeneration,
            expectedGeneration != maintenanceGeneration {
-            return .cancelled
+            return .superseded
         }
         if !forceForSafety {
+            // Nothing to write, reported as completed. Only safety callers read
+            // targetCannotCarrySound, and they all force the attempt past this check.
             guard status.canToggle, !shouldUnmuteTargets else {
                 return MuteAttemptResult(
-                    succeeded: true,
+                    outcome: .completed,
                     confirmedUIDs: [],
                     failureCount: 0
                 )
@@ -563,7 +586,7 @@ public final class MuteCoordinator: ObservableObject {
             let devices = try await resolvedTargetDevices()
             guard !devices.isEmpty else {
                 await refreshStatus()
-                return .cancelled
+                return .noTargetResolved
             }
 
             var failures = 0
@@ -574,7 +597,7 @@ public final class MuteCoordinator: ObservableObject {
                     if let expectedGeneration,
                        expectedGeneration != maintenanceGeneration {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     guard device.capabilities.isSupported else {
                         throw CoreAudioError.unsupportedDevice(uid: device.uid)
@@ -583,7 +606,7 @@ public final class MuteCoordinator: ObservableObject {
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     if snapshot.muteState == .muted {
                         confirmedUIDs.insert(device.uid)
@@ -594,7 +617,7 @@ public final class MuteCoordinator: ObservableObject {
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     var preparedReceiptChanged = false
                     if receipt == nil {
@@ -623,7 +646,7 @@ public final class MuteCoordinator: ObservableObject {
                             )
                         }
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     do {
                         _ = try await audioController.mute(
@@ -641,7 +664,7 @@ public final class MuteCoordinator: ObservableObject {
                         if let expectedGeneration,
                            expectedGeneration != maintenanceGeneration {
                             enqueueForRestoration(confirmedUIDs)
-                            return .cancelled
+                            return .superseded
                         }
                     } catch {
                         let mutationError = error
@@ -683,16 +706,17 @@ public final class MuteCoordinator: ObservableObject {
             if failures > 0, target != .allInputs, let firstError {
                 status = .error(message: userFacingErrorMessage(for: firstError))
             }
+            let allConfirmed = failures == 0
+                && confirmedUIDs.count == Set(devices.map(\.uid)).count
             return MuteAttemptResult(
-                succeeded: failures == 0
-                    && confirmedUIDs.count == Set(devices.map(\.uid)).count,
+                outcome: allConfirmed ? .completed : .incomplete,
                 confirmedUIDs: confirmedUIDs,
                 failureCount: failures
             )
         } catch {
             status = .error(message: userFacingErrorMessage(for: error))
             return MuteAttemptResult(
-                succeeded: false,
+                outcome: .incomplete,
                 confirmedUIDs: [],
                 failureCount: 1
             )
@@ -1073,7 +1097,7 @@ public final class MuteCoordinator: ObservableObject {
                     currentTargetFailures: 0
                 )
             }
-            needsRetry = !muteResult.succeeded
+            needsRetry = muteResult.outcome == .incomplete
             currentTargetFailures = muteResult.failureCount
 
             if muteResult.succeeded {
@@ -1115,7 +1139,14 @@ public final class MuteCoordinator: ObservableObject {
 
         for uid in pendingRestoreNames.keys.sorted() {
             guard generation == maintenanceGeneration else { break }
+            // A target this pass is keeping muted owes a mute, not a restoration. Handing it
+            // back later re-enqueues it, and the receipt outlives this queue either way. The
+            // queue is left alone while a Push to Talk key is held, because nothing is
+            // keeping that target muted and activeTargetUIDs is not being refreshed.
             guard !desiredUIDs.contains(uid) else {
+                if requiresCurrentTargetMuted {
+                    pendingRestoreNames.removeValue(forKey: uid)
+                }
                 maintenanceFailureNames.removeValue(forKey: uid)
                 continue
             }

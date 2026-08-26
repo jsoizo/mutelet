@@ -888,7 +888,7 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertNotNil(oldReceipt)
     }
 
-    func testPushToTalkTargetChangeStopsWhenCurrentTargetIsUnsupported() async {
+    func testPushToTalkSwitchesAwayFromAnUnsupportedTarget() async {
         let audio = MultiDeviceAudioController(
             states: ["unsupported": .unsupported, "usb": .live],
             defaultUID: "unsupported",
@@ -903,9 +903,34 @@ final class MuteCoordinatorTests: XCTestCase {
 
         await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
 
-        XCTAssertEqual(coordinator.target, .systemDefault)
+        XCTAssertEqual(coordinator.target, .device(uid: "usb", name: "USB Mic"))
         let usbState = await audio.state(uid: "usb")
-        XCTAssertEqual(usbState, .live)
+        XCTAssertEqual(usbState, .muted)
+    }
+
+    func testUnsupportedPushToTalkTargetKeepsReportingItsCapability() async {
+        let audio = MultiDeviceAudioController(
+            states: ["unsupported": .unsupported],
+            defaultUID: "unsupported"
+        )
+        let sleeps = DurationRecorder()
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore(),
+            maintenanceSleep: { duration in await sleeps.record(duration) }
+        )
+        await coordinator.start()
+        await coordinator.setMode(.pushToTalk)
+
+        await coordinator.handleHotKey(.pressed)
+        await coordinator.handleHotKey(.released)
+
+        let recordedSleeps = await sleeps.values()
+        XCTAssertEqual(
+            Array(recordedSleeps.prefix(3)),
+            [.milliseconds(100), .milliseconds(300), .milliseconds(600)]
+        )
+        XCTAssertEqual(coordinator.status, .unsupported(deviceName: "unsupported"))
     }
 
     func testSelectingCurrentTargetCancelsInFlightTargetChange() async {

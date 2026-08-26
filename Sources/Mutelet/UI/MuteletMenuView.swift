@@ -273,7 +273,7 @@ extension MuteStatus {
             .red
         case .mixed, .partial, .error:
             .orange
-        case .loading, .unavailable, .disconnected, .unsupported:
+        case .loading, .unavailable, .disconnected, .unsupported, .externallySilenced:
             .secondary
         }
     }
@@ -294,6 +294,11 @@ extension MuteStatus {
             NSLocalizedString("Input disconnected", comment: "Disconnected input state")
         case .unsupported:
             NSLocalizedString("Unsupported input", comment: "Unsupported input state")
+        case .externallySilenced:
+            NSLocalizedString(
+                "Silenced outside Mutelet",
+                comment: "Input silenced outside Mutelet state"
+            )
         case .partial:
             NSLocalizedString("Partial mute", comment: "Partial mute state")
         case .error:
@@ -309,7 +314,8 @@ extension MuteStatus {
              let .muted(deviceName),
              let .mixed(deviceName),
              let .disconnected(deviceName),
-             let .unsupported(deviceName):
+             let .unsupported(deviceName),
+             let .externallySilenced(deviceName):
             deviceName
         case let .partial(deviceName, muted, live, mixed, unsupported, failed):
             String(

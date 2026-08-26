@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Push to Talk shows HUD feedback on every press and release instead of only when the mode is selected.
 - Automatic mute maintenance reports its result immediately instead of delaying the HUD, and repeats of what the HUD already shows are dropped.
 
+### Fixed
+
+- An input that is already silent because its volume is zero is no longer reported as muted when Mutelet has no saved value for it. Mutelet reports that the input is silenced outside its control and leaves the shortcut inactive instead of claiming a mute it cannot undo.
+- A restoration without a saved value is read back, so an input that stays silent after the write is reported as a failure instead of appearing to succeed.
+
 ## [0.1.0] - 2026-08-11
 
 ### Added

@@ -106,15 +106,15 @@ actor UITestingAudioController: AudioDeviceControlling {
         case .muted:
             [
                 AudioControlValue(control: Self.muteControl, value: 1),
-                AudioControlValue(control: Self.volumeControl, value: 0),
+                AudioControlValue(control: Self.volumeControl, value: 0.7),
             ]
         case .mixed:
             [
                 AudioControlValue(control: Self.muteControl, value: 0),
-                AudioControlValue(control: Self.volumeControl, value: 0),
+                AudioControlValue(control: Self.volumeControl, value: 0.7),
                 AudioControlValue(
                     control: AudioControl(kind: .volume, element: 1),
-                    value: 0.7
+                    value: 0
                 ),
             ]
         case .unsupported:

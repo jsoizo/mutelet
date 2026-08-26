@@ -389,6 +389,7 @@ private extension MuteStatus {
              let .mixed(deviceName),
              let .disconnected(deviceName),
              let .unsupported(deviceName),
+             let .externallySilenced(deviceName),
              let .partial(deviceName, _, _, _, _, _):
             deviceName
         case let .error(message):

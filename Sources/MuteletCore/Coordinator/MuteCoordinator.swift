@@ -728,6 +728,14 @@ public final class MuteCoordinator: ObservableObject {
                     if onlyWithReceipts, receipt == nil {
                         continue
                     }
+                    // Mutelet did not silence this input and never chose the volume that
+                    // would bring it back. refreshStatus reports it rather than an error.
+                    if receipt == nil,
+                       let current = try? await audioController.snapshot(deviceUID: device.uid),
+                       current.muteState == .muted,
+                       current.silenceSurvivesNativeMuteRelease {
+                        continue
+                    }
                     try await audioController.unmute(
                         deviceUID: device.uid,
                         restoring: receipt
@@ -740,6 +748,14 @@ public final class MuteCoordinator: ObservableObject {
                         try await receiptStore.removeReceipt(deviceUID: device.uid)
                         sessionManagedUIDs.remove(device.uid)
                         maintenanceFailureNames.removeValue(forKey: device.uid)
+                    } else {
+                        // Only unchanged silence is a failure. A partially released input is
+                        // audible again, and reporting it as an error would take away the
+                        // ability to mute it.
+                        let confirmed = try await audioController.snapshot(deviceUID: device.uid)
+                        guard confirmed.muteState != .muted else {
+                            throw CoreAudioError.unmuteNotConfirmed(uid: device.uid)
+                        }
                     }
                 } catch {
                     await discardReceiptIfTopologyChanged(
@@ -810,17 +826,30 @@ public final class MuteCoordinator: ObservableObject {
                 }
             }
 
-            let operableSnapshots = snapshots.filter { $0.muteState != .unsupported }
+            var externallySilencedUIDs: Set<String> = []
+            for snapshot in snapshots {
+                if await isExternallySilenced(snapshot) {
+                    externallySilencedUIDs.insert(snapshot.device.uid)
+                }
+            }
+
+            let operableSnapshots = snapshots.filter {
+                $0.muteState != .unsupported
+                    && !externallySilencedUIDs.contains($0.device.uid)
+            }
             shouldUnmuteTargets = !operableSnapshots.isEmpty
                 && operableSnapshots.allSatisfy { $0.muteState == .muted }
 
             if target == .allInputs {
                 publishAggregateStatus(
                     snapshots: snapshots,
+                    externallySilencedUIDs: externallySilencedUIDs,
                     failures: max(readFailures, additionalFailures)
                 )
             } else if let snapshot = snapshots.first {
-                status = status(for: snapshot)
+                status = externallySilencedUIDs.contains(snapshot.device.uid)
+                    ? .externallySilenced(deviceName: snapshot.device.name)
+                    : status(for: snapshot)
             } else {
                 status = .error(
                     message: NSLocalizedString(
@@ -866,12 +895,19 @@ public final class MuteCoordinator: ObservableObject {
 
     private func publishAggregateStatus(
         snapshots: [AudioDeviceSnapshot],
+        externallySilencedUIDs: Set<String>,
         failures: Int
     ) {
-        let muted = snapshots.filter { $0.muteState == .muted }.count
-        let live = snapshots.filter { $0.muteState == .live }.count
-        let mixed = snapshots.filter { $0.muteState == .mixed }.count
-        let unsupported = snapshots.filter { $0.muteState == .unsupported }.count
+        let controllable = snapshots.filter {
+            !externallySilencedUIDs.contains($0.device.uid)
+        }
+        let muted = controllable.filter { $0.muteState == .muted }.count
+        let live = controllable.filter { $0.muteState == .live }.count
+        let mixed = controllable.filter { $0.muteState == .mixed }.count
+        // An input silenced outside Mutelet can neither be muted nor restored, so the
+        // aggregate counts it with every other input it cannot control.
+        let unsupported = controllable.filter { $0.muteState == .unsupported }.count
+            + externallySilencedUIDs.count
 
         if failures > 0 || unsupported > 0 {
             status = .partial(
@@ -1156,6 +1192,16 @@ public final class MuteCoordinator: ObservableObject {
                 }
                 return $0.deviceName.localizedStandardCompare($1.deviceName) == .orderedAscending
             }
+    }
+
+    // Silence Mutelet did not cause, with no receipt to undo it. The session-managed check
+    // keeps the Push to Talk resting state free of a receipt store hop; it is safe because
+    // every path that removes a receipt removes the UID from that set too.
+    private func isExternallySilenced(_ snapshot: AudioDeviceSnapshot) async -> Bool {
+        guard snapshot.muteState == .muted,
+              snapshot.silenceSurvivesNativeMuteRelease,
+              !sessionManagedUIDs.contains(snapshot.device.uid) else { return false }
+        return await receiptStore.receipt(deviceUID: snapshot.device.uid) == nil
     }
 
     private func status(for snapshot: AudioDeviceSnapshot) -> MuteStatus {

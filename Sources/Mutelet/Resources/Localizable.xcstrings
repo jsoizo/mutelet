@@ -84,6 +84,10 @@
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ミュート" } } }
     },
+    "No control" : {
+      "comment" : "Persistent status short title",
+      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "管理外" } } }
+    },
     "No input" : {
       "comment" : "Persistent status short title",
       "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力なし" } } }
@@ -879,6 +883,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "操作時に状態を表示"
+          }
+        }
+      }
+    },
+    "Silenced outside Mutelet" : {
+      "comment" : "Input silenced outside Mutelet state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mutelet 以外で消音されています"
+          }
+        }
+      }
+    },
+    "Silenced outside Mutelet — %@" : {
+      "comment" : "Input silenced outside Mutelet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：Mutelet 以外で消音されています"
           }
         }
       }

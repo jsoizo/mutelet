@@ -12,6 +12,7 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
     case incompleteRestoration(uid: String)
     case staleSnapshot(uid: String)
     case muteNotConfirmed(uid: String)
+    case unmuteNotConfirmed(uid: String)
 
     public var description: String {
         switch self {
@@ -35,6 +36,8 @@ public enum CoreAudioError: Error, Sendable, CustomStringConvertible {
             return "Input controls for \(uid) changed before they could be muted"
         case let .muteNotConfirmed(uid):
             return "Input device \(uid) did not report a muted state after the write"
+        case let .unmuteNotConfirmed(uid):
+            return "Input device \(uid) did not report an audible state after the write"
         }
     }
 }

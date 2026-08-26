@@ -18,9 +18,11 @@ public enum ScreenEdgeIndicatorPresentation {
         switch status {
         case .live:
             return .live
-        case .mixed, .partial, .unsupported, .error:
+        case .mixed, .partial, .unsupported, .externallySilenced, .error:
             // Sound may still reach the input, so the edge reports it even between gestures.
             // An error leaves the state untrustworthy, which is not a confirmed mute either.
+            // An input silenced outside Mutelet is quiet, but a gesture cannot deliver what
+            // it promises on it, and the edge is the only report a full-screen user sees.
             return .warning
         case .muted, .unavailable, .disconnected, .loading:
             // The outline means "Mutelet is watching", not "the input is muted", so it also
@@ -33,7 +35,7 @@ public enum ScreenEdgeIndicatorPresentation {
     // too, so the edge alone would leave a press that found no microphone unanswered.
     public static func expressesGestureResult(_ status: MuteStatus) -> Bool {
         switch status {
-        case .live, .muted, .mixed, .partial, .unsupported, .error:
+        case .live, .muted, .mixed, .partial, .unsupported, .externallySilenced, .error:
             true
         case .unavailable, .disconnected, .loading:
             false

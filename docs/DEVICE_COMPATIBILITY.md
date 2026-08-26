@@ -8,10 +8,22 @@ Core Audio devices expose different control surfaces. Mutelet inspects each inpu
 | Writable master input volume | Save its value, set it to zero, then restore it | Volume fallback; bypass may be possible |
 | Writable channel volumes | Save each value, set them to zero, then restore them | Volume fallback; bypass may be possible |
 | No writable mute or volume | Do not claim mute; show unsupported | No mute operation |
+| Already silent by zero volume, nothing saved | Report it as silenced outside Mutelet; leave the shortcut inactive | No restoration |
 | Several inputs with mixed results | Show partial counts and warning | No all-input guarantee |
 
 Mutelet never treats an unsupported or failed device as successfully muted.
 Per-channel controls must cover every input channel, using native mute, writable volume, or a combination of both. Partial channel coverage is reported as unsupported instead of muted.
+
+An input that is already silent because its volume is zero has no way back. Mutelet never writes a
+volume the user did not choose, and clearing native mute cannot wake an input a zero volume silenced.
+Such an input is reported as silenced outside Mutelet instead of muted, and the shortcut stays
+inactive until the volume is raised outside Mutelet. Raising it returns the input to the normal live
+state. Silence that clearing native mute only partially lifts does not count: the input becomes
+audible again on the released channels and stays controllable.
+
+A Mutelet mute is undone from the value it saved. If that record is lost, for example when a control
+topology change discards it, the input becomes indistinguishable from silence Mutelet did not cause
+and is reported the same way.
 
 ## Selection and reconnection
 

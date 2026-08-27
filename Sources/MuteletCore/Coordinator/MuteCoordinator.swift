@@ -1147,9 +1147,22 @@ public final class MuteCoordinator: ObservableObject {
 
         let shouldProtectCurrentTarget = mode == .pushToTalk
             || (hasToggleMuteIntent && maintainsMuteOnInputChange)
-        let desiredUIDs = shouldProtectCurrentTarget
-            ? Set(((try? await resolvedTargetDevices()) ?? []).map(\.uid))
-            : []
+        var desiredUIDs: Set<String> = []
+        if shouldProtectCurrentTarget {
+            do {
+                desiredUIDs = Set(try await resolvedTargetDevices().map(\.uid))
+            } catch {
+                // Which inputs are protected is unknown, and treating that as "none" would
+                // restore the current target and drop its receipt. No caller reaches here
+                // with a target that must stay muted today; this keeps that invariant from
+                // depending on it.
+                return MaintenanceAttemptResult(
+                    needsRetry: true,
+                    currentTargetFailures: currentTargetFailures,
+                    limitedByUnsupportedInputs: limitedByUnsupportedInputs
+                )
+            }
+        }
         let restoreFailures = await restorePendingDevices(
             excluding: desiredUIDs,
             generation: generation

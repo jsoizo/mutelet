@@ -24,6 +24,14 @@ public struct AudioDeviceDescriptor: Hashable, Sendable {
         self.isDefaultInput = isDefaultInput
         self.capabilities = capabilities
     }
+
+    // Core Audio kept the object but not a readable identity, so the device cannot be
+    // addressed by UID and no persisted receipt can be matched to it.
+    public static let unresolvedUIDPrefix = "unresolved-core-audio-object-"
+
+    public var hasUnresolvedUID: Bool {
+        uid.hasPrefix(Self.unresolvedUIDPrefix)
+    }
 }
 
 public enum AudioControlKind: String, Codable, Hashable, Sendable {

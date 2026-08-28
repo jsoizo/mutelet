@@ -1343,6 +1343,45 @@ final class MuteCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .disconnected(deviceName: "USB Mic"))
     }
 
+    func testUnreadableInputIsNotReportedAsADisconnectedTarget() async {
+        let audio = MultiDeviceAudioController(
+            states: [
+                "built-in": .live,
+                "\(AudioDeviceDescriptor.unresolvedUIDPrefix)42": .unsupported,
+            ],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        if case let .error(message) = coordinator.status {
+            XCTAssertEqual(message, "The selected input could not be read.")
+        } else {
+            XCTFail("Expected an unreadable input error, got \(coordinator.status)")
+        }
+    }
+
+    func testAbsentTargetIsStillDisconnectedWhenEveryInputIsReadable() async {
+        let audio = MultiDeviceAudioController(
+            states: ["built-in": .live],
+            defaultUID: "built-in"
+        )
+        let coordinator = MuteCoordinator(
+            audioController: audio,
+            receiptStore: InMemoryReceiptStore()
+        )
+        await coordinator.start()
+
+        await coordinator.selectTarget(.device(uid: "usb", name: "USB Mic"))
+
+        XCTAssertEqual(coordinator.status, .disconnected(deviceName: "USB Mic"))
+    }
+
     func testVolumeSilencedInputWithoutReceiptIsNotReportedAsMuted() async {
         let audio = FakeAudioController(state: .muted, volumeSilenced: true)
         let coordinator = MuteCoordinator(

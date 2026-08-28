@@ -831,7 +831,7 @@ public final class MuteCoordinator: ObservableObject {
         do {
             let allDevices = try await audioController.inputDevices()
             availableDevices = allDevices
-            for device in allDevices where !device.uid.hasPrefix("unresolved-core-audio-object-") {
+            for device in allDevices where !device.hasUnresolvedUID {
                 lastKnownDeviceNames[device.uid] = device.name
             }
             if case let .device(uid, name) = target,
@@ -844,11 +844,22 @@ public final class MuteCoordinator: ObservableObject {
             guard !devices.isEmpty else {
                 targetWarning = nil
                 shouldUnmuteTargets = false
-                status = switch target {
-                case .systemDefault, .allInputs:
-                    .unavailable
-                case let .device(_, name):
-                    .disconnected(deviceName: name)
+                // An input Core Audio kept without a readable identity may be the target
+                // itself, so calling the target gone would be a guess.
+                if allDevices.contains(where: \.hasUnresolvedUID) {
+                    status = .error(
+                        message: NSLocalizedString(
+                            "The selected input could not be read.",
+                            comment: "Unreadable input device error"
+                        )
+                    )
+                } else {
+                    status = switch target {
+                    case .systemDefault, .allInputs:
+                        .unavailable
+                    case let .device(_, name):
+                        .disconnected(deviceName: name)
+                    }
                 }
                 return
             }

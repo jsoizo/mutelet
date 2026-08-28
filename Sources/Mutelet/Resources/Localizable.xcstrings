@@ -1002,6 +1002,17 @@
         }
       }
     },
+    "The selected input could not be read." : {
+      "comment" : "Unreadable input device error",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択したマイクを読み取れませんでした。"
+          }
+        }
+      }
+    },
     "This shortcut is already in use by another app. Choose a different shortcut." : {
       "comment" : "Shortcut conflict error",
       "localizations" : {

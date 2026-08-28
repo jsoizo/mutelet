@@ -47,11 +47,11 @@ The visible states are:
 - `live`: at least one relevant control is audible and none conflict;
 - `muted`: mute or zero-volume controls confirm silence;
 - `mixed`: controls within one target or states across several targets disagree;
-- `unavailable` / `disconnected`: no current target can be resolved;
+- `unavailable` / `disconnected`: no current target can be resolved, and every input Core Audio reported has a readable identity;
 - `unsupported`: no writable mute strategy exists;
 - `externallySilenced`: the target is silent for a reason Mutelet did not cause, typically a zero input volume, and no receipt exists to undo it;
 - `partial`: an all-input state includes unsupported devices or operation/read failures;
-- `error`: an operation could not produce a trustworthy state.
+- `error`: an operation could not produce a trustworthy state, or an input without a readable identity leaves the target unresolvable rather than absent.
 
 Mixed state toggles toward mute. Unsupported, externally silenced, and failed targets are never folded into a confirmed muted state. A restoration without a receipt is read back, so an input that stays silent after the write is reported as a failure rather than a success.
 

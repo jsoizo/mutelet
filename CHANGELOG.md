@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A disconnected input is reported as disconnected instead of as a microphone that could not be controlled.
 - Changing the shortcut while the key is held no longer fails when the selected input is disconnected.
 - In Push to Talk, a different input can now be selected while the current one has no mute control, and that input keeps being reported as unsupported instead of as a microphone that could not be controlled.
+- An input Core Audio reports without a readable identity no longer makes the selected input look disconnected. Mutelet reports that the input could not be read, so the state stays distinguishable from an input that was unplugged.
 
 ## [0.1.0] - 2026-08-11
 

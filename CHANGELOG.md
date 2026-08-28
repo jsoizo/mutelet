@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - An input that is already silent because its volume is zero is no longer reported as muted when Mutelet has no saved value for it. Mutelet reports that the input is silenced outside its control and leaves the shortcut inactive instead of claiming a mute it cannot undo.
 - A restoration without a saved value is read back, so an input that stays silent after the write is reported as a failure instead of appearing to succeed.
+- In Push to Talk, a different input can now be selected while the current one is disconnected. A target that resolves to no device cannot carry sound, so it no longer blocks the change, and the input it replaces is restored instead of being left muted.
+- A disconnected input is reported as disconnected instead of as a microphone that could not be controlled.
+- Changing the shortcut while the key is held no longer fails when the selected input is disconnected.
+- In Push to Talk, a different input can now be selected while the current one has no mute control, and that input keeps being reported as unsupported instead of as a microphone that could not be controlled.
+- An input Core Audio reports without a readable identity no longer makes the selected input look disconnected. Mutelet reports that the input could not be read, so the state stays distinguishable from an input that was unplugged.
 
 ## [0.1.0] - 2026-08-11
 

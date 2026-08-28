@@ -89,7 +89,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
             } catch {
                 isComplete = false
                 let uid = (try? readDeviceUID(objectID: objectID))
-                    ?? "unresolved-core-audio-object-\(objectID)"
+                    ?? "\(AudioDeviceDescriptor.unresolvedUIDPrefix)\(objectID)"
                 let name = (try? CoreAudioPropertyAccess.string(
                     objectID: objectID,
                     address: CoreAudioPropertyAccess.address(
@@ -264,7 +264,7 @@ public actor CoreAudioDeviceController: AudioDeviceControlling {
         guard let device = try await inputDevices().first(where: { $0.uid == uid }) else {
             throw CoreAudioError.deviceNotFound(uid: uid)
         }
-        guard !device.uid.hasPrefix("unresolved-core-audio-object-") else {
+        guard !device.hasUnresolvedUID else {
             return device
         }
         do {

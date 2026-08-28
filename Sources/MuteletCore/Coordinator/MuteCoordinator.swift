@@ -53,18 +53,50 @@ public final class MuteCoordinator: ObservableObject {
     private struct MaintenanceAttemptResult {
         let needsRetry: Bool
         let currentTargetFailures: Int
+        // The status already reports that the target has no mute control, so the generic
+        // control error must not replace it.
+        let limitedByUnsupportedInputs: Bool
     }
 
     private struct MuteAttemptResult {
-        let succeeded: Bool
+        enum Outcome {
+            case completed
+            // Every input left over has no mute control, so a retry can only recover the
+            // ones whose capabilities were momentarily unreadable.
+            case mutedWhereSupported
+            case incomplete
+            case noTargetResolved
+            case superseded
+        }
+
+        let outcome: Outcome
         let confirmedUIDs: Set<String>
         let failureCount: Int
 
-        static let cancelled = MuteAttemptResult(
-            succeeded: false,
+        static let superseded = MuteAttemptResult(
+            outcome: .superseded,
             confirmedUIDs: [],
             failureCount: 0
         )
+
+        static let noTargetResolved = MuteAttemptResult(
+            outcome: .noTargetResolved,
+            confirmedUIDs: [],
+            failureCount: 0
+        )
+
+        var succeeded: Bool { outcome == .completed }
+
+        // Nothing a retry could mute: the target is muted, resolves to no device, or has no
+        // mute control at all. Blocking the user here would protect nothing.
+        var nothingLeftToMute: Bool {
+            switch outcome {
+            case .completed, .mutedWhereSupported, .noTargetResolved:
+                true
+            case .incomplete, .superseded:
+                false
+            }
+        }
     }
 
     public var canToggle: Bool {
@@ -266,7 +298,7 @@ public final class MuteCoordinator: ObservableObject {
             ? Set(previousDevices.map(\.uid))
             : activeTargetUIDs
         if mode == .pushToTalk {
-            guard await muteIfNeeded(forceForSafety: true).succeeded else { return }
+            guard await muteIfNeeded(forceForSafety: true).nothingLeftToMute else { return }
             guard selectionGeneration == targetSelectionGeneration else { return }
             isHotKeyPressed = false
         } else if !hasToggleMuteIntent {
@@ -284,7 +316,7 @@ public final class MuteCoordinator: ObservableObject {
 
         if mode == .pushToTalk {
             let result = await muteIfNeeded(forceForSafety: true)
-            guard result.succeeded else { return }
+            guard result.nothingLeftToMute else { return }
             transitionActiveTargets(to: result.confirmedUIDs)
             let currentUIDs = Set(
                 ((try? await resolvedTargetDevices()) ?? []).map(\.uid)
@@ -407,7 +439,7 @@ public final class MuteCoordinator: ObservableObject {
         guard isHotKeyPressed else { return true }
         if mode == .pushToTalk {
             let result = await muteIfNeeded(forceForSafety: true)
-            guard result.succeeded else { return false }
+            guard result.nothingLeftToMute else { return false }
             transitionActiveTargets(to: result.confirmedUIDs)
         }
         isHotKeyPressed = false
@@ -547,12 +579,14 @@ public final class MuteCoordinator: ObservableObject {
         }
         if let expectedGeneration,
            expectedGeneration != maintenanceGeneration {
-            return .cancelled
+            return .superseded
         }
         if !forceForSafety {
+            // Nothing to write, reported as completed. Only safety callers read
+            // nothingLeftToMute, and they all force the attempt past this check.
             guard status.canToggle, !shouldUnmuteTargets else {
                 return MuteAttemptResult(
-                    succeeded: true,
+                    outcome: .completed,
                     confirmedUIDs: [],
                     failureCount: 0
                 )
@@ -563,18 +597,19 @@ public final class MuteCoordinator: ObservableObject {
             let devices = try await resolvedTargetDevices()
             guard !devices.isEmpty else {
                 await refreshStatus()
-                return .cancelled
+                return .noTargetResolved
             }
 
             var failures = 0
             var firstError: Error?
             var confirmedUIDs: Set<String> = []
+            var unsupportedUIDs: Set<String> = []
             for device in devices {
                 do {
                     if let expectedGeneration,
                        expectedGeneration != maintenanceGeneration {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     guard device.capabilities.isSupported else {
                         throw CoreAudioError.unsupportedDevice(uid: device.uid)
@@ -583,7 +618,7 @@ public final class MuteCoordinator: ObservableObject {
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     if snapshot.muteState == .muted {
                         confirmedUIDs.insert(device.uid)
@@ -594,7 +629,7 @@ public final class MuteCoordinator: ObservableObject {
                     guard expectedGeneration == nil
                             || expectedGeneration == maintenanceGeneration else {
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     var preparedReceiptChanged = false
                     if receipt == nil {
@@ -623,7 +658,7 @@ public final class MuteCoordinator: ObservableObject {
                             )
                         }
                         enqueueForRestoration(confirmedUIDs)
-                        return .cancelled
+                        return .superseded
                     }
                     do {
                         _ = try await audioController.mute(
@@ -641,7 +676,7 @@ public final class MuteCoordinator: ObservableObject {
                         if let expectedGeneration,
                            expectedGeneration != maintenanceGeneration {
                             enqueueForRestoration(confirmedUIDs)
-                            return .cancelled
+                            return .superseded
                         }
                     } catch {
                         let mutationError = error
@@ -669,6 +704,7 @@ public final class MuteCoordinator: ObservableObject {
                     if case CoreAudioError.unsupportedDevice = error {
                         // Unsupported devices are counted from their final snapshot,
                         // not again as an operation failure.
+                        unsupportedUIDs.insert(device.uid)
                     } else {
                         failures += 1
                     }
@@ -683,16 +719,25 @@ public final class MuteCoordinator: ObservableObject {
             if failures > 0, target != .allInputs, let firstError {
                 status = .error(message: userFacingErrorMessage(for: firstError))
             }
+            let uniqueUIDs = Set(devices.map(\.uid))
+            let outcome: MuteAttemptResult.Outcome
+            if failures == 0, confirmedUIDs.count == uniqueUIDs.count {
+                outcome = .completed
+            } else if failures == 0,
+                      confirmedUIDs.union(unsupportedUIDs).count == uniqueUIDs.count {
+                outcome = .mutedWhereSupported
+            } else {
+                outcome = .incomplete
+            }
             return MuteAttemptResult(
-                succeeded: failures == 0
-                    && confirmedUIDs.count == Set(devices.map(\.uid)).count,
+                outcome: outcome,
                 confirmedUIDs: confirmedUIDs,
                 failureCount: failures
             )
         } catch {
             status = .error(message: userFacingErrorMessage(for: error))
             return MuteAttemptResult(
-                succeeded: false,
+                outcome: .incomplete,
                 confirmedUIDs: [],
                 failureCount: 1
             )
@@ -786,7 +831,7 @@ public final class MuteCoordinator: ObservableObject {
         do {
             let allDevices = try await audioController.inputDevices()
             availableDevices = allDevices
-            for device in allDevices where !device.uid.hasPrefix("unresolved-core-audio-object-") {
+            for device in allDevices where !device.hasUnresolvedUID {
                 lastKnownDeviceNames[device.uid] = device.name
             }
             if case let .device(uid, name) = target,
@@ -799,11 +844,22 @@ public final class MuteCoordinator: ObservableObject {
             guard !devices.isEmpty else {
                 targetWarning = nil
                 shouldUnmuteTargets = false
-                status = switch target {
-                case .systemDefault, .allInputs:
-                    .unavailable
-                case let .device(_, name):
-                    .disconnected(deviceName: name)
+                // An input Core Audio kept without a readable identity may be the target
+                // itself, so calling the target gone would be a guess.
+                if allDevices.contains(where: \.hasUnresolvedUID) {
+                    status = .error(
+                        message: NSLocalizedString(
+                            "The selected input could not be read.",
+                            comment: "Unreadable input device error"
+                        )
+                    )
+                } else {
+                    status = switch target {
+                    case .systemDefault, .allInputs:
+                        .unavailable
+                    case let .device(_, name):
+                        .disconnected(deviceName: name)
+                    }
                 }
                 return
             }
@@ -1001,7 +1057,8 @@ public final class MuteCoordinator: ObservableObject {
         let delays: [Duration?] = [nil, .milliseconds(100), .milliseconds(300), .milliseconds(600)]
         var result = MaintenanceAttemptResult(
             needsRetry: false,
-            currentTargetFailures: 0
+            currentTargetFailures: 0,
+            limitedByUnsupportedInputs: false
         )
 
         for delay in delays {
@@ -1025,7 +1082,10 @@ public final class MuteCoordinator: ObservableObject {
         await refreshStatus(
             additionalFailures: result.needsRetry ? result.currentTargetFailures : 0
         )
-        if result.needsRetry, target != .allInputs, requiresCurrentTargetMuted {
+        if result.needsRetry,
+           !result.limitedByUnsupportedInputs,
+           target != .allInputs,
+           requiresCurrentTargetMuted {
             status = .error(
                 message: NSLocalizedString(
                     "The microphone could not be controlled.",
@@ -1056,11 +1116,13 @@ public final class MuteCoordinator: ObservableObject {
         guard generation == maintenanceGeneration else {
             return MaintenanceAttemptResult(
                 needsRetry: false,
-                currentTargetFailures: 0
+                currentTargetFailures: 0,
+                limitedByUnsupportedInputs: false
             )
         }
         var needsRetry = false
         var currentTargetFailures = 0
+        var limitedByUnsupportedInputs = false
 
         if requiresCurrentTargetMuted {
             let muteResult = await muteIfNeeded(
@@ -1070,10 +1132,15 @@ public final class MuteCoordinator: ObservableObject {
             guard generation == maintenanceGeneration else {
                 return MaintenanceAttemptResult(
                     needsRetry: false,
-                    currentTargetFailures: 0
+                    currentTargetFailures: 0,
+                    limitedByUnsupportedInputs: false
                 )
             }
-            needsRetry = !muteResult.succeeded
+            // An input whose capabilities were momentarily unreadable also lands here, so
+            // the retries stay: they are the only path back for a transient read.
+            needsRetry = muteResult.outcome == .incomplete
+                || muteResult.outcome == .mutedWhereSupported
+            limitedByUnsupportedInputs = muteResult.outcome == .mutedWhereSupported
             currentTargetFailures = muteResult.failureCount
 
             if muteResult.succeeded {
@@ -1084,22 +1151,37 @@ public final class MuteCoordinator: ObservableObject {
         if requiresCurrentTargetMuted, needsRetry {
             return MaintenanceAttemptResult(
                 needsRetry: true,
-                currentTargetFailures: currentTargetFailures
+                currentTargetFailures: currentTargetFailures,
+                limitedByUnsupportedInputs: limitedByUnsupportedInputs
             )
         }
 
         let shouldProtectCurrentTarget = mode == .pushToTalk
             || (hasToggleMuteIntent && maintainsMuteOnInputChange)
-        let desiredUIDs = shouldProtectCurrentTarget
-            ? Set(((try? await resolvedTargetDevices()) ?? []).map(\.uid))
-            : []
+        var desiredUIDs: Set<String> = []
+        if shouldProtectCurrentTarget {
+            do {
+                desiredUIDs = Set(try await resolvedTargetDevices().map(\.uid))
+            } catch {
+                // Which inputs are protected is unknown, and treating that as "none" would
+                // restore the current target and drop its receipt. No caller reaches here
+                // with a target that must stay muted today; this keeps that invariant from
+                // depending on it.
+                return MaintenanceAttemptResult(
+                    needsRetry: true,
+                    currentTargetFailures: currentTargetFailures,
+                    limitedByUnsupportedInputs: limitedByUnsupportedInputs
+                )
+            }
+        }
         let restoreFailures = await restorePendingDevices(
             excluding: desiredUIDs,
             generation: generation
         )
         return MaintenanceAttemptResult(
             needsRetry: needsRetry || restoreFailures > 0,
-            currentTargetFailures: currentTargetFailures
+            currentTargetFailures: currentTargetFailures,
+            limitedByUnsupportedInputs: limitedByUnsupportedInputs
         )
     }
 
@@ -1115,7 +1197,14 @@ public final class MuteCoordinator: ObservableObject {
 
         for uid in pendingRestoreNames.keys.sorted() {
             guard generation == maintenanceGeneration else { break }
+            // A target this pass is keeping muted owes a mute, not a restoration. Handing it
+            // back later re-enqueues it, and the receipt outlives this queue either way. The
+            // queue is left alone while a Push to Talk key is held, because nothing is
+            // keeping that target muted and activeTargetUIDs is not being refreshed.
             guard !desiredUIDs.contains(uid) else {
+                if requiresCurrentTargetMuted {
+                    pendingRestoreNames.removeValue(forKey: uid)
+                }
                 maintenanceFailureNames.removeValue(forKey: uid)
                 continue
             }

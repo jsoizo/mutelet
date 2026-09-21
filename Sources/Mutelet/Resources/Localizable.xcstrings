@@ -3,130 +3,375 @@
   "strings" : {
     "%d previous inputs could not be restored" : {
       "comment" : "Deferred input restoration HUD detail",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力%d台を復元できませんでした" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以前の入力%d台を復元できませんでした"
+          }
+        }
+      }
     },
     "%d previous inputs could not be restored." : {
       "comment" : "Deferred input restoration warning count",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力%d台を復元できませんでした。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以前の入力%d台を復元できませんでした。"
+          }
+        }
+      }
     },
     "%@ (Disconnected)" : {
       "comment" : "Disconnected status overlay display",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@（未接続）" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@（未接続）"
+          }
+        }
+      }
     },
     "After actions" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "操作時の表示" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作時の表示"
+          }
+        }
+      }
     },
     "Always" : {
       "comment" : "Persistent status visibility",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常に表示" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常に表示"
+          }
+        }
+      }
     },
     "Checking…" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "確認中…" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認中…"
+          }
+        }
+      }
     },
     "Click to toggle mute" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "クリックでミュートを切り替える" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クリックでミュートを切り替える"
+          }
+        }
+      }
     },
     "Content" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "表示内容" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示内容"
+          }
+        }
+      }
     },
     "Disconnected" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "未接続" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未接続"
+          }
+        }
+      }
     },
     "Display" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "画面表示" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面表示"
+          }
+        }
+      }
     },
     "Drag to move the persistent status." : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ドラッグして常駐ステータスを移動できます。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ドラッグして常駐ステータスを移動できます。"
+          }
+        }
+      }
     },
     "Error" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "エラー" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エラー"
+          }
+        }
+      }
     },
     "Glow the screen edge while talking" : {
       "comment" : "Screen edge indicator toggle",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "発話中に画面の縁を光らせる" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発話中に画面の縁を光らせる"
+          }
+        }
+      }
     },
     "Icon and status" : {
       "comment" : "Persistent status content",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイコン＋状態" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイコン＋状態"
+          }
+        }
+      }
     },
     "Icon only" : {
       "comment" : "Persistent status content",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイコンのみ" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイコンのみ"
+          }
+        }
+      }
     },
     "In Push to Talk mode, only status display and dragging are available." : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talkモードでは、状態表示とドラッグだけが有効です。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push to Talkモードでは、状態表示とドラッグだけが有効です。"
+          }
+        }
+      }
     },
     "In Toggle mode, click the persistent status to toggle mute." : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "トグルモードではクリックでミュートを切り替えます。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トグルモードではクリックでミュートを切り替えます。"
+          }
+        }
+      }
     },
     "In Toggle mode, newly selected or reconnected inputs are kept muted." : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "トグルモードでは、新しく選択または再接続された入力もミュート状態に保ちます。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トグルモードでは、新しく選択または再接続された入力もミュート状態に保ちます。"
+          }
+        }
+      }
     },
     "Input restoration failed" : {
       "comment" : "Deferred input restoration HUD title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力を復元できませんでした" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力を復元できませんでした"
+          }
+        }
+      }
     },
     "Live" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライブ" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブ"
+          }
+        }
+      }
     },
     "Keep muted when input changes" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力が変わってもミュートを維持" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力が変わってもミュートを維持"
+          }
+        }
+      }
     },
     "Mixed" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "混在" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "混在"
+          }
+        }
+      }
     },
     "Muted" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ミュート" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ミュート"
+          }
+        }
+      }
     },
     "No control" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "管理外" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理外"
+          }
+        }
+      }
     },
     "No input" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "入力なし" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力なし"
+          }
+        }
+      }
     },
     "Outline the screen edge while muted" : {
       "comment" : "Screen edge idle outline toggle",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ミュート中も画面の縁に線を表示する" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ミュート中も画面の縁に線を表示する"
+          }
+        }
+      }
     },
     "Partial" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "一部のみ" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のみ"
+          }
+        }
+      }
     },
     "Persistent status" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常駐ステータス" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常駐ステータス"
+          }
+        }
+      }
     },
     "Push to Talk mode only. The edge replaces the status shown after actions, and some screen recordings may still capture it." : {
       "comment" : "Screen edge indicator help",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talkモードでのみ表示されます。操作後のステータス表示の代わりになり、画面収録に映る場合があります。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push to Talkモードでのみ表示されます。操作後のステータス表示の代わりになり、画面収録に映る場合があります。"
+          }
+        }
+      }
     },
     "Push to Talk screen edge" : {
       "comment" : "Settings section for the screen edge indicator",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "Push to Talk時の画面の縁" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push to Talk時の画面の縁"
+          }
+        }
+      }
     },
     "Reset Position" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "位置をリセット" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置をリセット"
+          }
+        }
+      }
     },
     "Show" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "表示する状態" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示する状態"
+          }
+        }
+      }
     },
     "Show persistent status" : {
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "常駐ステータスを表示" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常駐ステータスを表示"
+          }
+        }
+      }
     },
     "Unsupported" : {
       "comment" : "Persistent status short title",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "非対応" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非対応"
+          }
+        }
+      }
     },
     "When live or status is unknown" : {
       "comment" : "Persistent status visibility",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライブまたは状態不明のとき" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブまたは状態不明のとき"
+          }
+        }
+      }
     },
     "%@ — %d muted, %d live, %d mixed, %d unsupported, %d failed" : {
       "comment" : "Partial mute detail",
@@ -376,6 +621,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@を押している間だけ話せます"
+          }
+        }
+      }
+    },
+    "Holding a modifier-based shortcut can block typing. F1–F20 alone are best for Push to Talk." : {
+      "comment" : "Push to Talk shortcut warning",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾キー付きのショートカットは文字入力をしづらくすることがあります。Push to TalkにはF1–F20単体が適しています。"
           }
         }
       }
@@ -989,7 +1245,14 @@
     },
     "The previous input “%@” could not be restored." : {
       "comment" : "Deferred input restoration warning",
-      "localizations" : { "ja" : { "stringUnit" : { "state" : "translated", "value" : "以前の入力「%@」を復元できませんでした。" } } }
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以前の入力「%@」を復元できませんでした。"
+          }
+        }
+      }
     },
     "The microphone could not be remuted, so the shortcut was not changed." : {
       "comment" : "Shortcut safety error",
@@ -1124,6 +1387,7 @@
       }
     },
     "Use at least one modifier including Command or Control." : {
+      "extractionState" : "stale",
       "comment" : "Invalid shortcut error",
       "localizations" : {
         "ja" : {
@@ -1134,12 +1398,24 @@
         }
       }
     },
-    "Use at least one modifier including Command or Control. Press Escape to cancel." : {
+    "Use F1–F20 alone, or include Command or Control." : {
+      "comment" : "Invalid shortcut error",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CommandキーまたはControlキーを含むキーの組み合わせを押してください。Escキーでキャンセルできます。"
+            "value" : "F1–F20のどれかを単体で指定するか、CommandキーまたはControlキーを含む組み合わせを指定してください。"
+          }
+        }
+      }
+    },
+    "Use F1–F20 alone, or include Command or Control. Press Escape to cancel." : {
+      "comment" : "Shortcut recorder prompt",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "F1–F20のどれかを単体で押すか、CommandキーまたはControlキーを含む組み合わせを押してください。Escキーでキャンセルできます。"
           }
         }
       }
@@ -1162,6 +1438,75 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音量を0にしてミュートするマイクがあります。完全に消音できない場合があります。"
+          }
+        }
+      }
+    },
+    "%@ Shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ショートカット"
+          }
+        }
+      }
+    },
+    "Record %@ shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ショートカットを変更"
+          }
+        }
+      }
+    },
+    "Restore %@ default shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@のデフォルトショートカットに戻す"
+          }
+        }
+      }
+    },
+    "Recording" : {
+      "extractionState" : "manual",
+      "comment" : "Shortcut recorder active state",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中"
+          }
+        }
+      }
+    },
+    "Cancel recording %@ shortcut" : {
+      "extractionState" : "manual",
+      "comment" : "Cancel recording button for a microphone mode",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ショートカットの記録をキャンセル"
+          }
+        }
+      }
+    },
+    "Recording %@ shortcut. Press Escape to cancel." : {
+      "extractionState" : "manual",
+      "comment" : "Shortcut recorder accessibility prompt",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ショートカットを記録しています。Escキーでキャンセルできます。"
           }
         }
       }

@@ -13,7 +13,7 @@ Mutelet is an open-source, Apple Silicon-native microphone mute utility for the 
 - Glow the screen edges while Push to Talk can carry sound, instead of showing the transient HUD.
 - Set writable native mute and input-volume controls together; use volume-only fallback when native mute is unavailable.
 - Follow default-device changes, reconnect selected devices by UID, and report partial failures.
-- Configure the shortcut, HUD, target, mode, and launch-at-login behavior without editing files.
+- Configure separate Toggle and Push to Talk shortcuts, HUD, target, mode, and launch-at-login behavior without editing files.
 - Run natively on Apple Silicon without Rosetta.
 
 Mutelet does not record audio, connect to a server, collect telemetry, or request Microphone, Accessibility, or Input Monitoring permission. See [Privacy](docs/PRIVACY.md) for details.
@@ -44,12 +44,12 @@ The microphone icon appears in the menu bar; Mutelet has no Dock icon.
 
 ## Usage
 
-The default shortcut is **Control + Shift + M**.
+Defaults are **Control + Shift + M** for Toggle and **F8** for Push to Talk.
 
 - **Toggle:** press once to mute and once again to restore the previous state.
 - **Push to Talk:** the input is muted while idle; hold the shortcut to talk and release it to mute again.
 
-Open the menu bar item to choose a mode or input. Open **Settings…** to change the shortcut, HUD, and launch-at-login behavior.
+Open the menu bar item to choose a mode or input. Open **Settings…** to change either mode shortcut, HUD, and launch-at-login behavior.
 
 When a device has no native mute control, Mutelet may silence it by setting writable input volumes to zero. Some hardware or software may bypass those controls, so the UI reports that limitation instead of claiming a guaranteed mute. See [Device compatibility](docs/DEVICE_COMPATIBILITY.md).
 
@@ -69,7 +69,7 @@ That is the safe idle state. Hold the configured shortcut while speaking. Releas
 
 ### Does it need special permissions?
 
-No. Mutelet controls Core Audio properties and registers a Carbon global hot key. It does not install an event tap or capture microphone audio.
+No. Mutelet controls Core Audio properties and registers a Carbon global hot key. It does not install an event tap or capture microphone audio. A registered function key is consumed while Mutelet owns it, so it is not delivered to the focused app.
 
 ## Contributing
 

@@ -49,9 +49,48 @@ public struct GlobalHotKeyConfiguration: Equatable, Sendable {
         modifiers: [.control, .shift]
     )
 
+    /// The former default, retained as the marker used by one-time Push to Talk migration.
+    public static let legacyDefault = GlobalHotKeyConfiguration.default
+
+    /// A modifier-free key that can be held without blocking ordinary typing.
+    public static let pushToTalkDefault = GlobalHotKeyConfiguration(
+        keyCode: UInt32(kVK_F8),
+        keyLabel: "F8",
+        modifiers: []
+    )
+
+    private static let functionKeys: [UInt32: String] = [
+        UInt32(kVK_F1): "F1",
+        UInt32(kVK_F2): "F2",
+        UInt32(kVK_F3): "F3",
+        UInt32(kVK_F4): "F4",
+        UInt32(kVK_F5): "F5",
+        UInt32(kVK_F6): "F6",
+        UInt32(kVK_F7): "F7",
+        UInt32(kVK_F8): "F8",
+        UInt32(kVK_F9): "F9",
+        UInt32(kVK_F10): "F10",
+        UInt32(kVK_F11): "F11",
+        UInt32(kVK_F12): "F12",
+        UInt32(kVK_F13): "F13",
+        UInt32(kVK_F14): "F14",
+        UInt32(kVK_F15): "F15",
+        UInt32(kVK_F16): "F16",
+        UInt32(kVK_F17): "F17",
+        UInt32(kVK_F18): "F18",
+        UInt32(kVK_F19): "F19",
+        UInt32(kVK_F20): "F20",
+    ]
+
+    public var isStandaloneFunctionKey: Bool {
+        modifiers.isEmpty && Self.functionKeys[keyCode] == keyLabel
+    }
+
     public var isValid: Bool {
-        guard !keyLabel.isEmpty,
-              modifiers.contains(.command) || modifiers.contains(.control) else {
+        guard !keyLabel.isEmpty else { return false }
+        if modifiers.isEmpty { return isStandaloneFunctionKey }
+
+        guard modifiers.contains(.command) || modifiers.contains(.control) else {
             return false
         }
         // Reject the former default Ctrl-Opt-M so stored preferences migrate to the current default.

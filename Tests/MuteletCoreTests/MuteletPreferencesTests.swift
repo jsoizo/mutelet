@@ -41,7 +41,7 @@ final class MuteletPreferencesTests: XCTestCase {
                 maintainsMuteOnInputChange: false
             ),
             shortcuts: ShortcutPreferences(
-                primary: GlobalHotKeyConfiguration(
+                pushToTalk: GlobalHotKeyConfiguration(
                     keyCode: 49,
                     keyLabel: "Space",
                     modifiers: [.command, .shift]
@@ -71,7 +71,7 @@ final class MuteletPreferencesTests: XCTestCase {
         let fixture = Data(
             #"""
             {
-              "schemaVersion": 5,
+              "schemaVersion": 7,
               "microphone": {
                 "maintainsMuteOnInputChange": false,
                 "mode": "pushToTalk",
@@ -82,7 +82,12 @@ final class MuteletPreferencesTests: XCTestCase {
                 }
               },
               "shortcuts": {
-                "primary": {
+                "toggle": {
+                  "keyCode": 46,
+                  "keyLabel": "M",
+                  "modifierRawValue": 10
+                },
+                "pushToTalk": {
                   "keyCode": 49,
                   "keyLabel": "Space",
                   "modifierRawValue": 9
@@ -127,7 +132,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(actual, .loaded(expected))
         let data = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
         let header = try JSONDecoder().decode(StoredPreferencesHeader.self, from: data)
-        XCTAssertEqual(header.schemaVersion, 5)
+        XCTAssertEqual(header.schemaVersion, 7)
         XCTAssertEqual(
             try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? NSDictionary),
             try XCTUnwrap(JSONSerialization.jsonObject(with: fixture) as? NSDictionary)
@@ -175,7 +180,7 @@ final class MuteletPreferencesTests: XCTestCase {
                         target: .allInputs
                     ),
                     shortcuts: ShortcutPreferences(
-                        primary: GlobalHotKeyConfiguration(
+                        pushToTalk: GlobalHotKeyConfiguration(
                             keyCode: 49,
                             keyLabel: "Space",
                             modifiers: [.command, .shift]
@@ -189,7 +194,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            5
+            7
         )
         let reloaded = await UserDefaultsMuteletPreferencesStore(
             suiteName: suiteName
@@ -300,7 +305,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            5
+            7
         )
     }
 
@@ -356,7 +361,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            5
+            7
         )
     }
 
@@ -410,7 +415,7 @@ final class MuteletPreferencesTests: XCTestCase {
 
         var expected = MuteletPreferences()
         expected.microphone.mode = .pushToTalk
-        expected.shortcuts.primary = GlobalHotKeyConfiguration(
+        expected.shortcuts.pushToTalk = GlobalHotKeyConfiguration(
             keyCode: 49,
             keyLabel: "Space",
             modifiers: [.command, .shift]
@@ -436,7 +441,7 @@ final class MuteletPreferencesTests: XCTestCase {
         XCTAssertEqual(
             try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
                 .schemaVersion,
-            5
+            7
         )
     }
 
@@ -488,7 +493,7 @@ final class MuteletPreferencesTests: XCTestCase {
 
         var expected = MuteletPreferences()
         expected.microphone.mode = .pushToTalk
-        expected.shortcuts.primary = GlobalHotKeyConfiguration(
+        expected.shortcuts.pushToTalk = GlobalHotKeyConfiguration(
             keyCode: 49,
             keyLabel: "Space",
             modifiers: [.command, .shift]
@@ -666,7 +671,7 @@ final class MuteletPreferencesTests: XCTestCase {
                         target: .allInputs
                     ),
                     shortcuts: ShortcutPreferences(
-                        primary: GlobalHotKeyConfiguration(
+                        pushToTalk: GlobalHotKeyConfiguration(
                             keyCode: 49,
                             keyLabel: "Space",
                             modifiers: [.command, .shift]
@@ -738,7 +743,7 @@ final class MuteletPreferencesTests: XCTestCase {
                         target: .allInputs
                     ),
                     shortcuts: ShortcutPreferences(
-                        primary: GlobalHotKeyConfiguration(
+                        pushToTalk: GlobalHotKeyConfiguration(
                             keyCode: 49,
                             keyLabel: "Space",
                             modifiers: [.command, .shift]
@@ -961,6 +966,80 @@ final class MuteletPreferencesTests: XCTestCase {
         )
     }
 
+    func testInvalidStoredV5ShortcutDoesNotMigrate() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let microphone = MicrophonePreferences(mode: .pushToTalk, target: .allInputs)
+        let hud = HUDPreferences(isEnabled: false)
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 5,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "pushToTalk",
+                    "target": { "kind": "allInputs" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 6
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": false,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName
+        ).load()
+
+        XCTAssertEqual(
+            actual,
+            .recovered(
+                MuteletPreferences(
+                    microphone: microphone,
+                    shortcuts: ShortcutPreferences(),
+                    hud: hud
+                ),
+                issues: [.invalidShortcut]
+            )
+        )
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder()
+                .decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            7
+        )
+    }
+
     func testInvalidStoredMicrophoneRecoversOnlyMicrophoneGroup() async throws {
         let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -988,7 +1067,7 @@ final class MuteletPreferencesTests: XCTestCase {
             forKey: Self.storageKey
         )
         let shortcuts = ShortcutPreferences(
-            primary: GlobalHotKeyConfiguration(
+            toggle: GlobalHotKeyConfiguration(
                 keyCode: 49,
                 keyLabel: "Space",
                 modifiers: [.command, .shift]
@@ -1068,6 +1147,520 @@ final class MuteletPreferencesTests: XCTestCase {
 
         XCTAssertEqual(actual, .defaults)
         XCTAssertEqual(defaults.data(forKey: Self.legacyStorageKey), Data("legacy".utf8))
+    }
+
+    func testLegacyPushToTalkShortcutMigratesToStandaloneFunctionKey() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 5,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "pushToTalk",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+        var expected = MuteletPreferences()
+        expected.microphone.mode = .pushToTalk
+        expected.shortcuts.pushToTalk = .pushToTalkDefault
+
+        XCTAssertEqual(actual, .loaded(expected))
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder()
+                .decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            7
+        )
+    }
+
+    func testToggleLegacyShortcutDoesNotMigrate() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 5,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "toggle",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+
+        XCTAssertEqual(actual, .loaded(MuteletPreferences()))
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder()
+                .decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            7
+        )
+    }
+
+    func testCurrentPushToTalkShortcutDoesNotMigrateAgain() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let fixture = Data(
+            #"""
+            {
+              "schemaVersion": 6,
+              "microphone": {
+                "maintainsMuteOnInputChange": true,
+                "mode": "pushToTalk",
+                "target": { "kind": "systemDefault" }
+              },
+              "shortcuts": {
+                "primary": {
+                  "keyCode": 46,
+                  "keyLabel": "M",
+                  "modifierRawValue": 10
+                }
+              },
+              "hud": {
+                "isEnabled": true,
+                "size": "standard",
+                "horizontalPosition": "center",
+                "verticalPosition": "center",
+                "displayTarget": "pointer",
+                "duration": "standard"
+              },
+              "statusOverlay": {
+                "isEnabled": false,
+                "visibility": "always",
+                "contentStyle": "iconOnly",
+                "size": "standard",
+                "displayTarget": { "kind": "main" },
+                "position": { "x": 1, "y": 0.5 },
+                "togglesMuteOnClick": false
+              },
+              "screenEdge": {
+                "isEnabled": false,
+                "showsIdleOutline": false
+              }
+            }
+            """#.utf8
+        )
+        defaults.set(fixture, forKey: Self.storageKey)
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+        var expected = MuteletPreferences()
+        expected.microphone.mode = .pushToTalk
+        expected.shortcuts.pushToTalk = .legacyDefault
+
+        XCTAssertEqual(actual, .loaded(expected))
+
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        let migratedObject = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: migratedData) as? [String: Any]
+        )
+        XCTAssertEqual(migratedObject["schemaVersion"] as? Int, 7)
+        let shortcuts = try XCTUnwrap(migratedObject["shortcuts"] as? [String: Any])
+        let pushToTalk = try XCTUnwrap(shortcuts["pushToTalk"] as? [String: Any])
+        XCTAssertEqual(pushToTalk["keyLabel"] as? String, "M")
+        XCTAssertEqual(pushToTalk["modifierRawValue"] as? Int, 10)
+    }
+
+    func testVersionSixToggleShortcutMigratesToModeSpecificSlots() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 6,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "toggle",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 16,
+                      "keyLabel": "Q",
+                      "modifierRawValue": 6
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+        var expected = MuteletPreferences()
+        expected.shortcuts.toggle = GlobalHotKeyConfiguration(
+            keyCode: 16,
+            keyLabel: "Q",
+            modifiers: [.control, .option]
+        )
+
+        XCTAssertEqual(actual, .loaded(expected))
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            7
+        )
+    }
+
+    func testVersionSixMigrationReportsSaveFailure() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 6,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "pushToTalk",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 100,
+                      "keyLabel": "F8",
+                      "modifierRawValue": 0
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+        let store = UserDefaultsMuteletPreferencesStore(
+            suiteName: suiteName,
+            dataWriter: { _ in throw StubPreferencesError.saveFailed }
+        )
+
+        let actual = await store.load()
+        var expected = MuteletPreferences()
+        expected.microphone.mode = .pushToTalk
+
+        XCTAssertEqual(actual, .recovered(expected, issues: [.migrationSaveFailed]))
+        let unchangedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: unchangedData)
+                .schemaVersion,
+            6
+        )
+    }
+
+    func testVersionSixPushToTalkShortcutMigratesToModeSpecificSlots() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 6,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "pushToTalk",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "primary": {
+                      "keyCode": 100,
+                      "keyLabel": "F8",
+                      "modifierRawValue": 0
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+        var expected = MuteletPreferences()
+        expected.microphone.mode = .pushToTalk
+
+        XCTAssertEqual(actual, .loaded(expected))
+        let migratedData = try XCTUnwrap(defaults.data(forKey: Self.storageKey))
+        XCTAssertEqual(
+            try JSONDecoder().decode(StoredPreferencesHeader.self, from: migratedData)
+                .schemaVersion,
+            7
+        )
+    }
+
+    func testInvalidStoredV7ShortcutRecoversBothDefaults() async throws {
+        let suiteName = "MuteletPreferencesTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.set(
+            Data(
+                #"""
+                {
+                  "schemaVersion": 7,
+                  "microphone": {
+                    "maintainsMuteOnInputChange": true,
+                    "mode": "pushToTalk",
+                    "target": { "kind": "systemDefault" }
+                  },
+                  "shortcuts": {
+                    "toggle": {
+                      "keyCode": 46,
+                      "keyLabel": "M",
+                      "modifierRawValue": 10
+                    },
+                    "pushToTalk": {
+                      "keyCode": 49,
+                      "keyLabel": "Space",
+                      "modifierRawValue": 0
+                    }
+                  },
+                  "hud": {
+                    "isEnabled": true,
+                    "size": "standard",
+                    "horizontalPosition": "center",
+                    "verticalPosition": "center",
+                    "displayTarget": "pointer",
+                    "duration": "standard"
+                  },
+                  "statusOverlay": {
+                    "isEnabled": false,
+                    "visibility": "always",
+                    "contentStyle": "iconOnly",
+                    "size": "standard",
+                    "displayTarget": { "kind": "main" },
+                    "position": { "x": 1, "y": 0.5 },
+                    "togglesMuteOnClick": false
+                  },
+                  "screenEdge": {
+                    "isEnabled": false,
+                    "showsIdleOutline": false
+                  }
+                }
+                """#.utf8
+            ),
+            forKey: Self.storageKey
+        )
+
+        let actual = await UserDefaultsMuteletPreferencesStore(suiteName: suiteName).load()
+        var expected = MuteletPreferences()
+        expected.microphone.mode = .pushToTalk
+
+        XCTAssertEqual(actual, .recovered(expected, issues: [.invalidShortcut]))
+    }
+
+    func testShortcutPreferencesSelectAndSetByMode() {
+        var shortcuts = ShortcutPreferences()
+        XCTAssertEqual(shortcuts.shortcut(for: .toggle), .default)
+        XCTAssertEqual(shortcuts.shortcut(for: .pushToTalk), .pushToTalkDefault)
+
+        let custom = GlobalHotKeyConfiguration(
+            keyCode: 16,
+            keyLabel: "Q",
+            modifiers: [.command]
+        )
+        shortcuts.setShortcut(custom, for: .pushToTalk)
+        XCTAssertEqual(shortcuts.shortcut(for: .pushToTalk), custom)
+        XCTAssertEqual(shortcuts.shortcut(for: .toggle), .default)
+    }
+
+    func testShortcutAcceptsStandaloneFunctionKeys() {
+        XCTAssertFalse(GlobalHotKeyConfiguration.default.isStandaloneFunctionKey)
+        XCTAssertTrue(GlobalHotKeyConfiguration.pushToTalkDefault.isStandaloneFunctionKey)
+        XCTAssertTrue(GlobalHotKeyConfiguration.pushToTalkDefault.isValid)
+        XCTAssertEqual(GlobalHotKeyConfiguration.pushToTalkDefault.displayName, "F8")
+
+        let functionKeys: [(UInt32, String)] = [
+            (UInt32(kVK_F1), "F1"),
+            (UInt32(kVK_F2), "F2"),
+            (UInt32(kVK_F3), "F3"),
+            (UInt32(kVK_F4), "F4"),
+            (UInt32(kVK_F5), "F5"),
+            (UInt32(kVK_F6), "F6"),
+            (UInt32(kVK_F7), "F7"),
+            (UInt32(kVK_F8), "F8"),
+            (UInt32(kVK_F9), "F9"),
+            (UInt32(kVK_F10), "F10"),
+            (UInt32(kVK_F11), "F11"),
+            (UInt32(kVK_F12), "F12"),
+            (UInt32(kVK_F13), "F13"),
+            (UInt32(kVK_F14), "F14"),
+            (UInt32(kVK_F15), "F15"),
+            (UInt32(kVK_F16), "F16"),
+            (UInt32(kVK_F17), "F17"),
+            (UInt32(kVK_F18), "F18"),
+            (UInt32(kVK_F19), "F19"),
+            (UInt32(kVK_F20), "F20"),
+        ]
+        for (keyCode, keyLabel) in functionKeys {
+            let configuration = GlobalHotKeyConfiguration(
+                keyCode: keyCode,
+                keyLabel: keyLabel,
+                modifiers: []
+            )
+            XCTAssertTrue(configuration.isValid, keyLabel)
+            XCTAssertTrue(configuration.isStandaloneFunctionKey, keyLabel)
+        }
+
+        XCTAssertTrue(
+            GlobalHotKeyConfiguration(
+                keyCode: UInt32(kVK_F8),
+                keyLabel: "F8",
+                modifiers: [.control]
+            ).isValid
+        )
+        XCTAssertFalse(
+            GlobalHotKeyConfiguration(
+                keyCode: 49,
+                keyLabel: "Space",
+                modifiers: []
+            ).isValid
+        )
+        XCTAssertFalse(
+            GlobalHotKeyConfiguration(
+                keyCode: UInt32(kVK_F8),
+                keyLabel: "M",
+                modifiers: []
+            ).isValid
+        )
     }
 
     func testShortcutRequiresCommandOrControl() {

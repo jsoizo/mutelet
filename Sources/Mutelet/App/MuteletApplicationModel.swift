@@ -17,6 +17,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     )
     @Published private(set) var loginItemError: String?
     @Published private(set) var loginItemRequiresApproval = false
+    @Published private(set) var hotKeyRecordingEpoch = UUID()
 
     let coordinator: MuteCoordinator
     let statusOverlayController: StatusOverlayController
@@ -38,8 +39,10 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     private var targetSelectionGeneration = 0
     private var modeSelectionGeneration = 0
     private var maintenancePreferenceGeneration = 0
+    private var applicationGeneration = 0
     private var started = false
     private var observesWorkspace = false
+    private var isHotKeySuspendedForRecording = false
 
     var preferencesRecoveryWarning: String? {
         guard !preferencesRecoveryIssues.isEmpty else { return nil }
@@ -103,8 +106,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
 
     func start() async {
         guard !started else { return }
+        let generation = applicationGeneration
         started = true
-        switch await preferencesStore.load() {
+        let loadResult = await preferencesStore.load()
+        guard started, generation == applicationGeneration else { return }
+        switch loadResult {
         case let .loaded(loadedPreferences):
             preferences = loadedPreferences
         case .defaults:
@@ -126,13 +132,14 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
             refreshLoginItemStatus()
         }
         await coordinator.start()
+        guard started, generation == applicationGeneration else { return }
         installMaintenanceFeedbackObservation()
         installStatusOverlayObservation()
         updatePresentation()
 
         if enablesSystemIntegrations {
             do {
-                try installHotKey(preferences.shortcuts.primary)
+                try installHotKey(preferences.shortcuts.shortcut(for: preferences.microphone.mode))
             } catch {
                 hotKeyError = hotKeyErrorMessage(for: error)
             }
@@ -154,13 +161,17 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         Task { [weak self] in
             await transition?.value
             guard let self else { return }
+            guard generation == self.modeSelectionGeneration else { return }
+            if self.enablesSystemIntegrations {
+                self.installPreferredHotKeyAfterModeChange(to: mode)
+            }
             if generation == self.modeSelectionGeneration,
                mode == .pushToTalk,
                self.coordinator.mode == .pushToTalk,
                self.preferences.microphone.mode == .pushToTalk,
                self.preferences.hud.isEnabled {
                 self.hudController.showPushToTalkEnabled(
-                    shortcut: self.preferences.shortcuts.primary.displayName,
+                    shortcut: self.preferences.shortcuts.pushToTalk.displayName,
                     preferences: self.preferences.hud
                 )
                 // The instruction stands in for the confirmation of the mute that entering
@@ -265,34 +276,73 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         statusOverlayController.resetPosition()
     }
 
-    func updateHotKey(_ configuration: GlobalHotKeyConfiguration) async {
+    func suspendHotKeyForRecording() {
+        guard enablesSystemIntegrations,
+              started,
+              !isHotKeySuspendedForRecording else { return }
+        hotKeyTask?.cancel()
+        hotKeyTask = nil
+        hotKeyMonitor.stop()
+        isHotKeySuspendedForRecording = true
+    }
+
+    func resumeHotKeyAfterRecording() {
+        guard enablesSystemIntegrations,
+              started,
+              isHotKeySuspendedForRecording else { return }
+        isHotKeySuspendedForRecording = false
+        do {
+            try installHotKey(preferences.shortcuts.shortcut(for: coordinator.mode))
+            hotKeyError = nil
+        } catch {
+            hotKeyError = hotKeyErrorMessage(for: error)
+        }
+    }
+
+    func updateHotKey(
+        _ configuration: GlobalHotKeyConfiguration,
+        for mode: MuteMode
+    ) async {
+        guard started else { return }
+        let generation = applicationGeneration
         guard configuration.isValid else {
             hotKeyError = NSLocalizedString(
-                "Use at least one modifier including Command or Control.",
+                "Use F1–F20 alone, or include Command or Control.",
                 comment: "Invalid shortcut error"
             )
             return
         }
 
-        guard await coordinator.cancelActiveHotKeyGesture() else {
-            hotKeyError = NSLocalizedString(
-                "The microphone could not be remuted, so the shortcut was not changed.",
-                comment: "Shortcut safety error"
-            )
-            return
+        let isActiveMode = coordinator.mode == mode
+        if isActiveMode {
+            guard await coordinator.cancelActiveHotKeyGesture() else {
+                hotKeyError = NSLocalizedString(
+                    "The microphone could not be remuted, so the shortcut was not changed.",
+                    comment: "Shortcut safety error"
+                )
+                return
+            }
+            guard generation == applicationGeneration, started else { return }
         }
-        let previous = preferences.shortcuts.primary
-        do {
-            try installHotKey(configuration)
-            var updated = preferences
-            updated.shortcuts.primary = configuration
-            preferences = updated
+
+        let previousConfiguration = preferences.shortcuts.shortcut(for: mode)
+        if isActiveMode {
+            do {
+                try installHotKey(configuration)
+            } catch {
+                hotKeyError = hotKeyErrorMessage(for: error)
+                try? installHotKey(previousConfiguration)
+                return
+            }
+        }
+
+        var updated = preferences
+        updated.shortcuts.setShortcut(configuration, for: mode)
+        preferences = updated
+        if isActiveMode {
             hotKeyError = nil
-            await savePreferences()
-        } catch {
-            hotKeyError = hotKeyErrorMessage(for: error)
-            try? installHotKey(previous)
         }
+        await savePreferences()
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -322,6 +372,11 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
     }
 
     func stop() async {
+        applicationGeneration += 1
+        modeSelectionGeneration += 1
+        targetSelectionGeneration += 1
+        maintenancePreferenceGeneration += 1
+        hotKeyRecordingEpoch = UUID()
         await preferencesSaveTask?.value
         preferencesSaveTask = nil
         removeWorkspaceObservers()
@@ -330,6 +385,7 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         await pendingWorkspaceLifecycle?.value
         hotKeyTask?.cancel()
         hotKeyTask = nil
+        isHotKeySuspendedForRecording = false
         websiteHUDCaptureTask?.cancel()
         websiteHUDCaptureTask = nil
         hotKeyMonitor.stop()
@@ -342,6 +398,21 @@ final class MuteletApplicationModel: NSObject, ObservableObject {
         screenEdgeIndicatorController.stop()
         await coordinator.shutdown()
         started = false
+    }
+
+    private func installPreferredHotKeyAfterModeChange(
+        to selectedMode: MuteMode
+    ) {
+        guard started,
+              !isHotKeySuspendedForRecording else { return }
+        let selectedConfiguration = preferences.shortcuts.shortcut(for: selectedMode)
+        do {
+            try installHotKey(selectedConfiguration)
+            hotKeyError = nil
+        } catch {
+            hotKeyError = hotKeyErrorMessage(for: error)
+            NSLog("Mutelet mode shortcut is inactive: %@", String(describing: error))
+        }
     }
 
     private func installHotKey(_ configuration: GlobalHotKeyConfiguration) throws {

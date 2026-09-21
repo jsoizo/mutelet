@@ -27,7 +27,9 @@ struct MuteletSettingsView: View {
                     Label("Display", systemImage: "display")
                 }
 
-                ShortcutSettingsView(applicationModel: applicationModel)
+                ShortcutSettingsView(
+                    applicationModel: applicationModel
+                )
                     .tabItem {
                         Label("Shortcut", systemImage: "keyboard")
                     }
@@ -38,13 +40,14 @@ struct MuteletSettingsView: View {
                     }
             }
         }
-        .frame(width: 600, height: 360)
+        .frame(width: 600, height: 440)
     }
 
     @ViewBuilder
     private var settingsNotices: some View {
         if applicationModel.preferencesRecoveryWarning != nil
             || applicationModel.preferencesError != nil
+            || applicationModel.hotKeyError != nil
             || applicationModel.restorationWarning != nil {
             VStack(alignment: .leading, spacing: 6) {
                 if let recoveryWarning = applicationModel.preferencesRecoveryWarning {
@@ -54,6 +57,10 @@ struct MuteletSettingsView: View {
                 if let preferencesError = applicationModel.preferencesError {
                     SettingsErrorText(preferencesError)
                         .accessibilityIdentifier("settings-preferences-save-error")
+                }
+                if let hotKeyError = applicationModel.hotKeyError {
+                    SettingsErrorText(hotKeyError)
+                        .accessibilityIdentifier("settings-hot-key-error")
                 }
                 if let restorationWarning = applicationModel.restorationWarning {
                     SettingsWarningText(restorationWarning)
@@ -603,56 +610,171 @@ private struct ShortcutSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Global shortcut") {
-                LabeledContent("Current shortcut") {
-                    Text(applicationModel.preferences.shortcuts.primary.displayName)
-                        .font(.system(.body, design: .rounded, weight: .semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-                }
+            ShortcutSettingsSection(
+                applicationModel: applicationModel,
+                recorder: recorder,
+                mode: .toggle
+            )
 
-                HStack {
-                    Button(recorder.isRecording ? "Cancel" : "Record Shortcut…") {
-                        if recorder.isRecording {
-                            recorder.stop()
-                        } else {
-                            recorder.start { configuration in
-                                Task {
-                                    await applicationModel.updateHotKey(configuration)
-                                }
-                            }
-                        }
-                    }
-                    .accessibilityLabel("Record global shortcut")
-
-                    Button("Restore Default") {
-                        recorder.stop()
-                        Task {
-                            await applicationModel.updateHotKey(.default)
-                        }
-                    }
-                    .disabled(applicationModel.preferences.shortcuts.primary == .default)
-                }
-
-                if recorder.isRecording {
-                    Label("Press shortcut…", systemImage: "keyboard.badge.ellipsis")
-                        .foregroundStyle(.tint)
-                }
-
-                Text("Use at least one modifier including Command or Control. Press Escape to cancel.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let hotKeyError = applicationModel.hotKeyError {
-                    SettingsErrorText(hotKeyError)
-                }
-            }
+            ShortcutSettingsSection(
+                applicationModel: applicationModel,
+                recorder: recorder,
+                mode: .pushToTalk
+            )
         }
         .formStyle(.grouped)
         .padding()
         .onDisappear {
             recorder.stop()
+        }
+        .onChange(of: applicationModel.hotKeyRecordingEpoch) { _, _ in
+            recorder.stop()
+        }
+    }
+}
+
+private struct ShortcutSettingsSection: View {
+    @ObservedObject var applicationModel: MuteletApplicationModel
+    @ObservedObject var recorder: HotKeyRecorder
+    let mode: MuteMode
+
+    private var configuration: GlobalHotKeyConfiguration {
+        applicationModel.preferences.shortcuts.shortcut(for: mode)
+    }
+
+    private var defaultConfiguration: GlobalHotKeyConfiguration {
+        mode == .toggle ? .default : .pushToTalkDefault
+    }
+
+    private var isRecordingThisMode: Bool {
+        recorder.isRecording && recorder.recordingMode == mode
+    }
+
+    private var isRecordingOtherMode: Bool {
+        recorder.isRecording && recorder.recordingMode != mode
+    }
+
+    private var title: String {
+        String(
+            format: NSLocalizedString(
+                "%@ Shortcut",
+                comment: "Shortcut section title for a microphone mode"
+            ),
+            mode.title
+        )
+    }
+
+    var body: some View {
+        Section {
+            LabeledContent("Current shortcut") {
+                Text(configuration.displayName)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityIdentifier("settings-current-\(mode.rawValue)-shortcut")
+            }
+
+            HStack {
+                Button(isRecordingThisMode ? "Cancel" : "Record Shortcut…") {
+                    if isRecordingThisMode {
+                        recorder.stop()
+                    } else {
+                        recorder.start(
+                            mode: mode,
+                            onSuspend: applicationModel.suspendHotKeyForRecording,
+                            onResume: applicationModel.resumeHotKeyAfterRecording
+                        ) { configuration in
+                            Task {
+                                await applicationModel.updateHotKey(
+                                    configuration,
+                                    for: mode
+                                )
+                            }
+                        }
+                    }
+                }
+                .disabled(isRecordingOtherMode)
+                .accessibilityLabel(
+                    isRecordingThisMode
+                        ? String(
+                            format: NSLocalizedString(
+                                "Cancel recording %@ shortcut",
+                                comment: "Cancel recording button for a microphone mode"
+                            ),
+                            mode.title
+                        )
+                        : String(
+                            format: NSLocalizedString(
+                                "Record %@ shortcut",
+                                comment: "Record shortcut button for a microphone mode"
+                            ),
+                            mode.title
+                        )
+                )
+                .accessibilityValue(
+                    isRecordingThisMode
+                        ? NSLocalizedString(
+                            "Recording",
+                            comment: "Shortcut recorder active state"
+                        )
+                        : ""
+                )
+                .accessibilityIdentifier("settings-record-\(mode.rawValue)-shortcut")
+
+                Button("Restore Default") {
+                    recorder.stop()
+                    Task {
+                        await applicationModel.updateHotKey(
+                            defaultConfiguration,
+                            for: mode
+                        )
+                    }
+                }
+                .accessibilityLabel(
+                    String(
+                        format: NSLocalizedString(
+                            "Restore %@ default shortcut",
+                            comment: "Restore default shortcut for a microphone mode"
+                        ),
+                        mode.title
+                    )
+                )
+                .accessibilityIdentifier("settings-restore-\(mode.rawValue)-shortcut")
+                .disabled(configuration == defaultConfiguration || recorder.isRecording)
+            }
+
+            if isRecordingThisMode {
+                Label("Press shortcut…", systemImage: "keyboard.badge.ellipsis")
+                    .foregroundStyle(.tint)
+                    .accessibilityIdentifier("settings-\(mode.rawValue)-shortcut-recording")
+                    .accessibilityLabel(
+                        String(
+                            format: NSLocalizedString(
+                                "Recording %@ shortcut. Press Escape to cancel.",
+                                comment: "Shortcut recorder accessibility prompt"
+                            ),
+                            mode.title
+                        )
+                    )
+            }
+
+            if mode == .pushToTalk,
+               !configuration.isStandaloneFunctionKey {
+                SettingsWarningText(
+                    NSLocalizedString(
+                        "Holding a modifier-based shortcut can block typing. F1–F20 alone are best for Push to Talk.",
+                        comment: "Push to Talk shortcut typing warning"
+                    )
+                )
+                .accessibilityIdentifier("settings-push-to-talk-shortcut-warning")
+            }
+        } header: {
+            Text(title)
+        } footer: {
+            Text("Use F1–F20 alone, or include Command or Control. Press Escape to cancel.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -735,10 +857,20 @@ private struct SettingsWarningText: View {
 @MainActor
 private final class HotKeyRecorder: ObservableObject {
     @Published private(set) var isRecording = false
+    @Published private(set) var recordingMode: MuteMode?
     private var eventMonitor: Any?
+    private var resumeForCurrentSession: (() -> Void)?
 
-    func start(onCapture: @escaping @MainActor (GlobalHotKeyConfiguration) -> Void) {
+    func start(
+        mode: MuteMode,
+        onSuspend: @escaping @MainActor () -> Void,
+        onResume: @escaping @MainActor () -> Void,
+        onCapture: @escaping @MainActor (GlobalHotKeyConfiguration) -> Void
+    ) {
         stop()
+        recordingMode = mode
+        resumeForCurrentSession = onResume
+        onSuspend()
         isRecording = true
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 {
@@ -760,11 +892,16 @@ private final class HotKeyRecorder: ObservableObject {
     }
 
     func stop() {
+        let resume = resumeForCurrentSession
+        resumeForCurrentSession = nil
         if let eventMonitor {
             NSEvent.removeMonitor(eventMonitor)
             self.eventMonitor = nil
         }
+        guard isRecording else { return }
         isRecording = false
+        recordingMode = nil
+        resume?()
     }
 
     private static func configuration(for event: NSEvent) -> GlobalHotKeyConfiguration? {
@@ -787,6 +924,26 @@ private final class HotKeyRecorder: ObservableObject {
 
     private static func keyLabel(for event: NSEvent) -> String? {
         switch event.keyCode {
+        case 122: return "F1"
+        case 120: return "F2"
+        case 99: return "F3"
+        case 118: return "F4"
+        case 96: return "F5"
+        case 97: return "F6"
+        case 98: return "F7"
+        case 100: return "F8"
+        case 101: return "F9"
+        case 109: return "F10"
+        case 103: return "F11"
+        case 111: return "F12"
+        case 105: return "F13"
+        case 107: return "F14"
+        case 113: return "F15"
+        case 106: return "F16"
+        case 64: return "F17"
+        case 79: return "F18"
+        case 80: return "F19"
+        case 90: return "F20"
         case 36: return "↩"
         case 48: return "⇥"
         case 49: return "Space"

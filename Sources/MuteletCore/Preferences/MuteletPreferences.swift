@@ -39,10 +39,32 @@ public struct MicrophonePreferences: Equatable, Sendable {
 }
 
 public struct ShortcutPreferences: Equatable, Sendable {
-    public var primary: GlobalHotKeyConfiguration
+    public var toggle: GlobalHotKeyConfiguration
+    public var pushToTalk: GlobalHotKeyConfiguration
 
-    public init(primary: GlobalHotKeyConfiguration = .default) {
-        self.primary = primary
+    public init(
+        toggle: GlobalHotKeyConfiguration = .default,
+        pushToTalk: GlobalHotKeyConfiguration = .pushToTalkDefault
+    ) {
+        self.toggle = toggle
+        self.pushToTalk = pushToTalk
+    }
+
+    public func shortcut(for mode: MuteMode) -> GlobalHotKeyConfiguration {
+        switch mode {
+        case .toggle: toggle
+        case .pushToTalk: pushToTalk
+        }
+    }
+
+    public mutating func setShortcut(
+        _ configuration: GlobalHotKeyConfiguration,
+        for mode: MuteMode
+    ) {
+        switch mode {
+        case .toggle: toggle = configuration
+        case .pushToTalk: pushToTalk = configuration
+        }
     }
 }
 

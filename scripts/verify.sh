@@ -78,9 +78,6 @@ if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
         test-without-building; then
         xcrun xcresulttool get test-results summary --path "$ui_test_result_bundle" || true
         xcrun xcresulttool get test-results tests --path "$ui_test_result_bundle" || true
-        xcrun xcresulttool get test-results activities \
-            --path "$ui_test_result_bundle" \
-            --test-id 'MuteletUITests/testPersistentStatusCanBeEnabledAndResetFromSettings()' || true
         exit 1
     fi
 fi

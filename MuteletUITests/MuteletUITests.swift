@@ -90,11 +90,11 @@ final class MuteletUITests: XCTestCase {
 
         let enabled = app.descendants(matching: .any)["settings-status-overlay-enabled"]
         XCTAssertTrue(enabled.waitForExistence(timeout: 5))
-        settingsWindow.scroll(byDeltaX: 0, deltaY: -260)
         let overlay = app.descendants(matching: .any)["mutelet-status-overlay"]
         XCTAssertFalse(overlay.exists)
         enabled.click()
 
+        XCTAssertEqual(enabled.value as? String, "1")
         XCTAssertTrue(overlay.waitForExistence(timeout: 5))
         let reset = app.buttons["settings-status-overlay-reset-position"]
         XCTAssertTrue(reset.waitForExistence(timeout: 2))

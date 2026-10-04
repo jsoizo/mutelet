@@ -61,6 +61,8 @@ Selecting Push to Talk immediately requests mute. Key down restores the prior st
 
 Core Audio device-list and default-input events trigger inventory refreshes. Bursts of control-value events are coalesced and filtered to the current target before state is read back. Push to Talk remutes promptly when that read-back finds an externally unmuted target, without rewriting controls that are already confirmed muted.
 
+Shortcut preferences are stored per mode: Toggle defaults to `Control + Shift + M`, and Push to Talk defaults to F8 because Carbon registers it as a consumed global hot key without requiring an event tap. Validation permits Command- or Control-based combinations for all modes and standalone F1–F20 for typing while Push to Talk is held. Schema 7 migrates a former single shortcut into the shortcut slot for the mode selected when it was saved and gives the other mode its recommended default. An untouched schema 5-or-earlier Push to Talk former default (`Control + Shift + M`) also becomes F8; schema 6 values are preserved as user selections. Invalid recovered shortcut groups fall back to both defaults.
+
 ## Toggle mute maintenance
 
 When enabled, a successful Toggle mute creates a process-local mute intent. Device-list, default-input, topology, readiness, and relevant control events are treated as invalidation signals rather than an ordered event log. A generation-scoped reconciliation worker resolves the latest semantic target to device UIDs, re-resolves each temporary AudioObjectID, reads the current controls, and only writes when the target is not already muted.

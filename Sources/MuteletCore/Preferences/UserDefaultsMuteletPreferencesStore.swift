@@ -2,7 +2,7 @@ import Foundation
 
 public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     private static let storageKey = "muteletPreferences"
-    private static let currentSchemaVersion = 5
+    private static let currentSchemaVersion = 7
 
     private struct StoredPreferencesHeader: Decodable {
         let schemaVersion: Int
@@ -17,7 +17,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         init(preferences: MuteletPreferences) {
             schemaVersion = 1
             microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
-            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts.toggle)
             hud = StoredHUDPreferencesV1(preferences: preferences.hud)
         }
 
@@ -31,7 +31,9 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
                 issues.append(.invalidMicrophone)
             }
 
-            if let shortcutPreferences = shortcuts.decodePreferences() {
+            if let shortcutPreferences = shortcuts.decodePreferences(
+                mode: preferences.microphone.mode
+            ) {
                 preferences.shortcuts = shortcutPreferences
             } else {
                 issues.append(.invalidShortcut)
@@ -55,7 +57,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         init(preferences: MuteletPreferences) {
             schemaVersion = 2
             microphone = StoredMicrophonePreferencesV1(preferences: preferences.microphone)
-            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts.toggle)
             hud = StoredHUDPreferencesV2(preferences: preferences.hud)
         }
 
@@ -69,7 +71,9 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
                 issues.append(.invalidMicrophone)
             }
 
-            if let shortcutPreferences = shortcuts.decodePreferences() {
+            if let shortcutPreferences = shortcuts.decodePreferences(
+                mode: preferences.microphone.mode
+            ) {
                 preferences.shortcuts = shortcutPreferences
             } else {
                 issues.append(.invalidShortcut)
@@ -106,7 +110,9 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
                 issues.append(.invalidMicrophone)
             }
 
-            if let shortcutPreferences = shortcuts.decodePreferences() {
+            if let shortcutPreferences = shortcuts.decodePreferences(
+                mode: preferences.microphone.mode
+            ) {
                 preferences.shortcuts = shortcutPreferences
             } else {
                 issues.append(.invalidShortcut)
@@ -148,7 +154,9 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             } else {
                 issues.append(.invalidMicrophone)
             }
-            if let shortcutPreferences = shortcuts.decodePreferences() {
+            if let shortcutPreferences = shortcuts.decodePreferences(
+                mode: preferences.microphone.mode
+            ) {
                 preferences.shortcuts = shortcutPreferences
             } else {
                 issues.append(.invalidShortcut)
@@ -180,9 +188,84 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
         let screenEdge: StoredScreenEdgeIndicatorPreferencesV5?
 
         init(preferences: MuteletPreferences) {
+            schemaVersion = 5
+            microphone = StoredMicrophonePreferencesV4(preferences: preferences.microphone)
+            shortcuts = StoredShortcutPreferencesV1(
+                preferences: preferences.shortcuts.shortcut(for: preferences.microphone.mode)
+            )
+            hud = StoredHUDPreferencesV2(preferences: preferences.hud)
+            statusOverlay = StoredStatusOverlayPreferencesV3(
+                preferences: preferences.statusOverlay
+            )
+            screenEdge = StoredScreenEdgeIndicatorPreferencesV5(
+                preferences: preferences.screenEdge
+            )
+        }
+
+        func decodePreferences(
+            migratesLegacyPushToTalkShortcut: Bool,
+            requiresSave: Bool
+        ) -> DecodedPreferences {
+            var preferences = MuteletPreferences()
+            var issues: [PreferencesRecoveryIssue] = []
+
+            if let microphonePreferences = microphone.decodePreferences() {
+                preferences.microphone = microphonePreferences
+            } else {
+                issues.append(.invalidMicrophone)
+            }
+            if let shortcutPreferences = shortcuts.decodePreferences(
+                mode: preferences.microphone.mode
+            ) {
+                preferences.shortcuts = shortcutPreferences
+            } else {
+                issues.append(.invalidShortcut)
+            }
+            if let hudPreferences = hud.decodePreferences() {
+                preferences.hud = hudPreferences
+            } else {
+                issues.append(.invalidHUD)
+            }
+            if let overlayPreferences = statusOverlay.decodePreferences() {
+                preferences.statusOverlay = overlayPreferences
+            } else {
+                issues.append(.invalidStatusOverlay)
+            }
+            if let screenEdgePreferences = screenEdge?.decodePreferences() {
+                preferences.screenEdge = screenEdgePreferences
+            } else {
+                issues.append(.invalidScreenEdgeIndicator)
+            }
+
+            if migratesLegacyPushToTalkShortcut,
+               !issues.contains(.invalidShortcut),
+               preferences.microphone.mode == .pushToTalk,
+               preferences.shortcuts.pushToTalk == .legacyDefault {
+                preferences.shortcuts.pushToTalk = .pushToTalkDefault
+            }
+
+            return DecodedPreferences(
+                preferences: preferences,
+                issues: issues,
+                requiresSave: requiresSave
+            )
+        }
+    }
+
+    private typealias StoredPreferencesV6 = StoredPreferencesV5
+
+    private struct StoredPreferencesV7: Codable {
+        let schemaVersion: Int
+        let microphone: StoredMicrophonePreferencesV4
+        let shortcuts: StoredShortcutPreferencesV7
+        let hud: StoredHUDPreferencesV2
+        let statusOverlay: StoredStatusOverlayPreferencesV3
+        let screenEdge: StoredScreenEdgeIndicatorPreferencesV5?
+
+        init(preferences: MuteletPreferences) {
             schemaVersion = UserDefaultsMuteletPreferencesStore.currentSchemaVersion
             microphone = StoredMicrophonePreferencesV4(preferences: preferences.microphone)
-            shortcuts = StoredShortcutPreferencesV1(preferences: preferences.shortcuts)
+            shortcuts = StoredShortcutPreferencesV7(preferences: preferences.shortcuts)
             hud = StoredHUDPreferencesV2(preferences: preferences.hud)
             statusOverlay = StoredStatusOverlayPreferencesV3(
                 preferences: preferences.statusOverlay
@@ -221,6 +304,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
             } else {
                 issues.append(.invalidScreenEdgeIndicator)
             }
+
             return DecodedPreferences(
                 preferences: preferences,
                 issues: issues,
@@ -342,13 +426,38 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     private struct StoredShortcutPreferencesV1: Codable {
         let primary: StoredHotKeyV1
 
+        init(preferences: GlobalHotKeyConfiguration) {
+            primary = StoredHotKeyV1(configuration: preferences)
+        }
+
+        /// Migrates the former single-shortcut storage into the shortcut slot that
+        /// was actually active when the old preferences were saved.
+        func decodePreferences(
+            mode: MuteMode
+        ) -> ShortcutPreferences? {
+            guard let primary = primary.configuration else { return nil }
+            var preferences = ShortcutPreferences()
+            preferences.setShortcut(primary, for: mode)
+            return preferences
+        }
+    }
+
+    private struct StoredShortcutPreferencesV7: Codable {
+        let toggle: StoredHotKeyV1
+        let pushToTalk: StoredHotKeyV1
+
         init(preferences: ShortcutPreferences) {
-            primary = StoredHotKeyV1(configuration: preferences.primary)
+            toggle = StoredHotKeyV1(configuration: preferences.toggle)
+            pushToTalk = StoredHotKeyV1(configuration: preferences.pushToTalk)
         }
 
         func decodePreferences() -> ShortcutPreferences? {
-            guard let primary = primary.configuration else { return nil }
-            return ShortcutPreferences(primary: primary)
+            guard let toggle = toggle.configuration,
+                  let pushToTalk = pushToTalk.configuration else { return nil }
+            return ShortcutPreferences(
+                toggle: toggle,
+                pushToTalk: pushToTalk
+            )
         }
     }
 
@@ -544,7 +653,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     private struct DecodedPreferences {
-        let preferences: MuteletPreferences
+        var preferences: MuteletPreferences
         let issues: [PreferencesRecoveryIssue]
         let requiresSave: Bool
     }
@@ -623,7 +732,7 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     }
 
     public func save(_ preferences: MuteletPreferences) throws {
-        let data = try encoder.encode(StoredPreferencesV5(preferences: preferences))
+        let data = try encoder.encode(StoredPreferencesV7(preferences: preferences))
         if let dataWriter {
             try dataWriter(data)
         } else {
@@ -637,27 +746,59 @@ public actor UserDefaultsMuteletPreferencesStore: MuteletPreferencesStoring {
     ) throws -> DecodedPreferences {
         switch schemaVersion {
         case 1:
-            return try decoder
+            var decoded = try decoder
                 .decode(StoredPreferencesV1.self, from: data)
                 .decodePreferences()
+            applyLegacyPushToTalkShortcutMigration(to: &decoded)
+            return decoded
         case 2:
-            return try decoder
+            var decoded = try decoder
                 .decode(StoredPreferencesV2.self, from: data)
                 .decodePreferences()
+            applyLegacyPushToTalkShortcutMigration(to: &decoded)
+            return decoded
         case 3:
-            return try decoder
+            var decoded = try decoder
                 .decode(StoredPreferencesV3.self, from: data)
                 .decodePreferences()
+            applyLegacyPushToTalkShortcutMigration(to: &decoded)
+            return decoded
         case 4:
-            return try decoder
+            var decoded = try decoder
                 .decode(StoredPreferencesV4.self, from: data)
                 .decodePreferences()
-        case Self.currentSchemaVersion:
+            applyLegacyPushToTalkShortcutMigration(to: &decoded)
+            return decoded
+        case 5:
             return try decoder
                 .decode(StoredPreferencesV5.self, from: data)
+                .decodePreferences(
+                    migratesLegacyPushToTalkShortcut: true,
+                    requiresSave: true
+                )
+        case 6:
+            return try decoder
+                .decode(StoredPreferencesV6.self, from: data)
+                .decodePreferences(
+                    migratesLegacyPushToTalkShortcut: false,
+                    requiresSave: true
+                )
+        case Self.currentSchemaVersion:
+            return try decoder
+                .decode(StoredPreferencesV7.self, from: data)
                 .decodePreferences()
         default:
             throw StoredPreferencesError.unsupportedSchemaVersion(schemaVersion)
+        }
+    }
+
+    private func applyLegacyPushToTalkShortcutMigration(
+        to decoded: inout DecodedPreferences
+    ) {
+        if !decoded.issues.contains(.invalidShortcut),
+           decoded.preferences.microphone.mode == .pushToTalk,
+           decoded.preferences.shortcuts.pushToTalk == .legacyDefault {
+            decoded.preferences.shortcuts.pushToTalk = .pushToTalkDefault
         }
     }
 

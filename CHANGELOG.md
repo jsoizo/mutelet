@@ -8,12 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Standalone F1–F20 shortcut support, with mode-specific shortcut settings: **Control + Shift + M** for Toggle and **F8** for Push to Talk so typing can continue while the key is held.
 - Configurable HUD size, position, display target, duration, and manual preview.
 - Optional session mute maintenance across default-input changes, device reconnection, external unmute attempts, and sleep/wake.
 - Optional screen edge indicator that glows the display borders while Push to Talk can carry sound, replacing the transient HUD for those gestures.
 
 ### Changed
 
+- The former single-shortcut preference migrates into the saved mode’s shortcut slot; the other mode receives its recommended default. Untouched schema 5-or-earlier Push to Talk **Control + Shift + M** defaults migrate to **F8**; schema 6 values are preserved as user selections.
 - Push to Talk shows HUD feedback on every press and release instead of only when the mode is selected.
 - Automatic mute maintenance reports its result immediately instead of delaying the HUD, and repeats of what the HUD already shows are dropped.
 

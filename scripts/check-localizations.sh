@@ -11,6 +11,33 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 1
 fi
 
+python3 - "$catalog" <<'PYTHON'
+import json
+import sys
+
+class DuplicateKeyError(ValueError):
+    pass
+
+def reject_duplicate_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise DuplicateKeyError(key)
+        result[key] = value
+    return result
+
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as file:
+        json.load(file, object_pairs_hook=reject_duplicate_keys)
+except DuplicateKeyError as error:
+    print(f"error: duplicate localization key: {error.args[0]}", file=sys.stderr)
+    sys.exit(1)
+except (OSError, json.JSONDecodeError) as error:
+    print(f"error: invalid Localizable.xcstrings JSON: {error}", file=sys.stderr)
+    sys.exit(1)
+PYTHON
+
 if ! jq -e '
     .sourceLanguage == "en"
     and (.strings | type == "object")

@@ -66,14 +66,20 @@ if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
         echo "error: quit the running Mutelet app before executing UI tests" >&2
         exit 1
     fi
-    xcodebuild -quiet "${common_arguments[@]}" \
+    ui_test_result_bundle="$test_derived_data/UITests.xcresult"
+    if ! xcodebuild -quiet "${common_arguments[@]}" \
         -derivedDataPath "$test_derived_data" \
+        -resultBundlePath "$ui_test_result_bundle" \
         -configuration Debug \
         CODE_SIGNING_ALLOWED=YES \
         CODE_SIGNING_REQUIRED=YES \
         CODE_SIGN_IDENTITY=- \
         -only-testing:MuteletUITests \
-        test-without-building
+        test-without-building; then
+        xcrun xcresulttool get test-results summary --path "$ui_test_result_bundle" || true
+        xcrun xcresulttool get test-results tests --path "$ui_test_result_bundle" || true
+        exit 1
+    fi
 fi
 xcodebuild -quiet "${common_arguments[@]}" \
     -derivedDataPath "$build_derived_data" \

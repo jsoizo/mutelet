@@ -252,13 +252,14 @@ struct MuteletMenuView: View {
     }
 
     private var shortcutHelp: String {
+        let shortcut = applicationModel.preferences.shortcuts.shortcut(for: coordinator.mode)
         switch coordinator.mode {
         case .toggle:
-            applicationModel.preferences.shortcuts.primary.displayName
+            return shortcut.displayName
         case .pushToTalk:
-            String(
+            return String(
                 format: NSLocalizedString("Hold %@ to talk", comment: "Push-to-talk help"),
-                applicationModel.preferences.shortcuts.primary.displayName
+                shortcut.displayName
             )
         }
     }

@@ -25,11 +25,11 @@ Muteletは、Apple Silicon搭載Mac向けのオープンソースのマイクミ
 
 ## ダウンロード
 
-Developer IDで署名し、Appleの公証を受けたMutelet 0.1.0を公開しています。
+Developer IDで署名し、Appleの公証を受けたMutelet 0.2.0を公開しています。
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.1.0/Mutelet-0.1.0.dmg">Mutelet 0.1.0をダウンロード</a>
-  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.1.0">リリース詳細とチェックサム</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.2.0/Mutelet-0.2.0.dmg">Mutelet 0.2.0をダウンロード</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.2.0">リリース詳細とチェックサム</a>
 </p>
 
 **動作環境**
@@ -45,8 +45,10 @@ Developer IDで署名し、Appleの公証を受けたMutelet 0.1.0を公開し�
 
 - Macで現在使用しているマイク、指定したマイク、または接続中のすべてのマイクを操作できます。
 - トグルでは、ショートカットを押すたびにミュートを切り替えます。Push to Talkでは、ショートカットを押している間だけミュートを解除します。
-- 対象のマイク、ショートカット、画面上の状態表示、ログイン時の起動を設定画面から変更できます。
-- 使用するマイクが変わったときや、機器をつなぎ直したときも、自動的に状態を更新します。
+- ショートカットはモードごとに設定でき、F1〜F20の単独キーにも対応しています。初期設定はトグルがControl + Shift + M、Push to TalkがF8です。
+- 対象のマイク、画面上の状態表示のサイズ・位置・表示時間、ログイン時の起動を設定画面から変更できます。
+- マイクの切り替えや再接続、ほかのアプリによるミュート解除、スリープからの復帰後も、ミュート状態を自動で維持する設定を選べます。
+- Push to Talkで音声が通る間、画面の縁を光らせて知らせる表示も選べます。
 
 <figure class="hud-preview">
   <video autoplay muted loop playsinline width="960" height="540" poster="/assets/hud-ja.png" aria-label="マイクの状態を画面上に表示するMutelet">

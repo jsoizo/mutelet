@@ -25,11 +25,11 @@ Mutelet is an open-source microphone mute utility for Apple Silicon Macs. It can
 
 ## Download
 
-Mutelet 0.1.0 is available as a Developer ID-signed and Apple-notarized release.
+Mutelet 0.2.0 is available as a Developer ID-signed and Apple-notarized release.
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.1.0/Mutelet-0.1.0.dmg">Download Mutelet 0.1.0</a>
-  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.1.0">Release details and checksum</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.2.0/Mutelet-0.2.0.dmg">Download Mutelet 0.2.0</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.2.0">Release details and checksum</a>
 </p>
 
 **Requirements**
@@ -45,8 +45,10 @@ Mutelet 0.1.0 is available as a Developer ID-signed and Apple-notarized release.
 
 - Mute the system default input, one selected input, or all inputs.
 - Use Toggle to change the mute state with one press, or Push to Talk to stay muted except while the shortcut is held.
-- Configure the target, shortcut, HUD, and launch at login from the settings window.
-- Follow default-device changes and reconnect selected devices.
+- Set a separate shortcut for each mode, including standalone F1–F20 keys. The defaults are Control + Shift + M for Toggle and F8 for Push to Talk.
+- Configure the target, HUD size, position and duration, and launch at login from the settings window.
+- Optionally maintain the session mute state across input changes, device reconnection, external unmute attempts, and sleep/wake.
+- Optionally illuminate the screen edges while Push to Talk can carry sound.
 
 <figure class="hud-preview">
   <video autoplay muted loop playsinline width="960" height="540" poster="/assets/hud-en.png" aria-label="Mutelet showing the microphone state in its on-screen HUD">

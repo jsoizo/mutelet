@@ -9,3 +9,4 @@ site/node_modules/
 site/_site/
 xcuserdata/
 *.xcuserstate
+/docs/RELEASING.md

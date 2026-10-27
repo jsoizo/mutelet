@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Prepared version 1.0.0 for Mac App Store distribution alongside the existing free Developer ID download. Store availability will be announced after approval and publication.
+
 ## [0.2.0] - 2026-10-05
 
 ### Added

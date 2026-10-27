@@ -53,6 +53,6 @@ Do not commit signing certificates, notarization keys, provisioning data, local 
 
 ## Releases
 
-Maintainers should follow [docs/RELEASING.md](docs/RELEASING.md). Publishing requires a Developer ID Application certificate and Apple notarization credentials; normal contributors do not need either.
+Publishing requires a Developer ID Application certificate and Apple notarization credentials; normal contributors do not need either.
 
-App Store / TestFlight builds use Xcode Cloud automatic signing. Its workflow configuration lives outside this repository; required settings and the release gate are documented in [docs/RELEASING.md](docs/RELEASING.md).
+App Store / TestFlight builds use Xcode Cloud automatic signing. Its workflow configuration and maintainer release procedures are maintained outside version control.

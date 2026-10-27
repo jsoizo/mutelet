@@ -32,3 +32,11 @@ defaults delete app.mutelet.Mutelet
 ```
 
 That command also removes saved volume restoration values, so do not run it while relying on Mutelet to restore a volume-based mute.
+
+## TestFlight diagnostics
+
+When you use a TestFlight build, Apple may collect testing information, crash logs, and feedback through TestFlight. This is separate from Mutelet, which does not implement analytics or crash-report uploads. See [Apple’s TestFlight privacy information](https://www.apple.com/legal/privacy/data/en/test-flight/).
+
+## Contact
+
+For support or privacy questions, email [jskmt-dev@proton.me](mailto:jskmt-dev@proton.me).

@@ -18,6 +18,8 @@ swift test
 
 The Xcode project is the source of truth for the app and UI tests. `Package.swift` provides fast core unit tests and the `mutelet-probe` diagnostic executable.
 
+The app target selects the maintainer’s Apple Developer team for automatic signing. For a local Xcode GUI build, select your own team in Signing & Capabilities if needed. `scripts/build.sh` disables signing, and `scripts/verify.sh` uses unsigned/ad-hoc builds, so these scripts do not require the maintainer’s signing credentials.
+
 `verify.sh` builds UI tests by default. To execute them locally, first quit any Mutelet instance you are using and run `RUN_UI_TESTS=1 ./scripts/verify.sh`. CI always executes them.
 
 ## Project layout
@@ -40,7 +42,7 @@ changelogs/            Release-note drafts
 - Never claim a confirmed mute after a partial operation or for an unsupported input.
 - Keep Push to Talk fail-safe: idle, target changes, and app termination must end muted; sleep handling should make the strongest feasible best-effort mute request.
 - Add or update English and Japanese entries in `Localizable.xcstrings` for user-visible text.
-- Do not add microphone capture, telemetry, network access, or new permission requirements without an explicit design discussion.
+- Keep App Sandbox enabled. Do not add microphone capture, telemetry, network access, or new permission requirements without an explicit design discussion. The app must not include audio-input or network client/server entitlements.
 - Add focused tests for state-machine and persistence changes.
 
 ## Pull requests
@@ -51,4 +53,6 @@ Do not commit signing certificates, notarization keys, provisioning data, local 
 
 ## Releases
 
-Maintainers should follow [docs/RELEASING.md](docs/RELEASING.md). Publishing requires a Developer ID Application certificate and Apple notarization credentials; normal contributors do not need either.
+Publishing requires a Developer ID Application certificate and Apple notarization credentials; normal contributors do not need either.
+
+App Store / TestFlight builds use Xcode Cloud automatic signing. Its workflow configuration and maintainer release procedures are maintained outside version control.

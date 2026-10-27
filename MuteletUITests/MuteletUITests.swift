@@ -320,6 +320,7 @@ final class MuteletUITests: XCTestCase {
             let app = launch(
                 arguments: [
                     "--ui-capture",
+                    "--ui-keep-hud-visible",
                     "--ui-state=muted",
                     "--ui-status-overlay-enabled",
                     "--ui-status-overlay-content=iconAndStatus",
@@ -336,6 +337,10 @@ final class MuteletUITests: XCTestCase {
             attach(settings.screenshot(), name: "store-\(language)-general")
             settings.buttons[language == "ja" ? "画面表示" : "Display"].click()
             attach(settings.screenshot(), name: "store-\(language)-display")
+            app.buttons["settings-hud-preview"].click()
+            let hud = app.descendants(matching: .any)["mutelet-hud"]
+            XCTAssertTrue(hud.waitForExistence(timeout: 5))
+            attach(hud.screenshot(), name: "store-\(language)-hud")
             app.terminate()
 
             let pushToTalk = launch(

@@ -11,7 +11,7 @@ function visit(value) {
   for (const child of Object.values(value)) visit(child);
 }
 visit(manifest);
-const expected = ['toggle', 'push-to-talk', 'display', 'general'];
+const expected = ['toggle', 'push-to-talk', 'display', 'general', 'hud'];
 const matches = [];
 for (const locale of ['en', 'ja']) {
   for (const id of expected) {

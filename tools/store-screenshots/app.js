@@ -48,6 +48,7 @@ function slideElement(slide, index) {
   caption.append(node('div', 'label', slide.label), headline, node('p', 'body', slide.body));
   const visual = node('div', 'visual');
   visual.append(image(images[slide.image], slide.alt, 'capture'));
+  if (slide.accentImage) visual.append(image(images[slide.accentImage], slide.accentAlt, 'accent-capture'));
   element.append(brand, node('div', 'tagline', copy.tagline), caption, visual, node('p', 'detail', slide.detail), node('span', 'number', `${String(index + 1).padStart(2, '0')} / ${String(copy.slides.length).padStart(2, '0')}`));
   return element;
 }
@@ -71,7 +72,9 @@ async function load() {
     next.slides.forEach((slide, index) => {
       if (slide.id !== expected[index] || !Array.isArray(slide.headline) || slide.headline.length !== 2 || ['label', 'body', 'detail', 'alt'].some(key => typeof slide[key] !== 'string' || !slide[key].trim()) || !/^[a-z-]+\.jpg$/.test(slide.image)) throw new Error(`Invalid copy at slide ${index + 1}`);
     });
-    const pairs = await Promise.all(next.slides.map(async slide => [slide.image, await dataImage(`/assets/${locale}/${slide.image}`)]));
+    const paths = next.slides.flatMap(slide => [slide.image, ...(slide.accentImage ? [slide.accentImage] : [])]);
+    if (paths.some(path => !/^[a-z-]+\.jpg$/.test(path))) throw new Error('Invalid image filename');
+    const pairs = await Promise.all([...new Set(paths)].map(async path => [path, await dataImage(`/assets/${locale}/${path}`)]));
     const icon = await dataImage('/icon.png');
     if (current !== generation) return;
     copy = next;

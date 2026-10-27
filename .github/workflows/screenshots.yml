@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/screenshots.yml'
       - 'scripts/capture-store-screenshots.sh'
-      - 'tools/store-screenshots/**'
+      - 'tools/store-screenshots/collect.mjs'
       - 'MuteletUITests/**'
       - 'Sources/Mutelet/UI/**'
 

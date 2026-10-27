@@ -50,3 +50,5 @@ h1 span { display: block; }
 .general .capture { width: 1160px; max-height: 1160px; }
 .general .visual::before { background: linear-gradient(135deg, #bdccf560, #f3f2ff00); border-radius: 120px; }
 .general .copy { top: 430px; }
+
+.accent-capture { position: absolute; width: 660px; top: -115px; right: 90px; border-radius: 30px; box-shadow: 0 20px 60px #173c6425; }

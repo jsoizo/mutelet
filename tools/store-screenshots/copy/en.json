@@ -3,9 +3,55 @@
   "brand": "Mutelet",
   "tagline": "Your Mac mic. Within reach.",
   "slides": [
-    { "id": "toggle", "label": "MUTE ON DEMAND", "headline": ["Done speaking?", "Mute in a moment."], "body": "Use the menu bar or a keyboard shortcut. Press again to restore the saved state.", "detail": "Controls mute and input volume on supported devices.", "image": "toggle.jpg", "alt": "Mutelet menu showing a muted microphone and the Unmute button" },
-    { "id": "push-to-talk", "label": "PUSH TO TALK", "headline": ["Hold to speak.", "Release to mute."], "body": "Keep your mic muted between turns. Hold your shortcut when you want to join the conversation.", "detail": "Starts with F8. Choose a shortcut that works for you.", "image": "push-to-talk.jpg", "alt": "Mutelet menu explaining how to hold the shortcut to talk" },
-    { "id": "display", "label": "SEE YOUR MIC STATE", "headline": ["Is your mic muted?", "See at a glance."], "body": "Check the on-screen HUD or persistent status. Adjust the size and position to suit your screen.", "detail": "Push to Talk can also light the screen edges while you speak.", "image": "display.jpg", "alt": "Display settings for the on-screen HUD and persistent status" },
-    { "id": "general", "label": "SET IT UP YOUR WAY", "headline": ["Your usual mic.", "Your way to work."], "body": "Choose a mode and the inputs to control. Set Mutelet to open when you log in.", "detail": "No audio recording. Settings stay on your Mac.", "image": "general.jpg", "alt": "General settings for microphone mode, input target, and launch at login" }
+    {
+      "id": "toggle",
+      "label": "MUTE ON DEMAND",
+      "headline": [
+        "Done speaking?",
+        "Mute in a moment."
+      ],
+      "body": "Use the menu bar or a keyboard shortcut. Press again to restore the saved state.",
+      "detail": "Controls mute and input volume on supported devices.",
+      "image": "toggle.jpg",
+      "alt": "Mutelet menu showing a muted microphone and the Unmute button"
+    },
+    {
+      "id": "push-to-talk",
+      "label": "PUSH TO TALK",
+      "headline": [
+        "Hold to speak.",
+        "Release to mute."
+      ],
+      "body": "Keep your mic muted between turns. Hold your shortcut when you want to join the conversation.",
+      "detail": "Starts with F8. Choose a shortcut that works for you.",
+      "image": "push-to-talk.jpg",
+      "alt": "Mutelet menu explaining how to hold the shortcut to talk"
+    },
+    {
+      "id": "display",
+      "label": "SEE YOUR MIC STATE",
+      "headline": [
+        "Know when",
+        "your mic is muted."
+      ],
+      "body": "Check the on-screen HUD or persistent status. Adjust the size and position to suit your screen.",
+      "detail": "Push to Talk can also light the screen edges while you speak.",
+      "image": "display.jpg",
+      "alt": "Display settings for the on-screen HUD and persistent status",
+      "accentImage": "hud.jpg",
+      "accentAlt": "On-screen HUD showing the microphone state"
+    },
+    {
+      "id": "general",
+      "label": "SET IT UP YOUR WAY",
+      "headline": [
+        "Choose your input.",
+        "Set your mode."
+      ],
+      "body": "Choose a mode and the inputs to control. Set Mutelet to open when you log in.",
+      "detail": "No audio recording. Settings stay on your Mac.",
+      "image": "general.jpg",
+      "alt": "General settings for microphone mode, input target, and launch at login"
+    }
   ]
 }

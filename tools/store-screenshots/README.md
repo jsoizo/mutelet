@@ -24,9 +24,9 @@ pnpm screenshots
 ./scripts/capture-store-screenshots.sh
 ```
 
-macOS 側で UI テストの操作が許可されていない場合、撮影前に失敗することがあります。スクリプトはシステムの権限設定を変更しません。その場合は GitHub Actions の **Store screenshots** を使います。ワークフローは対象ファイルを変更した PR で実行され、main への統合後は Actions 画面から手動でも実行できます。
+macOS 側で UI テストの操作が許可されていない場合、撮影前に失敗することがあります。スクリプトはシステムの権限設定を変更しません。
 
-生成された `store-screenshot-assets` アーティファクトをダウンロードし、次の構成で配置してください。
+撮影した素材は次の場所に保存されます。
 
 ```text
 .work/store-screenshots/assets/
@@ -38,12 +38,6 @@ macOS 側で UI テストの操作が許可されていない場合、撮影前�
 │   └── hud.jpg
 └── ja/
     └── 同じ5ファイル
-```
-
-CLI で取得する場合は、撮影したいコミットの run ID を指定します。
-
-```bash
-gh run download RUN_ID --name store-screenshot-assets --dir .work/store-screenshots/assets
 ```
 
 撮影後は、入力名・画面状態・言語が意図どおりで、個人情報が写っていないことを確認します。素材だけの変更や文言だけの変更では、アプリのリリースビルドを作り直す必要はありません。UI が変わった場合は、そのコミットから撮影し直します。

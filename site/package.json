@@ -13,9 +13,12 @@
     "build": "eleventy",
     "capture-assets": "./scripts/capture-assets.sh",
     "check": "node scripts/check-site.mjs",
-    "test": "pnpm run build && pnpm run check"
+    "test": "pnpm run build && pnpm run check",
+    "screenshots": "node ../tools/store-screenshots/server.mjs",
+    "capture-store": "../scripts/capture-store-screenshots.sh"
   },
   "devDependencies": {
-    "@11ty/eleventy": "3.1.6"
+    "@11ty/eleventy": "3.1.6",
+    "html-to-image": "1.11.13"
   }
 }

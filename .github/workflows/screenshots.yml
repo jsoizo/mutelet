@@ -1,0 +1,43 @@
+name: Store screenshots
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/screenshots.yml'
+      - 'scripts/capture-store-screenshots.sh'
+      - 'tools/store-screenshots/**'
+      - 'MuteletUITests/**'
+      - 'Sources/Mutelet/UI/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Capture English and Japanese app windows
+        run: ./scripts/capture-store-screenshots.sh
+      - name: Upload captured screens
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: store-screenshot-assets
+          path: .work/store-screenshots/assets/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve capture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: store-screenshot-diagnostics
+          path: .work/store-screenshots/runs/
+          retention-days: 7

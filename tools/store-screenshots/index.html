@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mutelet · Store screenshots</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header class="toolbar"><strong>Mutelet · Screenshots</strong><label>Language <select id="locale"><option value="ja">日本語</option><option value="en">English</option></select></label><button id="reload">Reload copy & assets</button><span>2560 × 1600 · JPEG</span><button id="export">Export all</button></header>
+<main><p class="hint">Edit tools/store-screenshots/copy/ja.json or en.json, then reload. Exported files are saved under .work/store-screenshots/exports/.</p><p id="status" role="status" aria-live="polite"></p><section id="previews" aria-label="Screenshot previews"></section></main>
+<div id="export-stage" aria-hidden="true"></div>
+<script src="/vendor/html-to-image.js"></script><script type="module" src="/app.js"></script>
+</body></html>

@@ -313,6 +313,53 @@ final class MuteletUITests: XCTestCase {
     }
 
     @MainActor
+    func testCaptureAppStoreAssets() throws {
+        for language in ["en", "ja"] {
+            let locale = language == "ja" ? "ja_JP" : "en_US"
+            let deviceName = language == "ja" ? "MacBookのマイク" : "MacBook Microphone"
+            let app = launch(
+                arguments: [
+                    "--ui-capture",
+                    "--ui-state=muted",
+                    "--ui-status-overlay-enabled",
+                    "--ui-status-overlay-content=iconAndStatus",
+                    "--ui-device-name=\(deviceName)",
+                ],
+                locale: locale
+            )
+            openStatusMenu(in: app)
+            attach(try websiteMenuGroup(in: app).screenshot(), name: "store-\(language)-toggle")
+            app.buttons["mutelet-settings-link"].click()
+            let settings = app.windows["com_apple_SwiftUI_Settings_window"]
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            settings.buttons[language == "ja" ? "一般" : "General"].click()
+            attach(settings.screenshot(), name: "store-\(language)-general")
+            settings.buttons[language == "ja" ? "画面表示" : "Display"].click()
+            attach(settings.screenshot(), name: "store-\(language)-display")
+            app.terminate()
+
+            let pushToTalk = launch(
+                arguments: [
+                    "--ui-capture",
+                    "--ui-push-to-talk",
+                    "--ui-device-name=\(deviceName)",
+                ],
+                locale: locale
+            )
+            openStatusMenu(in: pushToTalk)
+            let instruction = pushToTalk.descendants(matching: .any)[
+                "mutelet-push-to-talk-instruction"
+            ]
+            XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+            attach(
+                try websiteMenuGroup(in: pushToTalk).screenshot(),
+                name: "store-\(language)-push-to-talk"
+            )
+            pushToTalk.terminate()
+        }
+    }
+
+    @MainActor
     func testCaptureWebsiteAssets() throws {
         let captures = [
             (locale: "en_US", language: "en", deviceName: "MacBook Microphone"),

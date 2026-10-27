@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 final class MuteletUITests: XCTestCase {
@@ -310,6 +311,73 @@ final class MuteletUITests: XCTestCase {
         shortDuration.click()
         assertValue("1", on: shortDuration)
         assertValue("0", on: hudToggle)
+    }
+
+    @MainActor
+    func testCaptureAppStoreAssets() throws {
+        for language in ["en", "ja"] {
+            let locale = language == "ja" ? "ja_JP" : "en_US"
+            let deviceName = language == "ja" ? "MacBookのマイク" : "MacBook Microphone"
+            let app = launch(
+                arguments: [
+                    "--ui-capture",
+                    "--ui-keep-hud-visible",
+                    "--ui-state=muted",
+                    "--ui-device-name=\(deviceName)",
+                ],
+                locale: locale
+            )
+            openStatusMenu(in: app)
+            attach(try websiteMenuGroup(in: app).screenshot(), name: "store-\(language)-toggle")
+            app.buttons["mutelet-settings-link"].click()
+            let settings = app.windows["com_apple_SwiftUI_Settings_window"]
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            settings.buttons[language == "ja" ? "一般" : "General"].click()
+            attach(settings.screenshot(), name: "store-\(language)-general")
+            settings.buttons[language == "ja" ? "画面表示" : "Display"].click()
+            attach(settings.screenshot(), name: "store-\(language)-display")
+            app.buttons["settings-hud-preview"].click()
+            let hud = app.descendants(matching: .any)["mutelet-hud"]
+            XCTAssertTrue(hud.waitForExistence(timeout: 5))
+            settings.buttons[XCUIIdentifierCloseWindow].click()
+            XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
+            let screen = try XCTUnwrap(NSScreen.main)
+            let backdrop = NSWindow(
+                contentRect: screen.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            // HUDの透過部分に他のウインドウが写り込まないよう、撮影時だけ無地の背景を置く。
+            backdrop.backgroundColor = NSColor(srgbRed: 242 / 255, green: 245 / 255, blue: 250 / 255, alpha: 1)
+            backdrop.isReleasedWhenClosed = false
+            backdrop.ignoresMouseEvents = true
+            backdrop.orderFrontRegardless()
+            backdrop.displayIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
+            attach(hud.screenshot(), name: "store-\(language)-hud")
+            backdrop.close()
+            app.terminate()
+
+            let pushToTalk = launch(
+                arguments: [
+                    "--ui-capture",
+                    "--ui-push-to-talk",
+                    "--ui-device-name=\(deviceName)",
+                ],
+                locale: locale
+            )
+            openStatusMenu(in: pushToTalk)
+            let instruction = pushToTalk.descendants(matching: .any)[
+                "mutelet-push-to-talk-instruction"
+            ]
+            XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+            attach(
+                try websiteMenuGroup(in: pushToTalk).screenshot(),
+                name: "store-\(language)-push-to-talk"
+            )
+            pushToTalk.terminate()
+        }
     }
 
     @MainActor

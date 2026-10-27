@@ -1,0 +1,57 @@
+{
+  "locale": "en",
+  "brand": "Mutelet",
+  "tagline": "Microphone control for macOS",
+  "slides": [
+    {
+      "id": "toggle",
+      "label": "Toggle",
+      "headline": [
+        "Mute your mic",
+        "from the menu bar"
+      ],
+      "body": "Click or use a shortcut to toggle mute. Toggle again to restore the saved state.",
+      "detail": "Available controls depend on the input device.",
+      "image": "toggle.jpg",
+      "alt": "Mutelet menu showing a muted microphone and the Unmute button"
+    },
+    {
+      "id": "push-to-talk",
+      "label": "Push to Talk",
+      "headline": [
+        "Hold a shortcut",
+        "to unmute"
+      ],
+      "body": "The mic is unmuted while you hold the shortcut and muted when you release it. The default shortcut is F8.",
+      "detail": "Toggle and Push to Talk can use separate shortcuts.",
+      "image": "push-to-talk.jpg",
+      "alt": "Mutelet menu explaining how to hold the shortcut to talk"
+    },
+    {
+      "id": "display",
+      "label": "Status display",
+      "headline": [
+        "See your",
+        "microphone status"
+      ],
+      "body": "Show the microphone status after an action or keep the status indicator visible.",
+      "detail": "Adjust the display size and position.",
+      "image": "display.jpg",
+      "alt": "Display settings for the on-screen HUD and persistent status",
+      "accentImage": "hud.jpg",
+      "accentAlt": "On-screen HUD showing the microphone state"
+    },
+    {
+      "id": "general",
+      "label": "Settings",
+      "headline": [
+        "Choose a mode",
+        "and input"
+      ],
+      "body": "Choose the system default input, a selected input, or all inputs.",
+      "detail": "Mutelet can open when you log in.",
+      "image": "general.jpg",
+      "alt": "General settings for microphone mode, input target, and launch at login"
+    }
+  ]
+}

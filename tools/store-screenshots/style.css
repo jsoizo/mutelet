@@ -16,7 +16,7 @@ main { padding: 16px 24px 48px; max-width: 1600px; margin: auto; }
 .viewport > .slide { transform-origin: top left; }
 #export-stage { position: absolute; top: 0; left: -9999px; pointer-events: none; }
 body { overflow-x: hidden; }
-.slide { width: 2560px; height: 1600px; position: relative; overflow: hidden; color: #172943; background: radial-gradient(ellipse at 84% 34%, #d6e8ff 0, #edf4ff 35%, #f7f9fe 75%); }
+.slide { width: 2560px; height: 1600px; position: relative; overflow: hidden; color: #172943; background: #f2f5fa; }
 .brand { position: absolute; top: 105px; left: 132px; display: flex; gap: 28px; align-items: center; }
 .brand img { width: 112px; height: 112px; border-radius: 26px; }
 .brand-name { font-size: 54px; font-weight: 750; letter-spacing: -2px; }
@@ -29,26 +29,20 @@ h1 span { display: block; }
 .body { max-width: 940px; font-size: 43px; line-height: 1.65; color: #435c7b; margin: 0; }
 .detail { position: absolute; left: 132px; bottom: 116px; max-width: 1000px; color: #506b8a; font-size: 30px; line-height: 1.7; }
 .visual { position: absolute; left: 1350px; top: 365px; width: 1040px; height: 1100px; display: flex; align-items: center; justify-content: center; }
-.visual::before { content: ""; position: absolute; width: 1050px; height: 1050px; border-radius: 50%; background: linear-gradient(140deg, #b8d9ff80, #e2eeff30); }
+.visual::before { content: ""; position: absolute; width: 1050px; height: 1050px; border-radius: 50%; background: #e7edf5; }
 .capture { position: relative; max-height: 1080px; width: 900px; object-fit: contain; border-radius: 26px; box-shadow: 0 35px 100px #14365b35, 0 0 0 1px #173c6418; }
 .number { position: absolute; right: 132px; bottom: 110px; font-size: 28px; letter-spacing: 5px; color: #64809c; }
-.slide.push-to-talk { background: radial-gradient(ellipse at 77% 52%, #174c88, #102b4e 52%, #0b1e37 100%); color: #f5f8ff; }
 .push-to-talk .copy { top: 430px; }
-.push-to-talk .label { color: #87c7ff; }
-.push-to-talk .body, .push-to-talk .detail, .push-to-talk .tagline, .push-to-talk .number { color: #bad1ed; }
 .push-to-talk .visual { top: 330px; }
-.push-to-talk .visual::before { border: 2px solid #6cb9ff40; background: linear-gradient(120deg, #2b80cc35, #102b4e00); }
-.slide.display { background: radial-gradient(ellipse at 90% 55%, #d3e7fb, #eef6fc 47%, #f7fbff 80%); }
 .display .visual { left: 1250px; width: 1230px; top: 330px; }
 .display .capture { width: 1160px; max-height: 1160px; }
-.display .visual::before { border-radius: 80px; transform: rotate(-5deg); }
 .display .copy { top: 430px; width: 1050px; }
 .display h1 { font-size: 112px; }
 .display .body { max-width: 930px; }
-.slide.general { background: radial-gradient(ellipse at 78% 22%, #e1e4ff, #f2f4ff 45%, #f8f9ff 80%); }
 .general .visual { left: 1250px; top: 300px; width: 1230px; }
 .general .capture { width: 1160px; max-height: 1160px; }
-.general .visual::before { background: linear-gradient(135deg, #bdccf560, #f3f2ff00); border-radius: 120px; }
 .general .copy { top: 430px; }
 
-.accent-capture { position: absolute; width: 660px; top: -115px; right: 90px; border-radius: 30px; box-shadow: 0 20px 60px #173c6425; }
+.accent-capture { position: absolute; width: 460px; top: 1080px; left: 132px; border-radius: 30px; box-shadow: 0 20px 60px #173c6425; }
+.display .copy { top: 360px; }
+.display .detail { bottom: 70px; }

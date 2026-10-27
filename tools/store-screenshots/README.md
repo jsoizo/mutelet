@@ -50,6 +50,16 @@ gh run download RUN_ID --name store-screenshot-assets --dir .work/store-screensh
 
 ## レイアウト
 
-1枚目はメニューからのミュート、2枚目は Push to Talk、3枚目は状態表示、4枚目は一般設定を紹介します。2枚目は濃い青の背景にして、操作モードが切り替わることを表現しています。すべての画像に実際のアプリ画面を使い、機器やOS全体の画面を再現したモックアップは使いません。
+1枚目はメニューからのミュート、2枚目は Push to Talk、3枚目は状態表示、4枚目は一般設定を紹介します。4枚とも同じ背景色と文字色を使います。すべての画像に実際のアプリ画面を使い、機器やOS全体の画面を再現したモックアップは使いません。
 
 生成ツールは既存サイトの開発依存 `html-to-image` を使います。`site/src` の外にあるため、公開サイトのビルドには含まれません。
+
+## 文言の方針
+
+公式サイトと同じく、操作と結果を具体的に書きます。「いつもの使い方で」「ひと目でわかる」のような抽象的な売り文句や問いかけで、機能説明を置き換えません。日本語から英語へ語順を移すのではなく、各言語で同じ動作が伝わる文章にします。
+
+AI slop は一般に質の低いAI生成コンテンツを指し、文章について合意された判定基準があるわけではありません。今回の見直しでは、AIが書いたかどうかの判定よりも、読み手が動作を理解できるかを基準にしています。
+
+- [Merriam-Webster: Slop](https://www.merriam-webster.com/wordplay/word-of-the-year)
+- [Measuring AI “Slop” in Text](https://arxiv.org/abs/2509.19163)
+- [Anthropic: More on writing in design](https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md#more-on-writing-in-design)

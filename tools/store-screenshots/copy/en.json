@@ -1,41 +1,41 @@
 {
   "locale": "en",
   "brand": "Mutelet",
-  "tagline": "Your Mac mic. Within reach.",
+  "tagline": "Microphone control for macOS",
   "slides": [
     {
       "id": "toggle",
-      "label": "MUTE ON DEMAND",
+      "label": "Toggle",
       "headline": [
-        "Done speaking?",
-        "Mute in a moment."
+        "Mute your mic",
+        "from the menu bar"
       ],
-      "body": "Use the menu bar or a keyboard shortcut. Press again to restore the saved state.",
-      "detail": "Controls mute and input volume on supported devices.",
+      "body": "Click or use a shortcut to toggle mute. Toggle again to restore the saved state.",
+      "detail": "Available controls depend on the input device.",
       "image": "toggle.jpg",
       "alt": "Mutelet menu showing a muted microphone and the Unmute button"
     },
     {
       "id": "push-to-talk",
-      "label": "PUSH TO TALK",
+      "label": "Push to Talk",
       "headline": [
-        "Hold to speak.",
-        "Release to mute."
+        "Hold a shortcut",
+        "to unmute"
       ],
-      "body": "Keep your mic muted between turns. Hold your shortcut when you want to join the conversation.",
-      "detail": "Starts with F8. Choose a shortcut that works for you.",
+      "body": "The mic is unmuted while you hold the shortcut and muted when you release it. The default shortcut is F8.",
+      "detail": "Toggle and Push to Talk can use separate shortcuts.",
       "image": "push-to-talk.jpg",
       "alt": "Mutelet menu explaining how to hold the shortcut to talk"
     },
     {
       "id": "display",
-      "label": "SEE YOUR MIC STATE",
+      "label": "Status display",
       "headline": [
-        "Know when",
-        "your mic is muted."
+        "See your",
+        "microphone status"
       ],
-      "body": "Check the on-screen HUD or persistent status. Adjust the size and position to suit your screen.",
-      "detail": "Push to Talk can also light the screen edges while you speak.",
+      "body": "Show the microphone status after an action or keep the status indicator visible.",
+      "detail": "Adjust the display size and position.",
       "image": "display.jpg",
       "alt": "Display settings for the on-screen HUD and persistent status",
       "accentImage": "hud.jpg",
@@ -43,13 +43,13 @@
     },
     {
       "id": "general",
-      "label": "SET IT UP YOUR WAY",
+      "label": "Settings",
       "headline": [
-        "Choose your input.",
-        "Set your mode."
+        "Choose a mode",
+        "and input"
       ],
-      "body": "Choose a mode and the inputs to control. Set Mutelet to open when you log in.",
-      "detail": "No audio recording. Settings stay on your Mac.",
+      "body": "Choose the system default input, a selected input, or all inputs.",
+      "detail": "Mutelet can open when you log in.",
       "image": "general.jpg",
       "alt": "General settings for microphone mode, input target, and launch at login"
     }

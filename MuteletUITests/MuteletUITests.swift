@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 final class MuteletUITests: XCTestCase {
@@ -322,8 +323,6 @@ final class MuteletUITests: XCTestCase {
                     "--ui-capture",
                     "--ui-keep-hud-visible",
                     "--ui-state=muted",
-                    "--ui-status-overlay-enabled",
-                    "--ui-status-overlay-content=iconAndStatus",
                     "--ui-device-name=\(deviceName)",
                 ],
                 locale: locale
@@ -340,7 +339,24 @@ final class MuteletUITests: XCTestCase {
             app.buttons["settings-hud-preview"].click()
             let hud = app.descendants(matching: .any)["mutelet-hud"]
             XCTAssertTrue(hud.waitForExistence(timeout: 5))
+            settings.buttons[XCUIIdentifierCloseWindow].click()
+            XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
+            let screen = try XCTUnwrap(NSScreen.main)
+            let backdrop = NSWindow(
+                contentRect: screen.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            // HUDの透過部分に他のウインドウが写り込まないよう、撮影時だけ無地の背景を置く。
+            backdrop.backgroundColor = NSColor(srgbRed: 242 / 255, green: 245 / 255, blue: 250 / 255, alpha: 1)
+            backdrop.isReleasedWhenClosed = false
+            backdrop.ignoresMouseEvents = true
+            backdrop.orderFrontRegardless()
+            backdrop.displayIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
             attach(hud.screenshot(), name: "store-\(language)-hud")
+            backdrop.close()
             app.terminate()
 
             let pushToTalk = launch(

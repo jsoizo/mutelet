@@ -48,8 +48,8 @@ function slideElement(slide, index) {
   caption.append(node('div', 'label', slide.label), headline, node('p', 'body', slide.body));
   const visual = node('div', 'visual');
   visual.append(image(images[slide.image], slide.alt, 'capture'));
-  if (slide.accentImage) visual.append(image(images[slide.accentImage], slide.accentAlt, 'accent-capture'));
   element.append(brand, node('div', 'tagline', copy.tagline), caption, visual, node('p', 'detail', slide.detail), node('span', 'number', `${String(index + 1).padStart(2, '0')} / ${String(copy.slides.length).padStart(2, '0')}`));
+  if (slide.accentImage) element.append(image(images[slide.accentImage], slide.accentAlt, 'accent-capture'));
   return element;
 }
 function controlsDisabled(value) {

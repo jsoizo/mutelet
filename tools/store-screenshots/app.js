@@ -98,10 +98,27 @@ async function load() {
     exportButton.disabled = true;
   }
 }
+function validateLayout(element, id) {
+  for (const line of element.querySelectorAll('h1 span')) {
+    const lineHeight = parseFloat(getComputedStyle(line).lineHeight);
+    if (line.scrollWidth > line.clientWidth || line.clientHeight > lineHeight * 1.2) {
+      throw new Error(`${id}: headline wraps beyond its two intended lines. Shorten the copy or adjust the layout.`);
+    }
+  }
+  const caption = element.querySelector('.copy');
+  const detail = element.querySelector('.detail');
+  if (caption.offsetTop + caption.offsetHeight + 36 > detail.offsetTop) {
+    throw new Error(`${id}: the description overlaps the footer. Shorten the copy or adjust the layout.`);
+  }
+}
 async function exportAll() {
   if (busy || !copy) return;
   controlsDisabled(true);
   try {
+    await document.fonts.ready;
+    stage.replaceChildren(...copy.slides.map(slideElement));
+    for (const [index, element] of [...stage.children].entries()) validateLayout(element, copy.slides[index].id);
+    stage.replaceChildren();
     for (const [index, slide] of copy.slides.entries()) {
       status.textContent = `Exporting ${index + 1} / ${copy.slides.length}…`;
       const element = slideElement(slide, index);

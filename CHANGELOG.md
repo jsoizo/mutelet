@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-05
+
 ### Changed
 
-- Prepared version 1.0.0 for Mac App Store distribution alongside the existing free Developer ID download. Store availability will be announced after approval and publication.
+- Released Mutelet on the [Mac App Store](https://apps.apple.com/app/id6826858511) alongside the free, signed and notarized [Developer ID download](https://github.com/jsoizo/mutelet/releases/tag/v1.0.0).
+- Added installation, update, and distribution-channel switching instructions in English and Japanese.
 
 ## [0.2.0] - 2026-10-05
 

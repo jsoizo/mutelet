@@ -25,17 +25,32 @@ Muteletは、Apple Silicon搭載Mac向けのオープンソースのマイクミ
 
 ## ダウンロード
 
-Developer IDで署名し、Appleの公証を受けたMutelet 0.2.0を公開しています。
+Mutelet 1.0.0は、Mac App Storeまたは署名・公証済みのダウンロード版を無料で利用できます。
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.2.0/Mutelet-0.2.0.dmg">Mutelet 0.2.0をダウンロード</a>
-  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.2.0">リリース詳細とチェックサム</a>
+  <a class="button" href="https://apps.apple.com/jp/app/id6826858511">Mac App Storeで入手</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v1.0.0/Mutelet-1.0.0.dmg">Mutelet 1.0.0のDMGをダウンロード</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v1.0.0">リリース詳細とチェックサム</a>
 </p>
 
 **動作環境**
 
 - Apple Silicon搭載Mac
 - macOS 14 Sonoma以降
+
+### インストールと更新
+
+App Store版のインストールと更新は、App Storeから行います。DMG版はダウンロードしたファイルを開き、Muteletをアプリケーションフォルダへドラッグします。更新するときはMuteletを終了し、GitHub Releasesから入手した新しい版で置き換えます。
+
+### 配布元を切り替える
+
+1. Muteletでミュートしたマイクを元の状態に戻し、起動中のMuteletをすべて終了します。
+2. 別の配布元から同じか新しいバージョンを入手し、アプリケーションフォルダ内の既存のアプリを置き換えます。インストール先は1か所にし、別の場所にあるコピーを同時に起動しないでください。
+3. Muteletを開き、対象のマイク、モード、ショートカット、画面表示の設定を確認します。ショートカットの動作も確認してください。ログイン時に起動しなくなった場合は、設定で一度オフにしてからオンにし、macOSのシステム設定で許可を確認します。
+
+設定とマイクの制御値を復元するためのデータはMac内に保存しています。切り替え時に削除しないでください。古いバージョンへの切り替えはサポートしていません。保存された設定の形式を読み取れない場合、古い版では設定が初期化されることがあります。
+
+お問い合わせは[Issue](https://github.com/jsoizo/mutelet/issues)または[jskmt-dev@proton.me](mailto:jskmt-dev@proton.me)で受け付けています。Mac内の保存データについては[プライバシーポリシー](https://github.com/jsoizo/mutelet/blob/main/docs/PRIVACY.md)を参照してください。
 
 </section>
 

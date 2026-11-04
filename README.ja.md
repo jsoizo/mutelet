@@ -2,8 +2,6 @@
 
 Muteletは、Apple Silicon搭載Macのメニューバーで使える、オープンソースのマイクミュートアプリです。
 
-> Muteletは現在開発中です。署名・公証済みの初回リリースはまだ公開されていません。
-
 [English](README.md)
 
 ## 主な機能
@@ -25,14 +23,25 @@ Muteletは音声を録音せず、サーバーへの通信や利用状況デー�
 
 ## ダウンロード
 
-署名・公証済みビルドは、このリポジトリの **Releases** ページで公開する予定です。初回リリースまではソースからビルドしてください。
+Mutelet 1.0.0は、どちらの配布元からも無料で利用できます。
+
+- [Mac App Store](https://apps.apple.com/jp/app/id6826858511)：インストールと更新はApp Storeから行います。
+- [GitHub Releases](https://github.com/jsoizo/mutelet/releases/latest)：署名・公証済みのDMGをダウンロードし、開いてMuteletをアプリケーションフォルダへドラッグします。更新するときはMuteletを終了し、新しい版で置き換えます。リリースページにはSHA-256チェックサムも掲載しています。
+
+### 配布元を切り替える
+
+1. Muteletでミュートしたマイクを元の状態に戻し、起動中のMuteletをすべて終了します。
+2. 別の配布元から同じか新しいバージョンを入手し、アプリケーションフォルダ内の既存のアプリを置き換えます。インストール先は1か所にし、別の場所にあるコピーを同時に起動しないでください。
+3. Muteletを開き、対象のマイク、モード、ショートカット、画面表示の設定を確認します。ショートカットの動作も確認してください。ログイン時に起動しなくなった場合は、設定で一度オフにしてからオンにし、macOSのシステム設定で許可を確認します。
+
+設定とマイクの制御値を復元するためのデータはMac内に保存しています。切り替え時に削除しないでください。古いバージョンへの切り替えはサポートしていません。保存された設定の形式を読み取れない場合、古い版では設定が初期化されることがあります。
 
 ## ソースから起動する
 
 最新の安定版Xcodeをインストールして、次を実行します。
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/jsoizo/mutelet.git
 cd mutelet
 ./scripts/build.sh
 open .build/DerivedData/LocalBuild/Build/Products/Release/Mutelet.app
@@ -74,6 +83,8 @@ MuteletはCore Audioの制御用プロパティを直接操作し、音声スト
 ## コントリビューション
 
 [CONTRIBUTING.md](CONTRIBUTING.md)、[アーキテクチャ](docs/ARCHITECTURE.md)、[セキュリティポリシー](SECURITY.md)を参照してください。
+
+お問い合わせは[Issue](https://github.com/jsoizo/mutelet/issues)または[jskmt-dev@proton.me](mailto:jskmt-dev@proton.me)で受け付けています。
 
 ## ライセンス
 

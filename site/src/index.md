@@ -25,17 +25,32 @@ Mutelet is an open-source microphone mute utility for Apple Silicon Macs. It can
 
 ## Download
 
-Mutelet 0.2.0 is available as a Developer ID-signed and Apple-notarized release.
+Mutelet 1.0.0 is available free on the Mac App Store and as a signed, notarized download.
 
 <p class="actions">
-  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v0.2.0/Mutelet-0.2.0.dmg">Download Mutelet 0.2.0</a>
-  <a href="https://github.com/jsoizo/mutelet/releases/tag/v0.2.0">Release details and checksum</a>
+  <a class="button" href="https://apps.apple.com/app/id6826858511">Get on the Mac App Store</a>
+  <a class="button" href="https://github.com/jsoizo/mutelet/releases/download/v1.0.0/Mutelet-1.0.0.dmg">Download Mutelet 1.0.0 DMG</a>
+  <a href="https://github.com/jsoizo/mutelet/releases/tag/v1.0.0">Release details and checksum</a>
 </p>
 
 **Requirements**
 
 - Apple Silicon Mac
 - macOS 14 Sonoma or later
+
+### Installation and updates
+
+Install the App Store version and receive its updates through the App Store. For the DMG version, open the download and drag Mutelet to Applications. To update it, quit Mutelet and replace it with the newer download from GitHub Releases.
+
+### Switching distribution channels
+
+1. Restore any microphone muted by Mutelet, then quit all copies of the app.
+2. Replace the existing installation in Applications with the same or a newer version from the other channel. Keep one installation and do not run copies from different paths at the same time.
+3. Open Mutelet and check the selected input, mode, shortcuts, and display settings. Test the shortcut; if launch at login no longer works, turn it off and on in Settings and check its approval in macOS System Settings.
+
+Settings and saved microphone-control values are stored locally. Do not delete that data when switching. Switching to an older version is unsupported: an older app may reset settings if it cannot read the stored settings format.
+
+For support, [open an issue](https://github.com/jsoizo/mutelet/issues) or email [jskmt-dev@proton.me](mailto:jskmt-dev@proton.me). See the [privacy policy](https://github.com/jsoizo/mutelet/blob/main/docs/PRIVACY.md) for local-data details.
 
 </section>
 

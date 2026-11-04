@@ -2,8 +2,6 @@
 
 Mutelet is an open-source, Apple Silicon-native microphone mute utility for the macOS menu bar.
 
-> Mutelet is under active development. The first signed and notarized release is not available yet.
-
 [日本語](README.ja.md)
 
 ## Features
@@ -25,14 +23,25 @@ Mutelet does not record audio, connect to a server, collect telemetry, or reques
 
 ## Download
 
-Signed and notarized builds will be published on the repository's **Releases** page. Until the first release, build Mutelet from source.
+Mutelet 1.0.0 is free through either distribution channel:
+
+- [Mac App Store](https://apps.apple.com/app/id6826858511): install and receive updates through the App Store.
+- [GitHub Releases](https://github.com/jsoizo/mutelet/releases/latest): download the signed and notarized DMG, open it, and drag Mutelet to Applications. For updates, quit Mutelet and replace it with the newer download. Release pages include a SHA-256 checksum.
+
+### Switching distribution channels
+
+1. Restore any microphone muted by Mutelet, then quit all copies of the app.
+2. Replace the existing installation in Applications with the same or a newer version from the other channel. Keep one installation and do not run copies from different paths at the same time.
+3. Open Mutelet and check the selected input, mode, shortcuts, and display settings. Test the shortcut; if launch at login no longer works, turn it off and on in Settings and check its approval in macOS System Settings.
+
+Settings and saved microphone-control values are stored locally. Do not delete that data when switching. Switching to an older version is unsupported: an older app may reset settings if it cannot read the stored settings format.
 
 ## Build from source
 
 Install the current stable Xcode, then run:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/jsoizo/mutelet.git
 cd mutelet
 ./scripts/build.sh
 open .build/DerivedData/LocalBuild/Build/Products/Release/Mutelet.app
@@ -74,6 +83,8 @@ No. Mutelet controls Core Audio properties and registers a Carbon global hot key
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [Architecture](docs/ARCHITECTURE.md), and [Security policy](SECURITY.md).
+
+For support, [open an issue](https://github.com/jsoizo/mutelet/issues) or email [jskmt-dev@proton.me](mailto:jskmt-dev@proton.me).
 
 ## License
 

@@ -37,11 +37,17 @@ Aggregate devices, virtual inputs, USB interfaces, Bluetooth devices, and confer
 
 ## Test matrix
 
-The compatibility table will be populated as physical testing is completed.
+The initial release was accepted with the verification scope below. The pending entries are unrecorded combinations, not reported failures. They do not imply that the full matrix passed.
+
+- Local sandbox verification on a MacBook Air (Mac14,2), macOS 26.2: input enumeration, built-in microphone native mute, input-volume write/restore, and the configured Toggle shortcut passed. See [#26](https://github.com/jsoizo/mutelet/issues/26) for the detailed Stage 1 results and log observations.
+- TestFlight 1.0.0 (1) was installed and tried by the maintainer, who reported no apparent problem. A detailed list of devices, OS versions, and operations was not recorded. The maintainer accepted this scope in [#32](https://github.com/jsoizo/mutelet/issues/32).
+- App Store 1.0.0 (1) and Developer ID 1.0.0 (3) use source `5c7cca1c9a1075aa1804d1502851875b2976bd7d`. Bundle ID `app.mutelet.Mutelet`, Team ID `6JQRVRW544`, arm64, macOS 14+, and App Sandbox were verified in the distribution artifacts. Neither has microphone-capture or network entitlements. See [#29](https://github.com/jsoizo/mutelet/issues/29).
+
+The two distributions use the same app identity. Settings and restoration receipts are stored locally, but detailed channel-switching results were not recorded. Restore muted inputs before replacement and check settings, shortcuts, and launch at login afterward, as described in the [README](../README.md#switching-distribution-channels).
 
 | Device | Connection | macOS | Controls | Toggle | Push to Talk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Mac built-in microphone | Internal | Pending | Pending | Pending | Pending | Manual verification required |
+| MacBook Air (Mac14,2) built-in microphone | Internal | 26.2 (25C56) | Native mute and input volume | Pass (local sandbox build) | Not recorded | Stage 1 in #26; TestFlight per-device result not recorded |
 | AirPods | Bluetooth | Pending | Pending | Pending | Pending | Reconnect and latency testing required |
 | USB audio input | USB | Pending | Pending | Pending | Pending | Channel-layout testing required |
 
